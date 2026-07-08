@@ -36,6 +36,9 @@ importers:
       '@angular/router':
         specifier: 21.2.17
         version: 21.2.17(@angular/common@21.2.17(@angular/core@21.2.17(@angular/compiler@21.2.17)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.17(@angular/compiler@21.2.17)(rxjs@7.8.2))(@angular/platform-browser@21.2.17(@angular/common@21.2.17(@angular/core@21.2.17(@angular/compiler@21.2.17)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.17(@angular/compiler@21.2.17)(rxjs@7.8.2)))(rxjs@7.8.2)
+      '@ngrx/signals':
+        specifier: 21.1.1
+        version: 21.1.1(@angular/core@21.2.17(@angular/compiler@21.2.17)(rxjs@7.8.2))(rxjs@7.8.2)
       es-module-shims:
         specifier: ^2.8.0
         version: 2.8.2
@@ -2190,6 +2193,15 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
+
+  '@ngrx/signals@21.1.1':
+    resolution: {integrity: sha512-AXxsvO39cJ4gu2GMvLyUHwx+3qHi35Bn7OUqyIfJW0fffi/Af7ML6h0MPMWDHVROo55FBgxzJrYRswwzdew9VA==}
+    peerDependencies:
+      '@angular/core': 21.2.17
+      rxjs: ~7.8.0
+    peerDependenciesMeta:
+      rxjs:
+        optional: true
 
   '@ngtools/webpack@21.2.18':
     resolution: {integrity: sha512-rWXbsI7G8eK4vJ4Rn+uQFlytn/GcSgriviT4KpyWwuBFI8/kBXWVsF3C65CADrVfIocHV3Gcu4WQv2ee3YoTVQ==}
@@ -10073,6 +10085,13 @@ snapshots:
       '@emnapi/runtime': 1.11.1
       '@tybys/wasm-util': 0.10.3
     optional: true
+
+  '@ngrx/signals@21.1.1(@angular/core@21.2.17(@angular/compiler@21.2.17)(rxjs@7.8.2))(rxjs@7.8.2)':
+    dependencies:
+      '@angular/core': 21.2.17(@angular/compiler@21.2.17)(rxjs@7.8.2)
+      tslib: 2.8.1
+    optionalDependencies:
+      rxjs: 7.8.2
 
   '@ngtools/webpack@21.2.18(@angular/compiler-cli@21.2.17(@angular/compiler@21.2.17)(typescript@5.9.3))(typescript@5.9.3)(webpack@5.105.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.28.1)(lightningcss@1.32.0)(postcss@8.5.16))':
     dependencies:
