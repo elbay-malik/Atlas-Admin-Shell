@@ -1,0 +1,114 @@
+# Atlas Admin Shell
+
+[![CI](https://github.com/EleoXDA/Atlas-Admin-Shell/actions/workflows/ci.yml/badge.svg)](https://github.com/EleoXDA/Atlas-Admin-Shell/actions/workflows/ci.yml)
+![Angular](https://img.shields.io/badge/Angular-21%20LTS-dd0031)
+![Nx](https://img.shields.io/badge/Nx-23-143055)
+![pnpm](https://img.shields.io/badge/pnpm-11-f69220)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
+An enterprise-grade **microfrontend control plane**: a zoneless Angular shell that composes three
+independently deployable domain remotes — **IAM**, **Feature Flags**, and **Audit Logs** — at runtime
+via [Native Federation](https://native-federation.com) and a manifest-driven remote registry.
+
+## What is Atlas Admin Shell
+
+A production-shaped admin platform demonstrating how a large organization runs many domain teams
+against one shell: each remote is built, tested, and deployed on its own, and the shell discovers it
+at runtime from `federation.manifest.json` — adding a domain to the platform is a manifest edit, not
+a shell rebuild.
+
+## Why this exists
+
+This is a portfolio flagship whose deliverable is **architecture, not features**: runtime federation
+on web standards (ES modules + import maps), zoneless signals-first Angular, strict domain
+boundaries enforced by the build system, typed cross-microfrontend contracts, and every significant
+decision recorded as an ADR with dated, verifiable receipts.
+
+## Architecture
+
+<!-- TODO: Mermaid diagram — shell / remotes / manifest / event bus / auth context flow -->
+
+| App | Role | Port (dev) | Route |
+| --- | --- | --- | --- |
+| `shell` | Dynamic host: chrome, auth, remote orchestration, error boundaries | 4200 | `/` |
+| `iam` | Users, roles, access management | 4201 | `/iam` |
+| `feature-flags` | Flag dashboard with toggles | 4202 | `/flags` |
+| `audit-logs` | Searchable event log | 4203 | `/audit` |
+
+## Key decisions
+
+Every decision is an ADR in [`docs/adr/`](docs/adr/), each with a **Verification** section holding
+dated receipts (npm peer ranges, GitHub issue states) for its claims.
+
+| ADR | Decision |
+| --- | --- |
+| [0001](docs/adr/0001-nx-with-native-federation.md) | Nx monorepo + Native Federation, despite no official Nx support for it |
+| [0002](docs/adr/0002-angular-21-lts-over-angular-22.md) | Angular 21 LTS over GA Angular 22 |
+| [0003](docs/adr/0003-zoneless-change-detection.md) | Zoneless change detection everywhere; zone.js never enters the dependency tree |
+| [0004](docs/adr/0004-manifest-driven-dynamic-host.md) | Remotes resolved at runtime from a manifest, not build-time imports |
+| [0005](docs/adr/0005-per-domain-signal-stores-and-typed-event-contracts.md) | Per-domain Signal Stores + typed, versioned cross-MFE event contracts |
+| [0006](docs/adr/0006-mock-first-auth-behind-interface.md) | Mock-first auth behind a DI interface; OIDC (Supabase) as a drop-in later |
+
+## Quickstart
+
+```bash
+# Node 24.18 (fnm picks up .nvmrc automatically) and pnpm via corepack
+corepack enable   # if corepack is missing: npm i -g corepack
+
+git clone git@github.com:EleoXDA/Atlas-Admin-Shell.git
+cd Atlas-Admin-Shell
+pnpm install
+
+# Start everything (shell + all remotes)
+pnpm exec nx run-many -t serve -p shell,iam,feature-flags,audit-logs --parallel=4
+# ...or just the shell
+pnpm exec nx serve shell
+```
+
+## Repository structure
+
+```
+apps/
+  shell/           # dynamic host
+  iam/             # remote: identity & access
+  feature-flags/   # remote: flag dashboard
+  audit-logs/      # remote: event log
+libs/
+  shared/
+    ui/            # design-system components (buildable)
+    design-tokens/ # Style Dictionary → CSS vars + Tailwind @theme
+    contracts/     # cross-MFE types: manifest, events (buildable)
+    auth/          # AtlasAuth interface + providers (buildable)
+    util/          # pure utilities
+docs/
+  adr/             # architecture decision records (MADR)
+```
+
+## Engineering practices
+
+- **Conventional commits**; trunk-based development — direct commits for the foundation slice,
+  short-lived PRs (squash-merged) from slice 2 onward.
+- **Affected-based CI**: `nx affected` via `nrwl/nx-set-shas`, so only changed projects build.
+- **Module boundaries as law**: `@nx/enforce-module-boundaries` with `scope:`/`type:` tags —
+  domains cannot import each other's internals; only `scope:shared` crosses boundaries.
+- **Single-version policy**: all `@angular/*` pinned via pnpm overrides so every federation
+  participant shares byte-identical framework versions.
+- CODEOWNERS/branch protection intentionally omitted (solo repository) — noted as a decision.
+
+## Roadmap
+
+- [x] **Slice 1 — Foundation → Federation**: Nx workspace, boundaries, token pipeline, zoneless
+  shell, Native Federation with 3 remotes loading from the manifest, mock auth, CI.
+- [ ] **Slice 2 — Domains + State**: NgRx Signal Stores per remote, typed event bus + contract
+  tests, error boundaries with retry/fallback, Storybook + a11y, federation E2E suite.
+- [ ] **Slice 3 — BFF + Deploys**: Cloudflare Workers (static assets) per app, `nx affected`
+  deploy pipelines, PR previews, edge BFF, Supabase OIDC swap-in.
+- [ ] **Slice 4 — Polish**: Lighthouse CI + Core Web Vitals, axe pass, whitepaper completion,
+  demo video, Angular 22 migration (once Nx & NgRx support lands) as a showcase PR.
+
+Nx Cloud (remote caching) is deliberately not connected yet; opting in later is
+`pnpm exec nx connect` on the free Hobby plan.
+
+## License
+
+[MIT](LICENSE)
