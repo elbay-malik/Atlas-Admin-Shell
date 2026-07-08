@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+
+# Outputs
+dist
+tmp
+out-tsc
+test-output
+
+# Caches
+.nx/cache
+.nx/workspace-data
+.angular
+.eslintcache
+
+# Testing
+coverage
+playwright-report
+test-results
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+nx-cloud.env
+
+# Logs
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors / OS
+.idea
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
