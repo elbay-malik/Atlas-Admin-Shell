@@ -1,1 +1,2 @@
-export * from './lib/shared-auth/shared-auth';
+// populated in the auth slice (AtlasAuth interface + providers)
+export {};

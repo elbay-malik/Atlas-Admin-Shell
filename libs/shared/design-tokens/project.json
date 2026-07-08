@@ -3,7 +3,24 @@
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/shared/design-tokens/src",
   "projectType": "library",
-  "tags": ["type:util", "scope:shared"],
+  "tags": [
+    "type:util",
+    "scope:shared"
+  ],
   "// targets": "to see all targets run: nx show project shared-design-tokens --web",
-  "targets": {}
+  "targets": {
+    "build-tokens": {
+      "executor": "nx:run-commands",
+      "outputs": [
+        "{projectRoot}/src/generated"
+      ],
+      "options": {
+        "command": "node libs/shared/design-tokens/build-tokens.mjs"
+      },
+      "inputs": [
+        "{projectRoot}/tokens/**/*",
+        "{projectRoot}/build-tokens.mjs"
+      ]
+    }
+  }
 }

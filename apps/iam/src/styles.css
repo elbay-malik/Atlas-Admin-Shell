@@ -1,1 +1,8 @@
-/* You can add global styles to this file, and also import other style files */
+@import 'tailwindcss';
+@import '../../../libs/shared/design-tokens/src/generated/tokens.css';
+@import '../../../libs/shared/design-tokens/src/generated/theme.css';
+
+body {
+  background-color: var(--atlas-color-bg);
+  color: var(--atlas-color-text);
+}
