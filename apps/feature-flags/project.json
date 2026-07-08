@@ -4,11 +4,62 @@
   "projectType": "application",
   "prefix": "flags",
   "sourceRoot": "apps/feature-flags/src",
-  "tags": ["type:app", "scope:flags"],
+  "tags": [
+    "type:app",
+    "scope:flags"
+  ],
   "targets": {
     "build": {
+      "executor": "@angular-architects/native-federation-v4:build",
+      "defaultConfiguration": "production",
+      "options": {
+        "cacheExternalArtifacts": true
+      },
+      "configurations": {
+        "production": {
+          "target": "feature-flags:esbuild:production"
+        },
+        "development": {
+          "target": "feature-flags:esbuild:development",
+          "dev": true
+        }
+      }
+    },
+    "serve": {
+      "executor": "@angular-architects/native-federation-v4:build",
+      "options": {
+        "target": "feature-flags:serve-original:development",
+        "rebuildDelay": 500,
+        "cacheExternalArtifacts": true,
+        "dev": true,
+        "devServer": true,
+        "port": 0
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "watch": false
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "feature-flags:build",
+        "port": 4202,
+        "staticFilePath": "dist/apps/feature-flags/browser",
+        "spa": true
+      }
+    },
+    "esbuild": {
       "executor": "@angular/build:application",
-      "outputs": ["{options.outputPath}"],
+      "outputs": [
+        "{options.outputPath}"
+      ],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/apps/feature-flags",
@@ -20,7 +71,12 @@
             "input": "apps/feature-flags/public"
           }
         ],
-        "styles": ["apps/feature-flags/src/styles.css"]
+        "styles": [
+          "apps/feature-flags/src/styles.css"
+        ],
+        "polyfills": [
+          "es-module-shims"
+        ]
       },
       "configurations": {
         "production": {
@@ -45,7 +101,7 @@
         }
       }
     },
-    "serve": {
+    "serve-original": {
       "continuous": true,
       "executor": "@angular/build:dev-server",
       "defaultConfiguration": "development",
@@ -54,30 +110,11 @@
       },
       "configurations": {
         "production": {
-          "buildTarget": "feature-flags:build:production"
+          "buildTarget": "feature-flags:esbuild:production"
         },
         "development": {
-          "buildTarget": "feature-flags:build:development"
+          "buildTarget": "feature-flags:esbuild:development"
         }
-      }
-    },
-    "lint": {
-      "executor": "@nx/eslint:lint"
-    },
-    "test": {
-      "executor": "@angular/build:unit-test",
-      "options": {
-        "watch": false
-      }
-    },
-    "serve-static": {
-      "continuous": true,
-      "executor": "@nx/web:file-server",
-      "options": {
-        "buildTarget": "feature-flags:build",
-        "port": 4202,
-        "staticFilePath": "dist/apps/feature-flags/browser",
-        "spa": true
       }
     }
   }

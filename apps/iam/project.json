@@ -11,6 +11,7 @@
   "targets": {
     "build": {
       "executor": "@angular-architects/native-federation-v4:build",
+      "defaultConfiguration": "production",
       "options": {
         "cacheExternalArtifacts": true
       },
@@ -22,8 +23,7 @@
           "target": "iam:esbuild:development",
           "dev": true
         }
-      },
-      "defaultConfiguration": "production"
+      }
     },
     "serve": {
       "executor": "@angular-architects/native-federation-v4:build",
