@@ -1,0 +1,18 @@
+allowBuilds:
+  '@swc/core': true
+  nx: true
+  esbuild: true
+  '@parcel/watcher': true
+  less: false
+  lmdb: true
+  msgpackr-extract: true
+
+overrides:
+  '@angular/animations': 21.2.17
+  '@angular/common': 21.2.17
+  '@angular/compiler': 21.2.17
+  '@angular/core': 21.2.17
+  '@angular/forms': 21.2.17
+  '@angular/platform-browser': 21.2.17
+  '@angular/router': 21.2.17
+  rxjs: ~7.8.0
