@@ -1,7 +1,8 @@
-import { provideBrowserGlobalErrorListeners } from '@angular/core';
+import { inject, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
-import { Route, provideRouter } from '@angular/router';
+import { Route, Router, provideRouter } from '@angular/router';
 import type { NativeFederationResult } from '@angular-architects/native-federation-v4';
+import { AtlasAuth, provideAtlasAuth } from '@atlas/shared-auth';
 import { AtlasManifest, isAtlasManifest } from '@atlas/shared-contracts';
 import { App } from './app/app';
 import { ATLAS_MANIFEST } from './app/manifest.token';
@@ -14,6 +15,9 @@ function buildRoutes(manifest: AtlasManifest, loadRemoteModule: RemoteLoader): R
   const remoteRoutes = Object.entries(manifest.remotes).map(
     ([name, def]): Route => ({
       path: def.route,
+      canActivate: [
+        () => inject(AtlasAuth).hasRole(def.requiredRole) || inject(Router).parseUrl('/'),
+      ],
       loadChildren: () =>
         loadRemoteModule(name, def.exposedModule)
           .then((m) => (m as { remoteRoutes: Route[] }).remoteRoutes)
@@ -41,6 +45,7 @@ export function bootstrap(rawManifest: unknown, loadRemoteModule: RemoteLoader) 
     providers: [
       provideBrowserGlobalErrorListeners(),
       provideRouter(buildRoutes(manifest, loadRemoteModule)),
+      provideAtlasAuth(),
       { provide: ATLAS_MANIFEST, useValue: manifest },
     ],
   });

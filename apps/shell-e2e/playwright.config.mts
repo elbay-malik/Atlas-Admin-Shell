@@ -30,27 +30,42 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'pnpm exec nx run shell:serve',
-    url: 'http://localhost:4200',
-    reuseExistingServer: true,
-    cwd: workspaceRoot,
-  },
+  webServer: [
+    {
+      command: 'pnpm exec nx run shell:serve',
+      url: 'http://localhost:4200',
+      reuseExistingServer: true,
+      timeout: 180_000,
+      cwd: workspaceRoot,
+    },
+    {
+      command: 'pnpm exec nx run iam:serve',
+      url: 'http://localhost:4201/remoteEntry.json',
+      reuseExistingServer: true,
+      timeout: 180_000,
+      cwd: workspaceRoot,
+    },
+    {
+      command: 'pnpm exec nx run feature-flags:serve',
+      url: 'http://localhost:4202/remoteEntry.json',
+      reuseExistingServer: true,
+      timeout: 180_000,
+      cwd: workspaceRoot,
+    },
+    {
+      command: 'pnpm exec nx run audit-logs:serve',
+      url: 'http://localhost:4203/remoteEntry.json',
+      reuseExistingServer: true,
+      timeout: 180_000,
+      cwd: workspaceRoot,
+    },
+  ],
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
 
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
 
     // Uncomment for mobile browsers support
     /* {

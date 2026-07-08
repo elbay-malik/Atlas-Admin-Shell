@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { AtlasAuth } from '@atlas/shared-auth';
 
 interface IamUser {
   id: string;
@@ -15,6 +16,15 @@ interface IamUser {
     <section class="p-6">
       <h1 class="text-2xl font-semibold mb-1">Identity &amp; Access</h1>
       <p class="mb-6 opacity-70">Users, roles and access management.</p>
+      <!-- reads the SHELL's auth singleton across the federation boundary -->
+      <p class="mb-6 text-sm" data-testid="session-info">
+        Session:
+        @if (auth.user(); as user) {
+          <strong>{{ user.email }}</strong> ({{ user.role }})
+        } @else {
+          anonymous
+        }
+      </p>
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="border-b opacity-60">
@@ -39,6 +49,8 @@ interface IamUser {
   `,
 })
 export class IamHome {
+  protected readonly auth = inject(AtlasAuth);
+
   readonly users = signal<IamUser[]>([
     { id: 'u-1', name: 'Ada Lovelace', email: 'ada@atlas.dev', role: 'admin', active: true },
     { id: 'u-2', name: 'Grace Hopper', email: 'grace@atlas.dev', role: 'admin', active: true },

@@ -1,6 +1,9 @@
 {
   "name": "@atlas/shared-auth",
   "version": "0.0.1",
-  "peerDependencies": {},
+  "peerDependencies": {
+    "@angular/core": "~21.2.0",
+    "@atlas/shared-contracts": "0.0.1"
+  },
   "sideEffects": false
 }
