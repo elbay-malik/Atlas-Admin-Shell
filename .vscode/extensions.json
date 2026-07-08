@@ -1,3 +1,14 @@
 {
-  "recommendations": ["ms-playwright.playwright"]
+  "recommendations": [
+    "nrwl.angular-console",
+    "angular.ng-template",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "editorconfig.editorconfig",
+    "bradlc.vscode-tailwindcss",
+    "vitest.explorer",
+    "ms-playwright.playwright",
+    "github.vscode-github-actions",
+    "bierner.markdown-mermaid"
+  ]
 }
