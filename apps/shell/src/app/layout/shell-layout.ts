@@ -1,12 +1,7 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { UiNavItem, UiThemeToggle } from '@atlas/shared-ui';
-
-interface NavEntry {
-  route: string;
-  label: string;
-  icon: string;
-}
+import { ATLAS_MANIFEST } from '../manifest.token';
 
 @Component({
   selector: 'shell-layout',
@@ -22,7 +17,9 @@ interface NavEntry {
         <nav class="flex-1 space-y-1 p-3" aria-label="Primary">
           <ui-nav-item link="/" icon="⌂" [exact]="true">Overview</ui-nav-item>
           @for (entry of navEntries(); track entry.route) {
-            <ui-nav-item [link]="entry.route" [icon]="entry.icon">{{ entry.label }}</ui-nav-item>
+            <ui-nav-item [link]="'/' + entry.route" [icon]="entry.icon">
+              {{ entry.displayName }}
+            </ui-nav-item>
           }
         </nav>
       </aside>
@@ -38,10 +35,9 @@ interface NavEntry {
   `,
 })
 export class ShellLayout {
-  // placeholder entries — replaced by manifest-derived nav once federation lands
-  readonly navEntries = signal<NavEntry[]>([
-    { route: '/iam', label: 'Identity & Access', icon: '👥' },
-    { route: '/flags', label: 'Feature Flags', icon: '🚩' },
-    { route: '/audit', label: 'Audit Logs', icon: '🧾' },
-  ]);
+  private readonly manifest = inject(ATLAS_MANIFEST);
+
+  // the manifest IS the remote registry: nav derives from it, so enabling a
+  // remote in an environment is a manifest edit, never a shell change
+  readonly navEntries = computed(() => Object.values(this.manifest.remotes));
 }

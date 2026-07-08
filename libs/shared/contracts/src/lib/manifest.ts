@@ -28,6 +28,11 @@ export interface RemoteDefinition {
 
 export interface AtlasManifest {
   version: typeof ATLAS_MANIFEST_VERSION;
+  /**
+   * Keyed by remote name. The key MUST equal the `name` in that remote's
+   * federation.config.mjs — Native Federation verifies the fetched
+   * remoteEntry's baked-in name and refuses aliases that don't match.
+   */
   remotes: Record<string, RemoteDefinition>;
 }
 
