@@ -5,7 +5,7 @@ export default [
   ...nx.configs['flat/typescript'],
   ...nx.configs['flat/javascript'],
   {
-    ignores: ['**/dist', '**/out-tsc'],
+    ignores: ['**/dist', '**/out-tsc', '**/vitest.config.*.timestamp*'],
   },
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
@@ -16,9 +16,57 @@ export default [
           enforceBuildableLibDependency: true,
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
           depConstraints: [
+            // domain isolation: a domain may only reach shared code and itself
             {
-              sourceTag: '*',
-              onlyDependOnLibsWithTags: ['*'],
+              sourceTag: 'scope:shell',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:shell'],
+            },
+            {
+              sourceTag: 'scope:iam',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:iam'],
+            },
+            {
+              sourceTag: 'scope:flags',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:flags'],
+            },
+            {
+              sourceTag: 'scope:audit',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:audit'],
+            },
+            {
+              sourceTag: 'scope:shared',
+              onlyDependOnLibsWithTags: ['scope:shared'],
+            },
+            // layering: apps sit on top; utils sit at the bottom
+            {
+              sourceTag: 'type:app',
+              onlyDependOnLibsWithTags: [
+                'type:feature',
+                'type:ui',
+                'type:data-access',
+                'type:util',
+              ],
+            },
+            {
+              sourceTag: 'type:feature',
+              onlyDependOnLibsWithTags: [
+                'type:feature',
+                'type:ui',
+                'type:data-access',
+                'type:util',
+              ],
+            },
+            {
+              sourceTag: 'type:ui',
+              onlyDependOnLibsWithTags: ['type:ui', 'type:util'],
+            },
+            {
+              sourceTag: 'type:data-access',
+              onlyDependOnLibsWithTags: ['type:data-access', 'type:util'],
+            },
+            {
+              sourceTag: 'type:util',
+              onlyDependOnLibsWithTags: ['type:util'],
             },
           ],
         },

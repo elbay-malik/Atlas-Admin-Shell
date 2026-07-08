@@ -5,7 +5,9 @@
     "production": [
       "default",
       "!{projectRoot}/.eslintrc.json",
-      "!{projectRoot}/eslint.config.mjs"
+      "!{projectRoot}/eslint.config.mjs",
+      "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
+      "!{projectRoot}/tsconfig.spec.json"
     ],
     "sharedGlobals": []
   },
@@ -31,6 +33,20 @@
     "@angular/build:unit-test": {
       "cache": true,
       "inputs": ["default", "^production"]
+    },
+    "@nx/angular:ng-packagr-lite": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
+    },
+    "@nx/angular:unit-test": {
+      "cache": true,
+      "inputs": ["default", "^production"]
+    },
+    "@nx/js:tsc": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
     }
   },
   "plugins": [
@@ -45,6 +61,14 @@
       "options": {
         "targetName": "lint"
       }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "options": {
+        "testTargetName": "test",
+        "ciTargetName": "test-ci",
+        "testMode": "watch"
+      }
     }
   ],
   "generators": {
@@ -53,6 +77,13 @@
       "linter": "eslint",
       "style": "css",
       "unitTestRunner": "vitest-angular"
+    },
+    "@nx/angular:library": {
+      "linter": "eslint",
+      "unitTestRunner": "vitest-angular"
+    },
+    "@nx/angular:component": {
+      "style": "css"
     }
   }
 }

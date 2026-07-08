@@ -41,3 +41,5 @@ pnpm-debug.log*
 .nx/migrate-runs
 
 __screenshots__/
+
+vitest.config.*.timestamp*
