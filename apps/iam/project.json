@@ -4,11 +4,62 @@
   "projectType": "application",
   "prefix": "iam",
   "sourceRoot": "apps/iam/src",
-  "tags": ["type:app", "scope:iam"],
+  "tags": [
+    "type:app",
+    "scope:iam"
+  ],
   "targets": {
     "build": {
+      "executor": "@angular-architects/native-federation-v4:build",
+      "options": {
+        "cacheExternalArtifacts": true
+      },
+      "configurations": {
+        "production": {
+          "target": "iam:esbuild:production"
+        },
+        "development": {
+          "target": "iam:esbuild:development",
+          "dev": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "executor": "@angular-architects/native-federation-v4:build",
+      "options": {
+        "target": "iam:serve-original:development",
+        "rebuildDelay": 500,
+        "cacheExternalArtifacts": true,
+        "dev": true,
+        "devServer": true,
+        "port": 0
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "watch": false
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "iam:build",
+        "port": 4201,
+        "staticFilePath": "dist/apps/iam/browser",
+        "spa": true
+      }
+    },
+    "esbuild": {
       "executor": "@angular/build:application",
-      "outputs": ["{options.outputPath}"],
+      "outputs": [
+        "{options.outputPath}"
+      ],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/apps/iam",
@@ -20,7 +71,12 @@
             "input": "apps/iam/public"
           }
         ],
-        "styles": ["apps/iam/src/styles.css"]
+        "styles": [
+          "apps/iam/src/styles.css"
+        ],
+        "polyfills": [
+          "es-module-shims"
+        ]
       },
       "configurations": {
         "production": {
@@ -45,7 +101,7 @@
         }
       }
     },
-    "serve": {
+    "serve-original": {
       "continuous": true,
       "executor": "@angular/build:dev-server",
       "defaultConfiguration": "development",
@@ -54,30 +110,11 @@
       },
       "configurations": {
         "production": {
-          "buildTarget": "iam:build:production"
+          "buildTarget": "iam:esbuild:production"
         },
         "development": {
-          "buildTarget": "iam:build:development"
+          "buildTarget": "iam:esbuild:development"
         }
-      }
-    },
-    "lint": {
-      "executor": "@nx/eslint:lint"
-    },
-    "test": {
-      "executor": "@angular/build:unit-test",
-      "options": {
-        "watch": false
-      }
-    },
-    "serve-static": {
-      "continuous": true,
-      "executor": "@nx/web:file-server",
-      "options": {
-        "buildTarget": "iam:build",
-        "port": 4201,
-        "staticFilePath": "dist/apps/iam/browser",
-        "spa": true
       }
     }
   }

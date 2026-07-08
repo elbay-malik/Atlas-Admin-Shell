@@ -14,13 +14,13 @@
       "outputs": [
         "{projectRoot}/src/generated"
       ],
-      "options": {
-        "command": "node libs/shared/design-tokens/build-tokens.mjs"
-      },
       "inputs": [
         "{projectRoot}/tokens/**/*",
         "{projectRoot}/build-tokens.mjs"
-      ]
+      ],
+      "options": {
+        "command": "node libs/shared/design-tokens/build-tokens.mjs"
+      }
     }
   }
 }

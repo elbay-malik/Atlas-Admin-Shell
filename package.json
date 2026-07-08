@@ -5,6 +5,8 @@
   "scripts": {},
   "private": true,
   "devDependencies": {
+    "@angular-architects/native-federation-v4": "21.2.6",
+    "@angular-devkit/build-angular": "~21.2.0",
     "@angular-devkit/core": "~21.2.0",
     "@angular-devkit/schematics": "~21.2.0",
     "@angular/build": "~21.2.0",
@@ -23,6 +25,7 @@
     "@nx/web": "23.0.1",
     "@playwright/test": "^1.37.0",
     "@schematics/angular": "~21.2.0",
+    "@softarc/native-federation-orchestrator": "^4.2.2",
     "@swc-node/register": "1.11.1",
     "@swc/core": "1.15.8",
     "@swc/helpers": "0.5.18",
@@ -61,6 +64,7 @@
     "@angular/forms": "~21.2.0",
     "@angular/platform-browser": "~21.2.0",
     "@angular/router": "~21.2.0",
+    "es-module-shims": "^2.8.0",
     "rxjs": "~7.8.0"
   }
 }

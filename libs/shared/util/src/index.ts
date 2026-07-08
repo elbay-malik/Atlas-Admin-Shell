@@ -1,1 +1,2 @@
-export * from './lib/shared-util';
+// pure utilities land here as the platform grows
+export {};

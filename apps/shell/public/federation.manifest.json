@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "remotes": {
+    "iam": {
+      "url": "http://localhost:4201/remoteEntry.json",
+      "displayName": "Identity & Access",
+      "route": "iam",
+      "icon": "👥",
+      "exposedModule": "./Routes",
+      "requiredRole": "admin"
+    },
+    "feature-flags": {
+      "url": "http://localhost:4202/remoteEntry.json",
+      "displayName": "Feature Flags",
+      "route": "flags",
+      "icon": "🚩",
+      "exposedModule": "./Routes",
+      "requiredRole": "viewer"
+    },
+    "audit-logs": {
+      "url": "http://localhost:4203/remoteEntry.json",
+      "displayName": "Audit Logs",
+      "route": "audit",
+      "icon": "🧾",
+      "exposedModule": "./Routes",
+      "requiredRole": "viewer"
+    }
+  }
+}
