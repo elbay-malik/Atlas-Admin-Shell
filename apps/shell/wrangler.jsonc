@@ -4,13 +4,26 @@
   // Assets-only for now; the edge BFF adds "main" + "run_worker_first" here.
   "name": "atlas-shell",
   "compatibility_date": "2026-09-05",
+  // The edge BFF. run_worker_first scopes the Worker to /api/* ONLY, so every
+  // other path is served by asset routing exactly as before — the SPA fallback
+  // for deep links is untouched and those requests never invoke the Worker.
+  "main": "../shell-bff/src/worker.ts",
   "assets": {
     "directory": "../../dist/apps/shell/browser",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
     // Serves index.html with a 200 for ANY unmatched path, not only navigations.
     // The shell owns client-side routes so it needs this, but be aware of the
     // trade-off when debugging: after a partial deploy a missing .js chunk comes
     // back as HTML with a 200 rather than a 404. That is why the remotes below
     // deliberately do NOT enable it.
     "not_found_handling": "single-page-application"
+  },
+  // Not secrets: a JWKS endpoint and the issuer/audience it mints for are
+  // public. The service-role key never appears here and never reaches the edge.
+  "vars": {
+    "ATLAS_JWKS_URL": "https://project.supabase.co/auth/v1/.well-known/jwks.json",
+    "ATLAS_JWT_ISSUER": "https://project.supabase.co/auth/v1",
+    "ATLAS_JWT_AUDIENCE": "authenticated"
   }
 }

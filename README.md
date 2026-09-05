@@ -52,6 +52,7 @@ dated receipts (npm peer ranges, GitHub issue states) for its claims.
 | [0008](docs/adr/0008-storybook-webpack-framework-with-a11y-gate.md) | Storybook on the webpack Angular framework, with accessibility as a CI gate |
 | [0009](docs/adr/0009-federation-e2e-on-production-builds-in-ci.md) | Federation e2e against production builds served statically in CI |
 | [0010](docs/adr/0010-manifest-is-a-deployment-artifact.md) | The federation manifest is a deployment artifact, not a build input |
+| [0011](docs/adr/0011-edge-bff-as-the-authorization-boundary.md) | The edge BFF is the authorization boundary; the client only hides things |
 
 ## Quickstart
 
@@ -74,6 +75,7 @@ pnpm exec nx serve shell
 ```
 apps/
   shell/           # dynamic host
+  shell-bff/       # edge BFF: the /api/* Worker on the shell's origin
   iam/             # remote: identity & access
   feature-flags/   # remote: flag dashboard
   audit-logs/      # remote: event log
@@ -99,6 +101,7 @@ docs/
 | Control affordances | WCAG 1.4.11 boundary contrast, which axe does **not** automate | `nx affected -t e2e` |
 | Federation e2e | Playwright specs against production builds over real import maps | `nx affected -t e2e` |
 | Auth boundary | no remote may bundle the identity client (ADR-0006) | `pnpm run bundles:check` |
+| Edge authorization | token verification and role rules in real workerd (ADR-0011) | `nx test shell-bff` |
 | Deploy artifacts | every environment manifest satisfies the contract | `pnpm run manifest:check` |
 | Boundaries | `@nx/enforce-module-boundaries` tag rules | `nx affected -t lint` |
 | Zoneless | fails if `zone.js` ever resolves into the tree (ADR-0003) | CI guard step |
@@ -157,6 +160,10 @@ rebuild, no shell redeploy.
   - [x] Supabase OIDC provider behind the existing `AtlasAuth` interface, unit-tested against a fake
     client. The mock remains the default; **a real sign-in needs a Supabase project**. ADR-0006
     carries an honest amendment on where the "drop-in" claim did and did not hold.
+  - [x] Edge BFF on the shell's Worker (`/api/*`), verifying tokens and enforcing authorization
+    server-side — including invariants the client cannot, such as refusing to demote the last admin.
+    Closed a real hole: a viewer could toggle a feature flag (ADR-0011).
+  - [ ] PR previews, and swapping the remotes' mock APIs for the BFF over HTTP.
 - [ ] **Slice 4 — Polish**: Lighthouse CI + Core Web Vitals, axe pass, whitepaper completion,
   demo video, Angular 22 migration (once Nx & NgRx support lands) as a showcase PR.
 

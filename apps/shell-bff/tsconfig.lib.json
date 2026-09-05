@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../dist/out-tsc",
+    "declaration": true,
+    // A Worker has no DOM. The runtime globals it DOES have (Request, Response,
+    // URL, crypto, console) come from the generated worker-configuration.d.ts,
+    // which wrangler derives from the actual config — so the types match what
+    // the deployed runtime provides rather than a hand-picked lib.
+    "lib": ["es2023"],
+    "types": ["./worker-configuration.d.ts"]
+  },
+  "include": ["src/**/*.ts", "worker-configuration.d.ts"],
+  "exclude": ["src/**/*.spec.ts"]
+}

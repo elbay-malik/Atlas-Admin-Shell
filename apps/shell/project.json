@@ -146,5 +146,8 @@
         }
       }
     }
-  }
+  },
+  "implicitDependencies": [
+    "shell-bff"
+  ]
 }

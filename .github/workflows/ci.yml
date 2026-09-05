@@ -57,7 +57,7 @@ jobs:
       # as a console that boots with zero remotes (ADR-0010).
       - run: pnpm run manifest:check
 
-      - run: pnpm exec nx affected -t lint test build build-storybook
+      - run: pnpm exec nx affected -t lint typecheck test build build-storybook
 
       # Type-checks every wrangler config and its asset directory. Needs no
       # Cloudflare credentials.

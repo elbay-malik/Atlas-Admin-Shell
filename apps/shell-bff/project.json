@@ -1,0 +1,27 @@
+{
+  "name": "shell-bff",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/shell-bff/src",
+  "projectType": "application",
+  "tags": [
+    "type:app",
+    "scope:shell"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "cwd": "apps/shell-bff",
+        "parallel": false,
+        "commands": [
+          "pnpm exec wrangler types --config wrangler.test.jsonc",
+          "pnpm exec tsc -p tsconfig.lib.json --noEmit"
+        ]
+      }
+    }
+  }
+}

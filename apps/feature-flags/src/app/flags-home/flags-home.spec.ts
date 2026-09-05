@@ -48,8 +48,13 @@ describe('FlagsHome', () => {
     localStorage.clear();
   });
 
-  /** Renders the screen and settles the store's initial load. */
-  async function render(): Promise<ComponentFixture<FlagsHome>> {
+  /**
+   * Renders the screen as a persona and settles the store's initial load.
+   * Flag writes are admin-only (ADR-0011), so the persona is now load-bearing
+   * rather than incidental.
+   */
+  async function render(persona: 'admin' | 'viewer' = 'admin'): Promise<ComponentFixture<FlagsHome>> {
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login(persona);
     const fixture = TestBed.createComponent(FlagsHome);
     await TestBed.tick();
     expect(query(fixture, '[data-testid="flags-loading"]')).not.toBeNull();
@@ -122,6 +127,14 @@ describe('FlagsHome', () => {
 
     expect(toggleIn(second).getAttribute('aria-pressed')).toBe('true');
     expect(query(fixture, '[data-testid="flags-summary"]')?.textContent).toContain('2 of 3 enabled');
+  });
+
+  it('hides the toggle affordance from a viewer, who may not write flags', async () => {
+    const fixture = await render('viewer');
+
+    const [first] = rows(fixture);
+    expect(toggleIn(first).disabled).toBe(true);
+    expect(query(fixture, '[data-testid="flags-readonly"]')).not.toBeNull();
   });
 
   it('shows the error state with a Retry that reloads', async () => {

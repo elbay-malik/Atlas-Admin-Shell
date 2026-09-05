@@ -1,0 +1,19 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // TEST-ONLY config, so the suite never depends on a built dist/. Keep
+  // compatibility_date in lockstep with apps/shell/wrangler.jsonc.
+  "name": "atlas-shell-bff-test",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-05",
+  "assets": {
+    "directory": "./test-fixtures/assets",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "ATLAS_JWKS_URL": "https://atlas.test/auth/v1/.well-known/jwks.json",
+    "ATLAS_JWT_ISSUER": "https://atlas.test/auth/v1",
+    "ATLAS_JWT_AUDIENCE": "authenticated"
+  }
+}

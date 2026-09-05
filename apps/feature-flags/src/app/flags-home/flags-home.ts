@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { AtlasAuth } from '@atlas/shared-auth';
 import { UiBadge, UiButton } from '@atlas/shared-ui';
 import { FlagsStore } from '../data/flags.store';
 
@@ -13,12 +14,17 @@ import { FlagsStore } from '../data/flags.store';
           <h1 class="mb-1 text-2xl font-semibold">Feature Flags</h1>
           <p class="text-text-muted">Toggle features per environment.</p>
         </div>
-        <ui-badge
-          data-testid="flags-summary"
-          [tone]="store.enabledCount() > 0 ? 'success' : 'neutral'"
-        >
-          {{ store.enabledCount() }} of {{ total() }} enabled
-        </ui-badge>
+        <div class="flex items-center gap-2">
+          @if (!canEdit()) {
+            <ui-badge data-testid="flags-readonly">read-only</ui-badge>
+          }
+          <ui-badge
+            data-testid="flags-summary"
+            [tone]="store.enabledCount() > 0 ? 'success' : 'neutral'"
+          >
+            {{ store.enabledCount() }} of {{ total() }} enabled
+          </ui-badge>
+        </div>
       </header>
 
       @if (store.error(); as message) {
@@ -58,6 +64,8 @@ import { FlagsStore } from '../data/flags.store';
             <button
               type="button"
               data-testid="flag-toggle"
+              [disabled]="!canEdit()"
+              [attr.title]="canEdit() ? null : 'Only admins can change feature flags'"
               class="rounded-md border border-border-strong px-3 py-1 text-sm font-medium transition-colors
                      hover:border-brand-primary disabled:cursor-not-allowed disabled:opacity-50
                      aria-pressed:border-brand-primary aria-pressed:bg-brand-primary
@@ -77,8 +85,20 @@ import { FlagsStore } from '../data/flags.store';
   `,
 })
 export class FlagsHome {
+  private readonly auth = inject(AtlasAuth);
   protected readonly store = inject(FlagsStore);
   protected readonly total = computed(() => this.store.entities().length);
+
+  /**
+   * Flag writes are admin-only. This screen is viewer-visible per the manifest,
+   * and until the BFF landed a viewer could actually toggle a flag — the UI
+   * never checked. This hides the affordance; the edge is what enforces it
+   * (ADR-0011), because a hidden button stops nobody with a terminal.
+   */
+  protected readonly canEdit = computed(() => {
+    this.auth.user();
+    return this.auth.hasRole('admin');
+  });
 
   /** True while this row's write is in flight — only that row is disabled. */
   protected isPending(key: string): boolean {
