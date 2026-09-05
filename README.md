@@ -48,6 +48,9 @@ dated receipts (npm peer ranges, GitHub issue states) for its claims.
 | [0004](docs/adr/0004-manifest-driven-dynamic-host.md) | Remotes resolved at runtime from a manifest, not build-time imports |
 | [0005](docs/adr/0005-per-domain-signal-stores-and-typed-event-contracts.md) | Per-domain Signal Stores + typed, versioned cross-MFE event contracts |
 | [0006](docs/adr/0006-mock-first-auth-behind-interface.md) | Mock-first auth behind a DI interface; OIDC (Supabase) as a drop-in later |
+| [0007](docs/adr/0007-remote-error-boundaries.md) | Remote error boundaries: reject rather than cache a fallback; recover by re-initialising the remote |
+| [0008](docs/adr/0008-storybook-webpack-framework-with-a11y-gate.md) | Storybook on the webpack Angular framework, with accessibility as a CI gate |
+| [0009](docs/adr/0009-federation-e2e-on-production-builds-in-ci.md) | Federation e2e against production builds served statically in CI |
 
 ## Quickstart
 
@@ -77,12 +80,23 @@ libs/
   shared/
     ui/            # design-system components (buildable)
     design-tokens/ # Style Dictionary → CSS vars + Tailwind @theme
-    contracts/     # cross-MFE types: manifest, events (buildable)
+    contracts/     # cross-MFE types: manifest, versioned events (buildable)
     auth/          # AtlasAuth interface + providers (buildable)
-    util/          # pure utilities
+    event-bus/     # AtlasEventBus singleton with replay (buildable)
+    util/          # shared store features (withRequestStatus)
 docs/
   adr/             # architecture decision records (MADR)
 ```
+
+## Quality gates
+
+| Gate | What it runs | Where |
+| --- | --- | --- |
+| Unit + contract tests | 114 tests across 11 projects, incl. a frozen event-catalogue snapshot | `nx affected -t test` |
+| Accessibility | axe on every Storybook story, `a11y.test: 'error'` | `nx affected -t test-storybook` |
+| Federation e2e | 14 Playwright specs against production builds over real import maps | `nx affected -t e2e` |
+| Boundaries | `@nx/enforce-module-boundaries` tag rules | `nx affected -t lint` |
+| Zoneless | fails if `zone.js` ever resolves into the tree (ADR-0003) | CI guard step |
 
 ## Engineering practices
 
@@ -99,8 +113,8 @@ docs/
 
 - [x] **Slice 1 — Foundation → Federation**: Nx workspace, boundaries, token pipeline, zoneless
   shell, Native Federation with 3 remotes loading from the manifest, mock auth, CI.
-- [ ] **Slice 2 — Domains + State**: NgRx Signal Stores per remote, typed event bus + contract
-  tests, error boundaries with retry/fallback, Storybook + a11y, federation E2E suite.
+- [x] **Slice 2 — Domains + State**: NgRx Signal Stores per remote, typed event bus + contract
+  tests, error boundaries with retry/fallback, Storybook + a11y, federation E2E suite in CI.
 - [ ] **Slice 3 — BFF + Deploys**: Cloudflare Workers (static assets) per app, `nx affected`
   deploy pipelines, PR previews, edge BFF, Supabase OIDC swap-in.
 - [ ] **Slice 4 — Polish**: Lighthouse CI + Core Web Vitals, axe pass, whitepaper completion,

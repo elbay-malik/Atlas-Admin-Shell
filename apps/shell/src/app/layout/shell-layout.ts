@@ -1,8 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AtlasAuth } from '@atlas/shared-auth';
+import { RemoteDefinition } from '@atlas/shared-contracts';
 import { UiBadge, UiButton, UiNavItem, UiThemeToggle } from '@atlas/shared-ui';
 import { ATLAS_MANIFEST } from '../manifest.token';
+import { RemoteHealthStore, RemoteStatus, UNKNOWN_REMOTE_HEALTH } from '../remotes/remote-health.store';
+
+interface NavEntry extends RemoteDefinition {
+  name: string;
+  status: RemoteStatus;
+}
 
 @Component({
   selector: 'shell-layout',
@@ -18,14 +25,23 @@ import { ATLAS_MANIFEST } from '../manifest.token';
         <nav class="flex-1 space-y-1 p-3" aria-label="Primary">
           <ui-nav-item link="/" icon="⌂" [exact]="true">Overview</ui-nav-item>
           @for (entry of navEntries(); track entry.route) {
-            <ui-nav-item [link]="'/' + entry.route" [icon]="entry.icon">
-              {{ entry.displayName }}
-            </ui-nav-item>
+            <!-- The anchor always keeps its href: a down remote's nav item IS
+                 the way back in, so it must stay clickable (ADR-0007). -->
+            <div [attr.data-testid]="'nav-' + entry.name" [attr.data-health]="entry.status">
+              <ui-nav-item [link]="'/' + entry.route" [icon]="entry.icon">
+                {{ entry.displayName }}
+                @if (entry.status === 'down') {
+                  <ui-badge tone="danger">offline</ui-badge>
+                }
+              </ui-nav-item>
+            </div>
           }
         </nav>
       </aside>
       <div class="flex flex-1 flex-col">
-        <header class="flex h-14 items-center justify-end gap-3 border-b border-border bg-surface px-4">
+        <header
+          class="flex h-14 items-center justify-end gap-3 border-b border-border bg-surface px-4"
+        >
           @if (auth.user(); as user) {
             <span class="text-sm">{{ user.name }}</span>
             <ui-badge [tone]="user.role === 'admin' ? 'success' : 'neutral'">
@@ -47,13 +63,20 @@ import { ATLAS_MANIFEST } from '../manifest.token';
 })
 export class ShellLayout {
   private readonly manifest = inject(ATLAS_MANIFEST);
+  private readonly health = inject(RemoteHealthStore);
   protected readonly auth = inject(AtlasAuth);
 
   // manifest is the registry; nav derives from it, filtered by the user's role
-  readonly navEntries = computed(() => {
+  // and annotated with each remote's live health.
+  readonly navEntries = computed((): NavEntry[] => {
     this.auth.user(); // re-evaluate on auth changes
-    return Object.values(this.manifest.remotes).filter((def) =>
-      this.auth.hasRole(def.requiredRole)
-    );
+    const health = this.health.remotes();
+    return Object.entries(this.manifest.remotes)
+      .filter(([, def]) => this.auth.hasRole(def.requiredRole))
+      .map(([name, def]) => ({
+        ...def,
+        name,
+        status: (health[name] ?? UNKNOWN_REMOTE_HEALTH).status,
+      }));
   });
 }

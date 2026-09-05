@@ -1,0 +1,78 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Atlas event contracts > matches the published event catalogue 1`] = `
+[
+  {
+    "envelopeKeys": [
+      "actor",
+      "id",
+      "occurredAt",
+      "payload",
+      "source",
+      "type",
+      "version",
+    ],
+    "payloadKeys": [
+      "enabled",
+      "key",
+    ],
+    "type": "flag.toggled",
+    "version": 1,
+  },
+  {
+    "envelopeKeys": [
+      "actor",
+      "id",
+      "occurredAt",
+      "payload",
+      "source",
+      "type",
+      "version",
+    ],
+    "payloadKeys": [
+      "message",
+      "reason",
+      "remote",
+    ],
+    "type": "remote.unavailable",
+    "version": 1,
+  },
+  {
+    "envelopeKeys": [
+      "actor",
+      "id",
+      "occurredAt",
+      "payload",
+      "source",
+      "type",
+      "version",
+    ],
+    "payloadKeys": [
+      "email",
+      "from",
+      "to",
+      "userId",
+    ],
+    "type": "user.role.changed",
+    "version": 1,
+  },
+  {
+    "envelopeKeys": [
+      "actor",
+      "id",
+      "occurredAt",
+      "payload",
+      "source",
+      "type",
+      "version",
+    ],
+    "payloadKeys": [
+      "active",
+      "email",
+      "userId",
+    ],
+    "type": "user.status.changed",
+    "version": 1,
+  },
+]
+`;

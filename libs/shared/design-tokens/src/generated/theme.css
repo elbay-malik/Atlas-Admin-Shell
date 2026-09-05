@@ -6,6 +6,7 @@
   --color-status-success: var(--atlas-color-status-success);
   --color-status-warning: var(--atlas-color-status-warning);
   --color-status-danger: var(--atlas-color-status-danger);
+  --color-status-danger-strong: var(--atlas-color-status-danger-strong);
   --spacing-xs: var(--atlas-spacing-xs);
   --spacing-sm: var(--atlas-spacing-sm);
   --spacing-md: var(--atlas-spacing-md);
@@ -20,4 +21,8 @@
   --color-text: var(--atlas-color-text);
   --color-text-muted: var(--atlas-color-text-muted);
   --color-border: var(--atlas-color-border);
+  --color-on-success: var(--atlas-color-on-success);
+  --color-on-warning: var(--atlas-color-on-warning);
+  --color-on-danger: var(--atlas-color-on-danger);
+  --color-on-brand: var(--atlas-color-on-brand);
 }

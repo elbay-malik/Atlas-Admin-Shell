@@ -44,6 +44,10 @@ export function isAtlasManifest(value: unknown): value is AtlasManifest {
   if (typeof manifest.remotes !== 'object' || manifest.remotes === null) return false;
   return Object.values(manifest.remotes).every(
     (def) =>
+      // a null/non-object entry is legal JSON; dereferencing it here would
+      // throw out of the guard and take the whole shell down with it
+      typeof def === 'object' &&
+      def !== null &&
       typeof def.url === 'string' &&
       typeof def.displayName === 'string' &&
       typeof def.route === 'string' &&

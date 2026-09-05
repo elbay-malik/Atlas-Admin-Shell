@@ -21,16 +21,10 @@ it after dependency changes.
 
 - Positive: uniform change-detection semantics across the federation boundary; smaller bundles;
   no NG0908/multi-zone hazards.
-- Negative: tooling that assumes zone.js needs care. Known case: `@storybook/angular@10.4.6`
-  declares a `zone.js >=0.14.0` **peer dependency**, and pnpm 11's default
-  `autoInstallPeers: true` would **silently install it**. When the Storybook slice lands, add to
-  `pnpm-workspace.yaml`:
-
-  ```yaml
-  peerDependencyRules:
-    ignoreMissing:
-      - zone.js
-  ```
+- Negative: tooling that assumes zone.js needs care. The case we expected to bite —
+  `@storybook/angular`, which declares a `zone.js >=0.14.0` peer — turned out to be safe, but only
+  for reasons worth writing down; see the correction in Verification below. A CI guard
+  (`test ! -d node_modules/zone.js`) keeps the claim honest rather than trusting it.
 
 ## Verification
 
@@ -40,6 +34,25 @@ Checked 2026-07-08:
   stable since v20.2.
 - `@storybook/angular@10.4.6` peerDependencies include `zone.js >=0.14.0` (`npm view`).
 - pnpm 11 defaults: `strictPeerDependencies: false`, `autoInstallPeers: true` (pnpm.io/settings).
+
+**Correction, checked 2026-09-05 when Storybook actually landed (ADR-0008).** The 2026-07-08 note
+above concluded that pnpm would *silently install* zone.js and that
+`peerDependencyRules.ignoreMissing` was therefore required. Both halves were wrong:
+
+- `@storybook/angular` marks `zone.js` **optional** in `peerDependenciesMeta` — true in 10.6.0 and
+  in the 10.4.6 that the original note cited. pnpm's `autoInstallPeers` installs only missing
+  *non-optional* peers, so it was never going to be pulled in. (`ignoreMissing` only silences
+  warnings; it does not prevent installation, so it would not have been the right lever anyway.)
+- `@angular/core` itself lists zone.js as an optional peer, which is why it is absent today.
+- Independently, `@storybook/angular` defaults `experimentalZoneless` to true for Angular >= 21
+  (`experimentalZoneless = !!(VERSION.major && Number(VERSION.major) >= 21)`) and only pushes a
+  `zone.js` polyfill when that flag is false — so the framework does not want it at runtime either.
+
+Confirmed empirically: after installing the full Storybook 10.6.0 set,
+`ls node_modules/.pnpm | grep -c zone.js` returns 0. The real peer hazards were different packages
+entirely — `@angular/platform-browser-dynamic` and `@angular-devkit/architect`, both non-optional
+peers absent from the workspace, which pnpm would have resolved to the Angular 22 line; they are
+pinned in ADR-0008.
 
 ## References
 

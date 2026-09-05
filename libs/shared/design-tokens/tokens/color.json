@@ -1,28 +1,112 @@
 {
   "color": {
     "brand": {
-      "primary": { "$value": "#4f46e5", "$type": "color" },
-      "primary-strong": { "$value": "#4338ca", "$type": "color" },
-      "accent": { "$value": "#0ea5e9", "$type": "color" }
+      "primary": {
+        "$value": "#4f46e5",
+        "$type": "color"
+      },
+      "primary-strong": {
+        "$value": "#4338ca",
+        "$type": "color"
+      },
+      "accent": {
+        "$value": "#0ea5e9",
+        "$type": "color"
+      }
     },
     "light": {
-      "bg": { "$value": "#f8fafc", "$type": "color" },
-      "surface": { "$value": "#ffffff", "$type": "color" },
-      "text": { "$value": "#0f172a", "$type": "color" },
-      "text-muted": { "$value": "#475569", "$type": "color" },
-      "border": { "$value": "#e2e8f0", "$type": "color" }
+      "bg": {
+        "$value": "#f8fafc",
+        "$type": "color"
+      },
+      "surface": {
+        "$value": "#ffffff",
+        "$type": "color"
+      },
+      "text": {
+        "$value": "#0f172a",
+        "$type": "color"
+      },
+      "text-muted": {
+        "$value": "#475569",
+        "$type": "color"
+      },
+      "border": {
+        "$value": "#e2e8f0",
+        "$type": "color"
+      },
+      "on-success": {
+        "$value": "#166534",
+        "$type": "color"
+      },
+      "on-warning": {
+        "$value": "#92400e",
+        "$type": "color"
+      },
+      "on-danger": {
+        "$value": "#b91c1c",
+        "$type": "color"
+      },
+      "on-brand": {
+        "$value": "#4338ca",
+        "$type": "color"
+      }
     },
     "dark": {
-      "bg": { "$value": "#0b1120", "$type": "color" },
-      "surface": { "$value": "#111a2e", "$type": "color" },
-      "text": { "$value": "#e2e8f0", "$type": "color" },
-      "text-muted": { "$value": "#94a3b8", "$type": "color" },
-      "border": { "$value": "#1e293b", "$type": "color" }
+      "bg": {
+        "$value": "#0b1120",
+        "$type": "color"
+      },
+      "surface": {
+        "$value": "#111a2e",
+        "$type": "color"
+      },
+      "text": {
+        "$value": "#e2e8f0",
+        "$type": "color"
+      },
+      "text-muted": {
+        "$value": "#94a3b8",
+        "$type": "color"
+      },
+      "border": {
+        "$value": "#1e293b",
+        "$type": "color"
+      },
+      "on-success": {
+        "$value": "#86efac",
+        "$type": "color"
+      },
+      "on-warning": {
+        "$value": "#fcd34d",
+        "$type": "color"
+      },
+      "on-danger": {
+        "$value": "#fca5a5",
+        "$type": "color"
+      },
+      "on-brand": {
+        "$value": "#a5b4fc",
+        "$type": "color"
+      }
     },
     "status": {
-      "success": { "$value": "#16a34a", "$type": "color" },
-      "warning": { "$value": "#d97706", "$type": "color" },
-      "danger": { "$value": "#dc2626", "$type": "color" }
+      "success": {
+        "$value": "#16a34a",
+        "$type": "color"
+      },
+      "warning": {
+        "$value": "#d97706",
+        "$type": "color"
+      },
+      "danger": {
+        "$value": "#dc2626",
+        "$type": "color"
+      },
+      "danger-strong": {
+        "$value": "#b91c1c",
+        "$type": "color"
+      }
     }
   }
 }

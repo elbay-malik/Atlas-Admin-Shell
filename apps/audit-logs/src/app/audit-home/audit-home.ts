@@ -1,49 +1,90 @@
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-
-interface AuditEvent {
-  id: string;
-  at: string;
-  actor: string;
-  action: string;
-  target: string;
-}
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { UiBadge, UiButton } from '@atlas/shared-ui';
+import { AuditEntry } from '../data/audit-entry';
+import { AuditStore } from '../data/audit.store';
 
 @Component({
   selector: 'audit-home',
-  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [UiBadge, UiButton],
   template: `
     <section class="p-6">
-      <h1 class="text-2xl font-semibold mb-1">Audit Logs</h1>
-      <p class="mb-6 opacity-70">Searchable trail of platform events.</p>
-      <input
-        type="search"
-        placeholder="Filter by actor or action…"
-        class="mb-4 w-full max-w-md rounded border px-3 py-2 text-sm"
-        [ngModel]="query()"
-        (ngModelChange)="query.set($event)"
-      />
+      <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 class="mb-1 text-2xl font-semibold">Audit Logs</h1>
+          <p class="text-text-muted">
+            Searchable trail of platform events, live from every domain.
+          </p>
+        </div>
+        <ui-badge data-testid="audit-live-count" [tone]="liveCount() > 0 ? 'success' : 'neutral'">
+          {{ liveCount() }} live
+        </ui-badge>
+      </header>
+
+      @if (store.error(); as message) {
+        <div
+          data-testid="audit-error"
+          role="alert"
+          class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-md
+                 border border-status-danger/40 bg-surface p-4"
+        >
+          <p class="text-sm text-on-danger">{{ message }}</p>
+          <ui-button variant="secondary" (pressed)="store.load()">Retry</ui-button>
+        </div>
+      }
+
+      <label class="mb-4 block max-w-md">
+        <span class="sr-only">Filter events by actor, action or target</span>
+        <input
+          type="search"
+          data-testid="audit-filter"
+          placeholder="Filter by actor, action or target…"
+          class="w-full rounded border border-border bg-surface px-3 py-2 text-sm
+                 placeholder:text-text-muted"
+          [value]="store.query()"
+          (input)="onFilter($event)"
+        />
+      </label>
+
+      @if (store.isPending() && store.filtered().length === 0) {
+        <p data-testid="audit-loading" class="text-sm text-text-muted">Loading audit events…</p>
+      }
+
       <table class="w-full text-left text-sm">
         <thead>
-          <tr class="border-b opacity-60">
-            <th class="py-2 pr-4">When</th>
-            <th class="py-2 pr-4">Actor</th>
-            <th class="py-2 pr-4">Action</th>
-            <th class="py-2">Target</th>
+          <tr class="border-b border-border text-text-muted">
+            <th scope="col" class="py-2 pr-4 font-medium">When</th>
+            <th scope="col" class="py-2 pr-4 font-medium">Actor</th>
+            <th scope="col" class="py-2 pr-4 font-medium">Action</th>
+            <th scope="col" class="py-2 font-medium">Target</th>
           </tr>
         </thead>
         <tbody>
-          @for (event of filtered(); track event.id) {
-            <tr class="border-b border-black/5">
-              <td class="py-2 pr-4 whitespace-nowrap">{{ event.at }}</td>
+          @for (event of store.filtered(); track event.id) {
+            <tr
+              data-testid="audit-row"
+              [attr.data-event-id]="event.id"
+              [attr.data-source]="event.source"
+              class="border-b border-border/60"
+            >
+              <td class="py-2 pr-4 whitespace-nowrap" [title]="event.at">{{ when(event) }}</td>
               <td class="py-2 pr-4">{{ event.actor }}</td>
-              <td class="py-2 pr-4">{{ event.action }}</td>
-              <td class="py-2">{{ event.target }}</td>
+              <td class="py-2 pr-4">
+                {{ event.action }}
+                @if (event.detail; as detail) {
+                  <span class="text-text-muted">({{ detail }})</span>
+                }
+              </td>
+              <td class="py-2">
+                {{ event.target }}
+                @if (event.source !== 'seed') {
+                  <ui-badge tone="success">live</ui-badge>
+                }
+              </td>
             </tr>
           } @empty {
             <tr>
-              <td colspan="4" class="py-4 opacity-60">No events match the filter.</td>
+              <td colspan="4" class="py-4 text-text-muted">No events match the filter.</td>
             </tr>
           }
         </tbody>
@@ -52,19 +93,19 @@ interface AuditEvent {
   `,
 })
 export class AuditHome {
-  readonly query = signal('');
-  readonly events = signal<AuditEvent[]>([
-    { id: 'e-1', at: '2026-07-08 09:12', actor: 'ada@atlas.dev', action: 'user.role.changed', target: 'alan@atlas.dev' },
-    { id: 'e-2', at: '2026-07-08 08:47', actor: 'grace@atlas.dev', action: 'flag.enabled', target: 'new-dashboard' },
-    { id: 'e-3', at: '2026-07-07 17:03', actor: 'ada@atlas.dev', action: 'user.invited', target: 'kj@atlas.dev' },
-    { id: 'e-4', at: '2026-07-07 12:30', actor: 'system', action: 'tenant.provisioned', target: 'acme-corp' },
-  ]);
+  protected readonly store = inject(AuditStore);
 
-  readonly filtered = computed(() => {
-    const q = this.query().trim().toLowerCase();
-    if (!q) return this.events();
-    return this.events().filter(
-      (e) => e.actor.toLowerCase().includes(q) || e.action.toLowerCase().includes(q)
-    );
-  });
+  /** Rows that arrived over the bus rather than from the seeded backend. */
+  protected readonly liveCount = computed(
+    () => this.store.entities().filter((entry) => entry.source !== 'seed').length
+  );
+
+  protected onFilter(event: Event): void {
+    this.store.setQuery((event.target as HTMLInputElement).value);
+  }
+
+  /** Compact, locale-stable timestamp; the raw ISO value stays in the title. */
+  protected when(entry: AuditEntry): string {
+    return entry.at.replace('T', ' ').slice(0, 16);
+  }
 }

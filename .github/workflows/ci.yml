@@ -17,7 +17,7 @@ concurrency:
 jobs:
   main:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,7 +27,51 @@ jobs:
 
       - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # ADR-0003: zone.js must never resolve into this workspace. Storybook's
+      # Angular framework declares it as an OPTIONAL peer, so pnpm leaves it out
+      # — this guard is what keeps that claim honest rather than assumed.
+      - name: Assert the tree stays zoneless
+        run: |
+          if [ -d node_modules/zone.js ] || pnpm ls --depth Infinity zone.js 2>/dev/null | grep -q 'zone\.js'; then
+            echo "::error::zone.js resolved into the dependency tree (ADR-0003)"
+            exit 1
+          fi
+
+      - uses: nrwl/nx-set-shas@v5
+        with:
+          main-branch-name: main
+
+      # the Storybook test-runner drives a real browser for the a11y gate
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - run: pnpm exec nx affected -t lint test build build-storybook
+
+      # accessibility gate: any axe violation in any story fails the build
+      - run: pnpm exec nx affected -t test-storybook
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NX_DAEMON: 'false'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: tree:0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -38,6 +82,37 @@ jobs:
         with:
           main-branch-name: main
 
-      - run: pnpm exec nx affected -t lint test build
-      # enable once the Playwright federation e2e suite lands (slice 2):
-      # - run: pnpm exec nx affected -t e2e-ci
+      # @playwright/test is pinned exactly, so the browser build is deterministic
+      # and this cache key is stable across runs
+      - id: playwright-version
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      # Warm the Nx cache so each serve-static's nested `nx run <app>:build` is a
+      # cache hit rather than four concurrent production builds (ADR-0009).
+      - run: pnpm exec nx run-many -t build -p shell,iam,feature-flags,audit-logs
+
+      # `e2e`, not `e2e-ci`: the atomized per-spec targets refuse to run without
+      # Nx Cloud, which this repo deliberately has not connected.
+      - run: pnpm exec nx affected -t e2e
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            dist/.playwright/apps/shell-e2e/playwright-report
+            dist/.playwright/apps/shell-e2e/test-output
+          if-no-files-found: ignore
+          retention-days: 7

@@ -34,7 +34,8 @@
         "dev": true,
         "devServer": true,
         "port": 0
-      }
+      },
+      "continuous": true
     },
     "lint": {
       "executor": "@nx/eslint:lint"
@@ -42,7 +43,8 @@
     "test": {
       "executor": "@angular/build:unit-test",
       "options": {
-        "watch": false
+        "watch": false,
+        "buildTarget": "feature-flags:esbuild:development"
       }
     },
     "serve-static": {

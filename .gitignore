@@ -43,3 +43,5 @@ pnpm-debug.log*
 __screenshots__/
 
 vitest.config.*.timestamp*
+# Storybook (explicit targets emit to dist/storybook, this is the CLI default)
+storybook-static

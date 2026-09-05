@@ -4,6 +4,16 @@
     "outDir": "../../dist/out-tsc",
     "types": []
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts"]
+  "include": [
+    "src/**/*.ts",
+    "../../libs/shared/contracts/src/index.ts",
+    "../../libs/shared/ui/src/index.ts",
+    "../../libs/shared/auth/src/index.ts",
+    "../../libs/shared/event-bus/src/index.ts",
+    "../../libs/shared/util/src/index.ts"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts"
+  ]
 }

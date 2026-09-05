@@ -1,0 +1,142 @@
+import { Component } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { Router, provideRouter, withNavigationErrorHandler } from '@angular/router';
+import { AtlasAuth, MockAtlasAuth } from '@atlas/shared-auth';
+import { AtlasManifest } from '@atlas/shared-contracts';
+import { provideAtlasEventBus } from '@atlas/shared-event-bus';
+import { buildRoutes, remoteUnavailableRedirect } from '../../bootstrap';
+import { ATLAS_MANIFEST } from '../manifest.token';
+import { RemoteLoader, RemoteUnavailableError } from './remote-loader';
+
+/** Stands in for whatever a remote exposes; the shell only cares that it activates. */
+@Component({ selector: 'shell-remote-home', template: 'remote' })
+class RemoteHome {}
+
+const manifest: AtlasManifest = {
+  version: 1,
+  remotes: {
+    iam: {
+      url: 'http://localhost:4201/remoteEntry.json',
+      displayName: 'Identity & Access',
+      route: 'iam',
+      icon: '👥',
+      exposedModule: './Routes',
+      requiredRole: 'admin',
+    },
+    'feature-flags': {
+      url: 'http://localhost:4202/remoteEntry.json',
+      displayName: 'Feature Flags',
+      route: 'flags',
+      icon: '🚩',
+      exposedModule: './Routes',
+      requiredRole: 'viewer',
+    },
+  },
+};
+
+/** Counts load attempts so we can prove a failed load is re-invoked, not cached. */
+function fakeLoader(behaviour: (name: string, attempt: number) => Promise<unknown>) {
+  const attempts: Record<string, number> = {};
+  return {
+    attempts,
+    load: (name: string) => {
+      attempts[name] = (attempts[name] ?? 0) + 1;
+      return behaviour(name, attempts[name]);
+    },
+  };
+}
+
+function setup(loader: { load: (name: string) => Promise<unknown> }) {
+  TestBed.configureTestingModule({
+    providers: [
+      provideAtlasEventBus(),
+      { provide: ATLAS_MANIFEST, useValue: manifest },
+      { provide: AtlasAuth, useClass: MockAtlasAuth },
+      { provide: RemoteLoader, useValue: loader },
+      provideRouter(buildRoutes(manifest), withNavigationErrorHandler(remoteUnavailableRedirect)),
+    ],
+  });
+  return TestBed.inject(Router);
+}
+
+describe('manifest-derived routing and the remote error boundary', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it('activates a remote whose routes load', async () => {
+    const router = setup(fakeLoader(async () => [{ path: '', component: RemoteHome }]));
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('admin');
+
+    await router.navigateByUrl('/iam');
+    expect(router.url).toBe('/iam');
+  });
+
+  it('redirects a failed load to the boundary, preserving the attempted URL', async () => {
+    const router = setup(
+      fakeLoader(async (name) => {
+        throw new RemoteUnavailableError(name, 'entry', 'remoteEntry.json unreachable');
+      })
+    );
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('admin');
+
+    await router.navigateByUrl('/iam');
+
+    expect(router.url).toBe('/unavailable/iam?returnUrl=%2Fiam');
+  });
+
+  /**
+   * The core of ADR-0007. The router caches whatever a loadChildren promise
+   * RESOLVES with in `route._loadedRoutes`; a REJECTION is never cached. So the
+   * boundary's Retry re-runs the real loader — no page reload, no resetConfig.
+   */
+  it('re-invokes the loader on retry, because a rejected load is never cached', async () => {
+    const loader = fakeLoader(async (name, attempt) => {
+      if (attempt === 1) throw new RemoteUnavailableError(name, 'entry', 'first attempt failed');
+      return [{ path: '', component: RemoteHome }];
+    });
+    const router = setup(loader);
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('admin');
+
+    await router.navigateByUrl('/iam');
+    expect(router.url).toBe('/unavailable/iam?returnUrl=%2Fiam');
+    expect(loader.attempts['iam']).toBe(1);
+
+    // what the boundary's Retry button does
+    await router.navigateByUrl('/iam');
+
+    expect(loader.attempts['iam']).toBe(2);
+    expect(router.url).toBe('/iam');
+  });
+
+  it('never fetches a remote the user may not enter (canMatch runs before the load)', async () => {
+    const loader = fakeLoader(async () => [{ path: '', component: RemoteHome }]);
+    const router = setup(loader);
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('viewer');
+
+    await router.navigateByUrl('/iam'); // admin-only
+
+    expect(loader.attempts['iam']).toBeUndefined(); // never downloaded
+    expect(router.url).toBe('/'); // redirected to the overview
+  });
+
+  it('keeps the rest of the platform working when one remote is down', async () => {
+    const loader = fakeLoader(async (name) => {
+      if (name === 'iam') throw new RemoteUnavailableError(name, 'entry', 'down');
+      return [{ path: '', component: RemoteHome }];
+    });
+    const router = setup(loader);
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('admin');
+
+    await router.navigateByUrl('/iam');
+    expect(router.url).toContain('/unavailable/iam');
+
+    await router.navigateByUrl('/flags');
+    expect(router.url).toBe('/flags');
+  });
+
+  it('leaves a non-remote navigation error alone', () => {
+    setup(fakeLoader(async () => []));
+    const unrelated = { error: new Error('something else'), url: '/iam' } as never;
+    expect(remoteUnavailableRedirect(unrelated)).toBeUndefined();
+  });
+});

@@ -8,7 +8,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
   template: `
     <a
       class="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface hover:text-text aria-disabled:pointer-events-none aria-disabled:opacity-40"
-      routerLinkActive="!bg-brand-primary/10 !text-brand-primary font-medium"
+      routerLinkActive="!bg-brand-primary/10 !text-on-brand font-medium"
       [routerLink]="disabled() ? null : link()"
       [routerLinkActiveOptions]="{ exact: exact() }"
       [attr.aria-disabled]="disabled()"

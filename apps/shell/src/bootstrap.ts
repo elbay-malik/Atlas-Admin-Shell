@@ -1,52 +1,107 @@
-import { inject, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
-import { Route, Router, provideRouter } from '@angular/router';
+import {
+  NavigationError,
+  RedirectCommand,
+  Route,
+  Router,
+  provideRouter,
+  withNavigationErrorHandler,
+} from '@angular/router';
 import type { NativeFederationResult } from '@angular-architects/native-federation-v4';
 import { AtlasAuth, provideAtlasAuth } from '@atlas/shared-auth';
-import { AtlasManifest, isAtlasManifest } from '@atlas/shared-contracts';
+import { ATLAS_MANIFEST_VERSION, AtlasManifest, isAtlasManifest } from '@atlas/shared-contracts';
+import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { App } from './app/app';
+import { FEDERATION } from './app/federation.token';
 import { ATLAS_MANIFEST } from './app/manifest.token';
 import { ModuleUnavailable } from './app/module-unavailable/module-unavailable';
 import { Overview } from './app/overview/overview';
+import { RemoteHealthStore } from './app/remotes/remote-health.store';
+import { RemoteLoader, RemoteUnavailableError } from './app/remotes/remote-loader';
 
-type RemoteLoader = NativeFederationResult['loadRemoteModule'];
-
-function buildRoutes(manifest: AtlasManifest, loadRemoteModule: RemoteLoader): Route[] {
-  const remoteRoutes = Object.entries(manifest.remotes).map(
-    ([name, def]): Route => ({
+/**
+ * Routes are derived from the manifest — adding a domain is a manifest edit,
+ * never a shell rebuild (ADR-0004).
+ *
+ * Two deliberate choices (ADR-0007):
+ * - `canMatch`, not `canActivate`: canMatch runs during recognition, BEFORE the
+ *   remote is fetched, so a viewer typing an admin-only URL never triggers the
+ *   download (and a failing role check falls through to the catch-all).
+ * - `loadChildren` rejects on failure instead of resolving with fallback routes.
+ *   The router caches anything a loader resolves with in `route._loadedRoutes`;
+ *   a rejection is not cached, so Retry genuinely re-runs the load.
+ */
+export function buildRoutes(manifest: AtlasManifest): Route[] {
+  const remoteRoutes = Object.entries(manifest.remotes).flatMap(([name, def]): Route[] => [
+    {
       path: def.route,
-      canActivate: [
-        () => inject(AtlasAuth).hasRole(def.requiredRole) || inject(Router).parseUrl('/'),
-      ],
-      loadChildren: () =>
-        loadRemoteModule(name, def.exposedModule)
-          .then((m) => (m as { remoteRoutes: Route[] }).remoteRoutes)
-          // a down remote degrades to a friendly screen; the shell keeps working
-          .catch((err) => {
-            console.error(`Failed to load remote "${name}"`, err);
-            return [{ path: '', component: ModuleUnavailable }];
-          }),
-    })
-  );
+      canMatch: [() => inject(AtlasAuth).hasRole(def.requiredRole)],
+      loadChildren: () => inject(RemoteLoader).load(name),
+    },
+    // Same path, no guard: reached only when canMatch above declined, i.e. the
+    // user may not enter this domain. Sending them to the overview (rather than
+    // letting the catch-all render "not found" at the domain's own URL) keeps a
+    // deep link to a forbidden remote indistinguishable from one that does not
+    // exist — the remote was never fetched either way.
+    { path: def.route, redirectTo: '' },
+  ]);
 
   return [
     { path: '', pathMatch: 'full', component: Overview },
     ...remoteRoutes,
+    { path: 'unavailable/:remote', component: ModuleUnavailable },
     { path: '**', component: ModuleUnavailable },
   ];
 }
 
-export function bootstrap(rawManifest: unknown, loadRemoteModule: RemoteLoader) {
-  if (!isAtlasManifest(rawManifest)) {
-    throw new Error('federation.manifest.json does not match the expected contract');
-  }
-  const manifest: AtlasManifest = rawManifest;
+/**
+ * Turns a rejected remote load into a navigation to the shell-owned boundary.
+ * Returning a RedirectCommand makes the router emit NavigationCancel +
+ * RedirectRequest instead of NavigationError, so the URL, the outlet and the
+ * navigation promise all end up coherent without a reload. Anything that is not
+ * a remote failure is left alone (undefined) and surfaces as a NavigationError.
+ */
+export function remoteUnavailableRedirect(error: NavigationError): RedirectCommand | undefined {
+  if (!(error.error instanceof RemoteUnavailableError)) return undefined;
+  return new RedirectCommand(
+    inject(Router).createUrlTree(['/unavailable', error.error.remote], {
+      queryParams: { returnUrl: error.url },
+    })
+  );
+}
+
+/**
+ * ADR-0007: a malformed manifest degrades the platform to zero remotes; it must
+ * never stop the console booting. main.ts already covers an unreachable
+ * manifest — this covers one that parses but fails the contract.
+ */
+export function resolveManifest(rawManifest: unknown): AtlasManifest {
+  if (isAtlasManifest(rawManifest)) return rawManifest;
+  console.error(
+    'federation.manifest.json does not match the expected contract — starting with no remotes'
+  );
+  return { version: ATLAS_MANIFEST_VERSION, remotes: {} };
+}
+
+export function bootstrap(rawManifest: unknown, federation: NativeFederationResult) {
+  const manifest = resolveManifest(rawManifest);
   return bootstrapApplication(App, {
     providers: [
       provideBrowserGlobalErrorListeners(),
-      provideRouter(buildRoutes(manifest, loadRemoteModule)),
+      provideRouter(buildRoutes(manifest), withNavigationErrorHandler(remoteUnavailableRedirect)),
       provideAtlasAuth(),
+      // The shell is the bus HOST; remotes inject AtlasEventBus and receive
+      // this instance through federation sharing (ADR-0005).
+      provideAtlasEventBus(),
       { provide: ATLAS_MANIFEST, useValue: manifest },
+      { provide: FEDERATION, useValue: federation },
+      provideAppInitializer(() => {
+        // A remote missing from remoteInfoRepo failed its remoteEntry.json fetch
+        // during initFederation, so the nav can show it as offline immediately.
+        const repo = federation.adapters.remoteInfoRepo;
+        inject(RemoteHealthStore).seed(Object.keys(manifest.remotes), (name) => repo.contains(name));
+      }),
     ],
   });
 }

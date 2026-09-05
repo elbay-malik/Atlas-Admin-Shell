@@ -1,0 +1,8 @@
+@import 'tailwindcss';
+@import '../../design-tokens/src/generated/tokens.css';
+@import '../../design-tokens/src/generated/theme.css';
+
+body {
+  background-color: var(--atlas-color-bg);
+  color: var(--atlas-color-text);
+}

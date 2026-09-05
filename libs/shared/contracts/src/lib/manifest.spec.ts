@@ -19,8 +19,18 @@ describe('isAtlasManifest (contract)', () => {
   });
 
   it('rejects remotes with missing fields', () => {
-    const { requiredRole: _dropped, ...broken } = validRemote;
+    const broken: Partial<typeof validRemote> = { ...validRemote };
+    delete broken.requiredRole;
     expect(isAtlasManifest({ version: 1, remotes: { iam: broken } })).toBe(false);
+  });
+
+  it('rejects a null or non-object remote entry without throwing', () => {
+    // legal JSON that a templating step can easily emit; dereferencing it
+    // inside the guard used to throw and take the whole shell down
+    expect(() => isAtlasManifest({ version: 1, remotes: { iam: null } })).not.toThrow();
+    expect(isAtlasManifest({ version: 1, remotes: { iam: null } })).toBe(false);
+    expect(isAtlasManifest({ version: 1, remotes: { iam: 'nope' } })).toBe(false);
+    expect(isAtlasManifest({ version: 1, remotes: { iam: 42 } })).toBe(false);
   });
 
   it('rejects invalid roles', () => {

@@ -14,6 +14,7 @@ export default withNativeFederation({
     '@atlas/shared-ui',
     '@atlas/shared-auth',
     '@atlas/shared-contracts',
+    '@atlas/shared-event-bus',
     '@atlas/shared-util',
   ],
 
@@ -25,6 +26,12 @@ export default withNativeFederation({
           // includeSecondaries is an opt-out of ignoreUnusedDeps, so all of
           // @angular/core is shared to prevent mismatches.
           '@angular/core': { singleton: true, strictVersion: true, requiredVersion: 'auto', build: 'package', includeSecondaries: { keepAll: true } },
+          // Same hazard, same cure. Without keepAll the host shares only the
+          // @ngrx/signals ROOT entry, while a remote's '/entities' bundle is
+          // built against its own private copy of the core — so signalStore and
+          // withEntities end up with different STATE_SOURCE symbols and the
+          // store blows up with "Cannot set properties of undefined".
+          '@ngrx/signals': { singleton: true, strictVersion: true, requiredVersion: 'auto', build: 'package', includeSecondaries: { keepAll: true } },
         },
       },
     ),

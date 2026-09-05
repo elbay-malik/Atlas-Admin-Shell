@@ -25,6 +25,7 @@
       "@atlas/shared-ui": ["./libs/shared/ui/src/index.ts"],
       "@atlas/shared-auth": ["./libs/shared/auth/src/index.ts"],
       "@atlas/shared-contracts": ["./libs/shared/contracts/src/index.ts"],
+      "@atlas/shared-event-bus": ["./libs/shared/event-bus/src/index.ts"],
       "@atlas/shared-design-tokens": [
         "./libs/shared/design-tokens/src/index.ts"
       ],

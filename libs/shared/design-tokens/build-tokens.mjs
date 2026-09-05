@@ -14,7 +14,18 @@ const PREFIX = 'atlas';
 
 const cssVar = (token) => `--${PREFIX}-${token.path.join('-')}`;
 
-const SEMANTIC_KEYS = ['bg', 'surface', 'text', 'text-muted', 'border'];
+const SEMANTIC_KEYS = [
+  'bg',
+  'surface',
+  'text',
+  'text-muted',
+  'border',
+  // ink for text on the matching status tint — dark in light mode, light in dark mode
+  'on-success',
+  'on-warning',
+  'on-danger',
+  'on-brand',
+];
 
 StyleDictionary.registerFormat({
   name: 'css/atlas-vars',

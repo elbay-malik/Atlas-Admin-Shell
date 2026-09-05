@@ -1,30 +1,67 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
-
-interface FeatureFlag {
-  key: string;
-  description: string;
-  enabled: boolean;
-}
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { UiBadge, UiButton } from '@atlas/shared-ui';
+import { FlagsStore } from '../data/flags.store';
 
 @Component({
   selector: 'flags-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [UiBadge, UiButton],
   template: `
     <section class="p-6">
-      <h1 class="text-2xl font-semibold mb-1">Feature Flags</h1>
-      <p class="mb-6 opacity-70">Toggle features per environment.</p>
+      <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 class="mb-1 text-2xl font-semibold">Feature Flags</h1>
+          <p class="text-text-muted">Toggle features per environment.</p>
+        </div>
+        <ui-badge
+          data-testid="flags-summary"
+          [tone]="store.enabledCount() > 0 ? 'success' : 'neutral'"
+        >
+          {{ store.enabledCount() }} of {{ total() }} enabled
+        </ui-badge>
+      </header>
+
+      @if (store.error(); as message) {
+        <div
+          data-testid="flags-error"
+          role="alert"
+          class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-md border
+                 border-status-danger/40 bg-surface p-4"
+        >
+          <p class="text-sm text-on-danger">{{ message }}</p>
+          <ui-button variant="secondary" (pressed)="store.load()">Retry</ui-button>
+        </div>
+      }
+
+      @if (store.isPending()) {
+        <p data-testid="flags-loading" class="text-sm text-text-muted">Loading feature flags…</p>
+      } @else if (total() === 0) {
+        <p class="text-sm text-text-muted">No feature flags are defined for this environment.</p>
+      }
+
       <ul class="space-y-3">
-        @for (flag of flags(); track flag.key) {
-          <li class="flex items-center justify-between border-b border-black/5 pb-3">
+        @for (flag of store.entities(); track flag.key) {
+          <li
+            data-testid="flag-row"
+            [attr.data-flag-key]="flag.key"
+            class="flex items-center justify-between gap-4 border-b border-border pb-3"
+          >
             <div>
               <code class="text-sm">{{ flag.key }}</code>
-              <p class="text-sm opacity-70">{{ flag.description }}</p>
+              <p class="text-sm text-text-muted">{{ flag.description }}</p>
             </div>
             <button
               type="button"
-              class="text-sm px-3 py-1 rounded border"
+              data-testid="flag-toggle"
+              class="rounded-md border border-border px-3 py-1 text-sm font-medium transition-colors
+                     hover:border-brand-primary disabled:cursor-not-allowed disabled:opacity-50
+                     aria-pressed:border-brand-primary aria-pressed:bg-brand-primary
+                     aria-pressed:text-white"
               [attr.aria-pressed]="flag.enabled"
-              (click)="toggle(flag.key)"
+              [attr.aria-label]="'Toggle ' + flag.key"
+              [attr.data-pending]="isPending(flag.key)"
+              [disabled]="isPending(flag.key)"
+              (click)="store.toggle(flag.key)"
             >
               {{ flag.enabled ? 'On' : 'Off' }}
             </button>
@@ -35,15 +72,11 @@ interface FeatureFlag {
   `,
 })
 export class FlagsHome {
-  readonly flags = signal<FeatureFlag[]>([
-    { key: 'new-dashboard', description: 'Next-gen dashboard layout', enabled: true },
-    { key: 'bulk-export', description: 'CSV export for audit logs', enabled: false },
-    { key: 'sso-enforced', description: 'Require SSO for all tenants', enabled: false },
-  ]);
+  protected readonly store = inject(FlagsStore);
+  protected readonly total = computed(() => this.store.entities().length);
 
-  toggle(key: string): void {
-    this.flags.update((flags) =>
-      flags.map((f) => (f.key === key ? { ...f, enabled: !f.enabled } : f))
-    );
+  /** True while this row's write is in flight — only that row is disabled. */
+  protected isPending(key: string): boolean {
+    return this.store.pendingKeys().includes(key);
   }
 }
