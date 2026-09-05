@@ -118,6 +118,24 @@
           "buildTarget": "iam:esbuild:development"
         }
       }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build"
+      ],
+      "options": {
+        "cwd": "apps/iam",
+        "command": "pnpm exec wrangler deploy"
+      },
+      "configurations": {
+        "check": {
+          "command": "pnpm exec wrangler deploy --dry-run"
+        },
+        "preview": {
+          "command": "pnpm exec wrangler versions upload"
+        }
+      }
     }
   }
 }

@@ -1,0 +1,15 @@
+# The shell fetches these from another origin. es-module-shims requests module
+# SOURCE TEXT rather than letting the browser do a native module load, so the
+# chunks need the CORS header too, not just remoteEntry.json.
+# `*` is correct here rather than a credentialed echo: shim mode fetches with
+# credentials: 'same-origin', so no cookies ever cross the origin.
+/*
+  Access-Control-Allow-Origin: *
+
+# Not content-hashed, and it names the hashed chunks — it must revalidate or a
+# redeployed remote would keep serving stale chunk names.
+/remoteEntry.json
+  Cache-Control: no-cache
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable

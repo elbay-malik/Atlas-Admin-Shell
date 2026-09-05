@@ -1,0 +1,8 @@
+# The registry the whole console boots from. It must revalidate on every load,
+# or repointing a remote would not take effect until users hard-reload
+# (ADR-0010).
+/federation.manifest.json
+  Cache-Control: no-cache
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable

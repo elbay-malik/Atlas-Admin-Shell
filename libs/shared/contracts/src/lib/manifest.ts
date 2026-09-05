@@ -12,7 +12,12 @@ export const ATLAS_MANIFEST_VERSION = 1;
 export type AtlasRole = 'admin' | 'viewer';
 
 export interface RemoteDefinition {
-  /** Absolute URL of the remote's remoteEntry.json. */
+  /**
+   * Where the remote's remoteEntry.json lives. Absolute for a multi-origin
+   * deployment, or root-relative (`/iam/remoteEntry.json`) for a same-origin,
+   * path-routed one; the shell absolutises relative entries against the
+   * manifest's own URL before federation sees them (ADR-0010).
+   */
   url: string;
   /** Human-readable name, used for nav items and document titles. */
   displayName: string;

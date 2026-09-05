@@ -1,0 +1,74 @@
+name: Deploy
+
+# Inert until Cloudflare credentials exist. The guard job below reports whether
+# they are configured, and every deploy job is skipped when they are not, so a
+# fork or a fresh clone never sees a red build for a deploy it cannot perform.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which manifest to publish alongside the shell
+        type: choice
+        options: [production, preview]
+        default: production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        # `secrets` is available to a step, unlike a job-level `if`.
+        run: |
+          if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] && [ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Cloudflare credentials are not configured — skipping deploy. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to enable it."
+          fi
+
+  deploy:
+    needs: guard
+    if: needs.guard.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      ATLAS_ENV: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: tree:0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run manifest:check
+
+      # Remotes first: the shell's manifest points at them, so publishing the
+      # shell before its remotes exist would show every domain as offline.
+      - run: pnpm exec nx run-many -t deploy -p iam,feature-flags,audit-logs
+
+      # The environment is applied to the BUILT artifact by the deploy target
+      # itself, immediately before upload. It deliberately is NOT a separate step:
+      # the deploy target depends on `build`, so anything run between the two
+      # would be silently reverted when Nx re-ran the build (ADR-0010).
+      - run: pnpm exec nx run shell:deploy

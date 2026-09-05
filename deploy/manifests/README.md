@@ -1,0 +1,21 @@
+# Environment manifests
+
+One committed manifest per environment. These are **deployment inputs**, deliberately outside every
+Nx target's inputs, so the environment can never become part of the build cache key (ADR-0010).
+`tools/apply-manifest.mjs` copies the chosen one over the built shell immediately before upload.
+
+Adding an environment is adding a directory here. Repointing a remote is editing one file and
+re-uploading it — no rebuild, no shell redeploy.
+
+`tools/check-manifests.mjs` validates every environment in CI. It is deliberately **stricter** than
+the shell's runtime guard, so anything that passes CI is guaranteed to satisfy the shell.
+
+## Why there is no `preview` environment yet
+
+A path-routed preview (`/iam/remoteEntry.json`, one origin per pull request, so a single manifest
+would serve every PR unchanged) needs an edge router that mounts each remote under a path on the
+shell's origin. This repository deploys four **separate** Workers, one per app, each on its own
+origin — so root-relative entries would resolve against the shell's origin and match no asset there.
+
+`resolveRemoteUrls` already supports relative entries and is unit-tested for them, so the shell side
+is ready. The missing piece is the router, which lands with the edge BFF.

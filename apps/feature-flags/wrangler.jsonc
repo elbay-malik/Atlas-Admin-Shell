@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Assets-only Worker: no "main", because a remote serves no routes of its own.
+  // It is a bundle of static assets that the shell loads over the import map.
+  "name": "atlas-feature-flags",
+  "compatibility_date": "2026-09-05",
+  "assets": {
+    "directory": "../../dist/apps/feature-flags/browser",
+    // NOT single-page-application: a remote has no pages. A missing chunk must
+    // 404 so the shell's error boundary can classify it (ADR-0007) rather than
+    // receive index.html with a 200 and fail on a confusing parse error.
+    "not_found_handling": "none"
+  }
+}

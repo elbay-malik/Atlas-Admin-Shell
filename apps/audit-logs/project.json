@@ -118,6 +118,24 @@
           "buildTarget": "audit-logs:esbuild:development"
         }
       }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build"
+      ],
+      "options": {
+        "cwd": "apps/audit-logs",
+        "command": "pnpm exec wrangler deploy"
+      },
+      "configurations": {
+        "check": {
+          "command": "pnpm exec wrangler deploy --dry-run"
+        },
+        "preview": {
+          "command": "pnpm exec wrangler versions upload"
+        }
+      }
     }
   }
 }

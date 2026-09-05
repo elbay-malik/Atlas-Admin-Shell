@@ -41,6 +41,16 @@ Checked 2026-07-08: `@angular-architects/native-federation-v4@21.2.6` root entry
 top-level `loadRemoteModule` export is avoided), with `InitFederationOptions.sse?: boolean` for
 dev auto-reload — confirmed in the package's `src/index.d.ts`.
 
+Re-checked 2026-09-05, when real environments landed (ADR-0010): the "per environment, only the
+manifest differs" promise is now exercised rather than asserted. `deploy/manifests/<env>/` holds one
+committed manifest per environment, applied to the built artifact at deploy time, so a single shell
+bundle is promoted unchanged and repointing a remote is a one-file upload. Manifest entries may now
+be relative (`/iam/remoteEntry.json`) or absolute (`https://iam.atlas.example/remoteEntry.json`),
+because `resolveRemoteUrls` absolutises them against the manifest's own URL before `initFederation`
+sees them — the orchestrator does no such resolution itself. Relative support is unit-tested; it is
+there for a future path-routed topology, which needs an edge router this repository does not deploy
+yet (see `deploy/manifests/README.md`).
+
 ## References
 
 - https://native-federation.com

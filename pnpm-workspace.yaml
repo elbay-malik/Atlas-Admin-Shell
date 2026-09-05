@@ -8,6 +8,8 @@ allowBuilds:
   msgpackr-extract: true
   # jest (via @storybook/test-runner) resolves through unrs-resolver; prebuilt bindings ship as optional deps
   unrs-resolver: false
+  # wrangler's runtime; needs its postinstall to fetch the platform binary
+  workerd: true
 
 overrides:
   '@angular/animations': 21.2.17

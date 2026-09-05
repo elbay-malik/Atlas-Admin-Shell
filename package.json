@@ -2,7 +2,10 @@
   "name": "@atlas/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "manifest:apply": "node tools/apply-manifest.mjs",
+    "manifest:check": "node tools/check-manifests.mjs"
+  },
   "private": true,
   "devDependencies": {
     "@angular-architects/native-federation-v4": "21.2.6",
@@ -61,7 +64,8 @@
     "typescript-eslint": "^8.40.0",
     "vite": "^8.0.0",
     "vitest": "^4.0.8",
-    "wait-on": "9.1.0"
+    "wait-on": "9.1.0",
+    "wrangler": "4.129.0"
   },
   "packageManager": "pnpm@11.10.0+sha512.0b7f8b98060031904c017e3a41eb187a16d40eeb829b95c4f8cb03681761fc4ab53dd219115b9b447f4dce1a05a214764461e7d3703392a9f32f9511ce8c86c8",
   "engines": {

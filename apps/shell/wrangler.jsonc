@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The shell IS a page, so unmatched navigations fall back to index.html.
+  // Assets-only for now; the edge BFF adds "main" + "run_worker_first" here.
+  "name": "atlas-shell",
+  "compatibility_date": "2026-09-05",
+  "assets": {
+    "directory": "../../dist/apps/shell/browser",
+    // Serves index.html with a 200 for ANY unmatched path, not only navigations.
+    // The shell owns client-side routes so it needs this, but be aware of the
+    // trade-off when debugging: after a partial deploy a missing .js chunk comes
+    // back as HTML with a 200 rather than a 404. That is why the remotes below
+    // deliberately do NOT enable it.
+    "not_found_handling": "single-page-application"
+  }
+}

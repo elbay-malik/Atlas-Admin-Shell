@@ -52,7 +52,16 @@ jobs:
       - name: Install Playwright chromium
         run: pnpm exec playwright install --with-deps chromium
 
+      # Deploy artifacts are validated on every PR even though nothing deploys
+      # from here: a typo in an environment manifest would otherwise only surface
+      # as a console that boots with zero remotes (ADR-0010).
+      - run: pnpm run manifest:check
+
       - run: pnpm exec nx affected -t lint test build build-storybook
+
+      # Type-checks every wrangler config and its asset directory. Needs no
+      # Cloudflare credentials.
+      - run: pnpm exec nx affected -t deploy -c check
 
       # accessibility gate: any axe violation in any story fails the build
       - run: pnpm exec nx affected -t test-storybook

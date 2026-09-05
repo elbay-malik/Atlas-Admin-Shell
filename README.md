@@ -51,6 +51,7 @@ dated receipts (npm peer ranges, GitHub issue states) for its claims.
 | [0007](docs/adr/0007-remote-error-boundaries.md) | Remote error boundaries: reject rather than cache a fallback; recover by re-initialising the remote |
 | [0008](docs/adr/0008-storybook-webpack-framework-with-a11y-gate.md) | Storybook on the webpack Angular framework, with accessibility as a CI gate |
 | [0009](docs/adr/0009-federation-e2e-on-production-builds-in-ci.md) | Federation e2e against production builds served statically in CI |
+| [0010](docs/adr/0010-manifest-is-a-deployment-artifact.md) | The federation manifest is a deployment artifact, not a build input |
 
 ## Quickstart
 
@@ -98,6 +99,35 @@ docs/
 | Boundaries | `@nx/enforce-module-boundaries` tag rules | `nx affected -t lint` |
 | Zoneless | fails if `zone.js` ever resolves into the tree (ADR-0003) | CI guard step |
 
+## Deploying
+
+Each app publishes as a Cloudflare Worker serving static assets (`apps/<app>/wrangler.jsonc`). The
+shell sets `not_found_handling: "single-page-application"` because it owns routes; the remotes
+deliberately do not, so a missing chunk 404s and the shell's error boundary can classify it rather
+than receiving HTML with a 200.
+
+The environment lives in the **manifest**, never in the build (ADR-0010):
+
+```bash
+pnpm run manifest:check                       # validate every environment manifest
+ATLAS_ENV=production pnpm exec nx run shell:deploy   # needs Cloudflare credentials
+```
+
+The deploy target builds, swaps in that environment's registry, and uploads — in
+that order, as one step. Applying the manifest separately would not work: the target
+depends on `build`, so a rebuild between the two silently restores the committed
+localhost registry, and the deploy would still look green while shipping a console
+whose remotes all point at localhost. `apply-manifest` reads the file back after
+copying so that failure cannot pass unnoticed.
+
+`nx affected -t deploy -c check` type-checks every wrangler config against its asset directory and
+needs no account, so CI proves the deploy config on every pull request. Actual publishing is
+skipped until `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set as repository secrets —
+the deploy workflow reports that it skipped rather than failing.
+
+Repointing a remote is editing one file in `deploy/manifests/<env>/` and re-uploading it. No
+rebuild, no shell redeploy.
+
 ## Engineering practices
 
 - **Conventional commits**; trunk-based development — direct commits for the foundation slice,
@@ -117,6 +147,9 @@ docs/
   tests, error boundaries with retry/fallback, Storybook + a11y, federation E2E suite in CI.
 - [ ] **Slice 3 — BFF + Deploys**: Cloudflare Workers (static assets) per app, `nx affected`
   deploy pipelines, PR previews, edge BFF, Supabase OIDC swap-in.
+  - [x] Per-environment manifests as deploy artifacts, wrangler config per app, deploy targets and
+    a credential-gated deploy workflow. Validated end to end with `wrangler --dry-run`; **publishing
+    is blocked until Cloudflare credentials exist** (see Deploying).
 - [ ] **Slice 4 — Polish**: Lighthouse CI + Core Web Vitals, axe pass, whitepaper completion,
   demo video, Angular 22 migration (once Nx & NgRx support lands) as a showcase PR.
 

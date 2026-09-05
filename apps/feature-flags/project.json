@@ -118,6 +118,24 @@
           "buildTarget": "feature-flags:esbuild:development"
         }
       }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build"
+      ],
+      "options": {
+        "cwd": "apps/feature-flags",
+        "command": "pnpm exec wrangler deploy"
+      },
+      "configurations": {
+        "check": {
+          "command": "pnpm exec wrangler deploy --dry-run"
+        },
+        "preview": {
+          "command": "pnpm exec wrangler versions upload"
+        }
+      }
     }
   }
 }

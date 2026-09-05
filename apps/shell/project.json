@@ -118,6 +118,33 @@
           "buildTarget": "shell:esbuild:development"
         }
       }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build"
+      ],
+      "options": {
+        "cwd": "apps/shell",
+        "parallel": false,
+        "commands": [
+          "node ../../tools/apply-manifest.mjs ${ATLAS_ENV:-production}",
+          "pnpm exec wrangler deploy"
+        ]
+      },
+      "configurations": {
+        "check": {
+          "commands": [
+            "pnpm exec wrangler deploy --dry-run"
+          ]
+        },
+        "preview": {
+          "commands": [
+            "node ../../tools/apply-manifest.mjs ${ATLAS_ENV:-preview}",
+            "pnpm exec wrangler versions upload"
+          ]
+        }
+      }
     }
   }
 }
