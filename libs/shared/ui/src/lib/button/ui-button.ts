@@ -13,6 +13,7 @@ export type UiButtonVariant = 'primary' | 'secondary' | 'danger';
       [class]="variantClass()"
       [disabled]="disabled()"
       [attr.aria-label]="ariaLabel()"
+      [attr.aria-busy]="busy()"
       (click)="pressed.emit()"
     >
       <ng-content />
@@ -28,12 +29,20 @@ export class UiButton {
    * rotor). Keep the visible text as a prefix of this value — WCAG 2.5.3.
    */
   readonly ariaLabel = input<string>();
+  /**
+   * Work is in flight. Prefer this over `disabled` for an action the user just
+   * triggered: disabling the focused control moves focus to <body>. The caller
+   * is responsible for ignoring duplicate activations.
+   */
+  readonly busy = input(false);
   readonly pressed = output<void>();
 
   protected variantClass(): string {
     switch (this.variant()) {
       case 'secondary':
-        return 'border border-border bg-surface text-text hover:border-brand-primary';
+        // border-strong, not border: this outline is the control's only
+        // affordance, so it must clear 3:1 (WCAG 1.4.11)
+        return 'border border-border-strong bg-surface text-text hover:border-brand-primary';
       case 'danger':
         return 'bg-status-danger text-white hover:bg-status-danger-strong';
       default:

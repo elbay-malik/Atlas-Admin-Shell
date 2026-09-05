@@ -21,6 +21,7 @@
   --color-text: var(--atlas-color-text);
   --color-text-muted: var(--atlas-color-text-muted);
   --color-border: var(--atlas-color-border);
+  --color-border-strong: var(--atlas-color-border-strong);
   --color-on-success: var(--atlas-color-on-success);
   --color-on-warning: var(--atlas-color-on-warning);
   --color-on-danger: var(--atlas-color-on-danger);

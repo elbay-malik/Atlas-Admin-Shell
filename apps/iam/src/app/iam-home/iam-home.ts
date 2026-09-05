@@ -61,6 +61,12 @@ import { IamUsersStore } from '../data/iam-users.store';
         </thead>
         <tbody>
           @for (user of store.entities(); track user.id) {
+            <!--
+              Controls stay enabled while a write is in flight and express it
+              with aria-busy: disabling the control the user just activated
+              moves focus to <body> and loses their place in the table. The
+              store's in-flight guard swallows duplicate writes.
+            -->
             <tr
               data-testid="user-row"
               [attr.data-user-id]="user.id"
@@ -72,10 +78,10 @@ import { IamUsersStore } from '../data/iam-users.store';
               <td class="py-2 pr-4">
                 <select
                   data-testid="role-select"
-                  class="rounded border border-border bg-surface px-2 py-1 text-sm
+                  class="rounded border border-border-strong bg-surface px-2 py-1 text-sm
                          disabled:cursor-not-allowed disabled:opacity-50"
                   [value]="user.role"
-                  [disabled]="isPending(user.id)"
+                  [attr.aria-busy]="isPending(user.id)"
                   [attr.aria-label]="'Role for ' + user.name"
                   (change)="onRoleChange(user, $event)"
                 >
@@ -88,7 +94,7 @@ import { IamUsersStore } from '../data/iam-users.store';
                   data-testid="toggle-active"
                   variant="secondary"
                   [ariaLabel]="(user.active ? 'Deactivate ' : 'Activate ') + user.name"
-                  [disabled]="isPending(user.id)"
+                  [busy]="isPending(user.id)"
                   (pressed)="store.setActive({ id: user.id, active: !user.active })"
                 >
                   {{ user.active ? 'Deactivate' : 'Activate' }}

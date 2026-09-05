@@ -20,6 +20,9 @@ const SEMANTIC_KEYS = [
   'text',
   'text-muted',
   'border',
+  // boundary of an interactive control — must clear 3:1 (WCAG 1.4.11),
+  // unlike 'border', which only separates content
+  'border-strong',
   // ink for text on the matching status tint — dark in light mode, light in dark mode
   'on-success',
   'on-warning',

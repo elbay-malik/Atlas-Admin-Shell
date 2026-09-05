@@ -79,7 +79,7 @@ describe('FlagsHome', () => {
     expect(query(fixture, '[data-testid="flags-summary"]')?.textContent).toContain('1 of 3 enabled');
   });
 
-  it('flips aria-pressed on click and disables only that row while it is pending', async () => {
+  it('flips aria-pressed on click and marks only that row busy while it is pending', async () => {
     const fixture = await render();
     const [first, second] = rows(fixture);
 
@@ -89,15 +89,38 @@ describe('FlagsHome', () => {
     expect(toggleIn(second).getAttribute('aria-pressed')).toBe('true');
     expect(toggleIn(second).textContent?.trim()).toBe('On');
     expect(toggleIn(second).getAttribute('data-pending')).toBe('true');
-    expect(toggleIn(second).disabled).toBe(true);
-    expect(toggleIn(first).disabled).toBe(false);
+    // busy, NOT disabled: disabling the control the user just activated would
+    // throw keyboard focus to <body> and lose their place in the list
+    expect(toggleIn(second).getAttribute('aria-busy')).toBe('true');
+    expect(toggleIn(second).disabled).toBe(false);
+    expect(toggleIn(first).getAttribute('aria-busy')).toBe('false');
 
     await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
     await TestBed.tick();
 
     expect(toggleIn(second).getAttribute('aria-pressed')).toBe('true');
     expect(toggleIn(second).getAttribute('data-pending')).toBe('false');
-    expect(toggleIn(second).disabled).toBe(false);
+    expect(toggleIn(second).getAttribute('aria-busy')).toBe('false');
+    expect(query(fixture, '[data-testid="flags-summary"]')?.textContent).toContain('2 of 3 enabled');
+  });
+
+  it('keeps the busy control focusable and swallows a double activation', async () => {
+    const fixture = await render();
+    const [, second] = rows(fixture);
+
+    toggleIn(second).focus();
+    toggleIn(second).click();
+    await TestBed.tick();
+
+    // the whole point of aria-busy over disabled: focus stays put
+    expect(document.activeElement).toBe(toggleIn(second));
+
+    // an impatient second click must not queue a second write and flip it back
+    toggleIn(second).click();
+    await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+    await TestBed.tick();
+
+    expect(toggleIn(second).getAttribute('aria-pressed')).toBe('true');
     expect(query(fixture, '[data-testid="flags-summary"]')?.textContent).toContain('2 of 3 enabled');
   });
 

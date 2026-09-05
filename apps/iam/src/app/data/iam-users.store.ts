@@ -77,6 +77,9 @@ export const IamUsersStore = signalStore(
             mergeMap(({ id, role }) => {
               const user = store.entityMap()[id];
               if (!user || user.role === role) return EMPTY;
+              // Rows stay focusable while their write is in flight (disabling
+              // would throw focus to <body>), so duplicates are swallowed here.
+              if (store.pendingIds().includes(id)) return EMPTY;
 
               const previous = user.role;
               patchState(store, updateEntity({ id, changes: { role } }));
@@ -111,6 +114,7 @@ export const IamUsersStore = signalStore(
             mergeMap(({ id, active }) => {
               const user = store.entityMap()[id];
               if (!user || user.active === active) return EMPTY;
+              if (store.pendingIds().includes(id)) return EMPTY;
 
               patchState(store, updateEntity({ id, changes: { active } }));
               begin(id);

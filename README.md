@@ -93,9 +93,13 @@ docs/
 
 | Gate | What it runs | Where |
 | --- | --- | --- |
-| Unit + contract tests | 114 tests across 11 projects, incl. a frozen event-catalogue snapshot | `nx affected -t test` |
-| Accessibility | axe on every Storybook story, `a11y.test: 'error'` | `nx affected -t test-storybook` |
-| Federation e2e | 14 Playwright specs against production builds over real import maps | `nx affected -t e2e` |
+| Unit + contract tests | Every project, incl. a frozen event-catalogue snapshot | `nx affected -t test` |
+| Accessibility (components) | axe on every Storybook story, light **and** dark, `a11y.test: 'error'` | `nx affected -t test-storybook` |
+| Accessibility (application) | axe over the real federated console, every remote, both themes | `nx affected -t e2e` |
+| Control affordances | WCAG 1.4.11 boundary contrast, which axe does **not** automate | `nx affected -t e2e` |
+| Federation e2e | Playwright specs against production builds over real import maps | `nx affected -t e2e` |
+| Auth boundary | no remote may bundle the identity client (ADR-0006) | `pnpm run bundles:check` |
+| Deploy artifacts | every environment manifest satisfies the contract | `pnpm run manifest:check` |
 | Boundaries | `@nx/enforce-module-boundaries` tag rules | `nx affected -t lint` |
 | Zoneless | fails if `zone.js` ever resolves into the tree (ADR-0003) | CI guard step |
 

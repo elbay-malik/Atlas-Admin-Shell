@@ -50,17 +50,22 @@ import { FlagsStore } from '../data/flags.store';
               <code class="text-sm">{{ flag.key }}</code>
               <p class="text-sm text-text-muted">{{ flag.description }}</p>
             </div>
+            <!--
+              aria-busy rather than disabled: disabling the control the user just
+              activated moves focus to <body> and loses their place in the list.
+              The store's in-flight guard swallows a duplicate write instead.
+            -->
             <button
               type="button"
               data-testid="flag-toggle"
-              class="rounded-md border border-border px-3 py-1 text-sm font-medium transition-colors
+              class="rounded-md border border-border-strong px-3 py-1 text-sm font-medium transition-colors
                      hover:border-brand-primary disabled:cursor-not-allowed disabled:opacity-50
                      aria-pressed:border-brand-primary aria-pressed:bg-brand-primary
                      aria-pressed:text-white"
               [attr.aria-pressed]="flag.enabled"
               [attr.aria-label]="'Toggle ' + flag.key"
               [attr.data-pending]="isPending(flag.key)"
-              [disabled]="isPending(flag.key)"
+              [attr.aria-busy]="isPending(flag.key)"
               (click)="store.toggle(flag.key)"
             >
               {{ flag.enabled ? 'On' : 'Off' }}

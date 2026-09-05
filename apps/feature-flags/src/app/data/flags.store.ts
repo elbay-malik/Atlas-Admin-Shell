@@ -77,6 +77,10 @@ export const FlagsStore = signalStore(
           mergeMap((key) => {
             const flag = store.entityMap()[key];
             if (!flag) return EMPTY;
+            // In-flight guard. The row stays focusable while its write is
+            // pending (disabling it would throw keyboard focus to <body>), so
+            // a double-activation has to be swallowed here instead.
+            if (store.pendingKeys().includes(key)) return EMPTY;
 
             const enabled = !flag.enabled;
             patchState(

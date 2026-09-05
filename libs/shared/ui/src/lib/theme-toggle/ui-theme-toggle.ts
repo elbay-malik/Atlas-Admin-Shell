@@ -7,7 +7,7 @@ import { ThemeService } from '../theme/theme.service';
   template: `
     <button
       type="button"
-      class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-lg hover:bg-surface"
+      class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-strong text-lg hover:bg-surface"
       [attr.aria-label]="theme.dark() ? 'Switch to light theme' : 'Switch to dark theme'"
       [attr.aria-pressed]="theme.dark()"
       (click)="theme.toggle()"

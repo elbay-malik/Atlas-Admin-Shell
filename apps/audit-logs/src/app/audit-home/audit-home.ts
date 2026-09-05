@@ -39,7 +39,7 @@ import { AuditStore } from '../data/audit.store';
           type="search"
           data-testid="audit-filter"
           placeholder="Filter by actor, action or target…"
-          class="w-full rounded border border-border bg-surface px-3 py-2 text-sm
+          class="w-full rounded border border-border-strong bg-surface px-3 py-2 text-sm
                  placeholder:text-text-muted"
           [value]="store.query()"
           (input)="onFilter($event)"
