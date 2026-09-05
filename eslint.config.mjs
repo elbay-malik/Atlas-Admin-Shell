@@ -24,18 +24,31 @@ export default [
             {
               sourceTag: 'scope:iam',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:iam'],
+              // the identity client is shell-only; a remote reaches auth through
+              // the shared AtlasAuth singleton, never the vendor SDK (ADR-0006)
+              bannedExternalImports: ['@supabase/*'],
             },
             {
               sourceTag: 'scope:flags',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:flags'],
+              // the identity client is shell-only; a remote reaches auth through
+              // the shared AtlasAuth singleton, never the vendor SDK (ADR-0006)
+              bannedExternalImports: ['@supabase/*'],
             },
             {
               sourceTag: 'scope:audit',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:audit'],
+              // the identity client is shell-only; a remote reaches auth through
+              // the shared AtlasAuth singleton, never the vendor SDK (ADR-0006)
+              bannedExternalImports: ['@supabase/*'],
             },
             {
               sourceTag: 'scope:shared',
               onlyDependOnLibsWithTags: ['scope:shared'],
+              // keeping it out of the shared libs is the load-bearing rule: a
+              // Supabase import in @atlas/shared-auth's barrel would pull the
+              // client into every remote's shared set
+              bannedExternalImports: ['@supabase/*'],
             },
             // layering: apps sit on top; utils sit at the bottom
             {

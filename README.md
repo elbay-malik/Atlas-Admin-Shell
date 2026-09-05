@@ -150,6 +150,9 @@ rebuild, no shell redeploy.
   - [x] Per-environment manifests as deploy artifacts, wrangler config per app, deploy targets and
     a credential-gated deploy workflow. Validated end to end with `wrangler --dry-run`; **publishing
     is blocked until Cloudflare credentials exist** (see Deploying).
+  - [x] Supabase OIDC provider behind the existing `AtlasAuth` interface, unit-tested against a fake
+    client. The mock remains the default; **a real sign-in needs a Supabase project**. ADR-0006
+    carries an honest amendment on where the "drop-in" claim did and did not hold.
 - [ ] **Slice 4 — Polish**: Lighthouse CI + Core Web Vitals, axe pass, whitepaper completion,
   demo video, Angular 22 migration (once Nx & NgRx support lands) as a showcase PR.
 

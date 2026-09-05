@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { AtlasAuth, AuthUser, MockPersona } from './atlas-auth';
+import { AtlasAuth, AtlasLoginHint, AuthUser, MockPersona } from './atlas-auth';
 
 const STORAGE_KEY = 'atlas.auth.persona';
 
@@ -24,7 +24,8 @@ export class MockAtlasAuth extends AtlasAuth {
     this.currentUser.set(stored ? PERSONAS[stored] : null);
   }
 
-  async login(persona: MockPersona): Promise<void> {
+  async login(hint: AtlasLoginHint = 'admin'): Promise<void> {
+    const persona: MockPersona = hint === 'viewer' ? 'viewer' : 'admin';
     this.currentUser.set(PERSONAS[persona]);
     try {
       localStorage.setItem(STORAGE_KEY, persona);
@@ -40,6 +41,15 @@ export class MockAtlasAuth extends AtlasAuth {
     } catch {
       // ignore
     }
+  }
+
+  /**
+   * A recognisably fake token. It is never sent anywhere real — the mock exists
+   * so the console runs without an identity provider (ADR-0006).
+   */
+  async getAccessToken(): Promise<string | null> {
+    const user = this.currentUser();
+    return user ? `mock.${user.id}.${user.role}` : null;
   }
 
   private readStored(): MockPersona | null {

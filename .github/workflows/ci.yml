@@ -63,6 +63,14 @@ jobs:
       # Cloudflare credentials.
       - run: pnpm exec nx affected -t deploy -c check
 
+      # ADR-0006: the identity client is shell-only. eslint blocks a direct
+      # import and the federation skip list stops sharing, but only this sees
+      # what actually landed in a bundle.
+      - name: Assert no remote bundles the identity client
+        run: |
+          pnpm exec nx run-many -t build -p iam,feature-flags,audit-logs
+          pnpm run bundles:check
+
       # accessibility gate: any axe violation in any story fails the build
       - run: pnpm exec nx affected -t test-storybook
 
