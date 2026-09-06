@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
-import { Observable, concatMap, delay, of, throwError } from 'rxjs';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, concatMap, delay, map, of, throwError } from 'rxjs';
 
 export interface FeatureFlag {
   key: string;
@@ -18,6 +19,18 @@ const GET_FLAGS_DELAY_MS = 300;
 const SET_ENABLED_DELAY_MS = 200;
 
 /**
+ * What the store depends on. Two implementations satisfy it: the mock below,
+ * and FlagsHttpApi against the edge BFF. The store, its optimistic writes and
+ * its rollback logic are identical either way — which is the point of keeping
+ * the seam here rather than inside the store.
+ */
+@Injectable()
+export abstract class FlagsApi {
+  abstract getFlags(): Observable<FeatureFlag[]>;
+  abstract setEnabled(key: string, enabled: boolean): Observable<void>;
+}
+
+/**
  * Mock backend for the flags domain. Latency is simulated so the store's
  * pending/optimistic paths are real, and `failNext()` arms a single
  * deterministic failure so tests (and the e2e error-state check) can exercise
@@ -27,15 +40,16 @@ const SET_ENABLED_DELAY_MS = 200;
  * route (remote.routes.ts) so nothing leaks across the federation boundary.
  */
 @Injectable()
-export class FlagsApi {
+export class FlagsMockApi extends FlagsApi {
   private failing = false;
+
 
   /** The next call — whichever it is — fails once, then the hook disarms. */
   failNext(): void {
     this.failing = true;
   }
 
-  getFlags(): Observable<FeatureFlag[]> {
+  override getFlags(): Observable<FeatureFlag[]> {
     return this.deliver(
       SEED.map((flag) => ({ ...flag })),
       GET_FLAGS_DELAY_MS,
@@ -43,7 +57,7 @@ export class FlagsApi {
     );
   }
 
-  setEnabled(key: string, enabled: boolean): Observable<void> {
+  override setEnabled(key: string, enabled: boolean): Observable<void> {
     return this.deliver<void>(
       undefined,
       SET_ENABLED_DELAY_MS,
@@ -61,5 +75,27 @@ export class FlagsApi {
         return throwError(() => new Error(failureMessage));
       })
     );
+  }
+}
+
+/**
+ * The real backend. Authorization lives at the edge (ADR-0011): a viewer's
+ * toggle is refused there with a 403 regardless of what this client believes,
+ * and the bearer token is attached by the interceptor in @atlas/shared-auth.
+ */
+@Injectable()
+export class FlagsHttpApi extends FlagsApi {
+  private readonly http = inject(HttpClient);
+
+  override getFlags(): Observable<FeatureFlag[]> {
+    return this.http
+      .get<{ flags: FeatureFlag[] }>('/api/flags')
+      .pipe(map((response) => response.flags));
+  }
+
+  override setEnabled(key: string, enabled: boolean): Observable<void> {
+    return this.http
+      .patch<unknown>(`/api/flags/${encodeURIComponent(key)}`, { enabled })
+      .pipe(map(() => undefined));
   }
 }

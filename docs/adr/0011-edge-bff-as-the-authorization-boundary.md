@@ -76,8 +76,17 @@ Option 1. The shell's existing Cloudflare Worker gains `main` and
   unacceptable the migration is an `apiBaseUrl` field on the manifest plus CORS, which is one field
   rather than a redesign. Domain state is in-memory per isolate; persistence is a later slice, and
   the boundary is what this one exists to prove.
-- The Angular remotes still call their mock APIs. Swapping them for HTTP clients is deliberately a
-  separate change so the federation e2e suite keeps running with no backend.
+- The Angular remotes now have both a mock and an HTTP implementation behind one contract, selected
+  by `ATLAS_API_MODE`. That token lives in `@atlas/shared-util` for a reason worth recording: an
+  InjectionToken's identity is the object, not its description, so declaring "the same" token in the
+  shell and again in each remote yields DISTINCT tokens — the shell's choice is silently ignored and
+  every remote falls back to its own default. That bug shipped past every unit test and was caught
+  only by driving the real browser-to-BFF path.
+- The mode is read from the manifest (`apiMode`), because it is environment configuration and
+  ADR-0010 puts that in a deployment artifact rather than a build. It follows the auth provider: the
+  mock auth mints a recognisably fake token, so "mock auth plus real API" could only ever produce
+  401s. The default is mock, which keeps the console and the federation e2e suite runnable with no
+  backend at all.
 
 ## Verification
 
@@ -110,6 +119,21 @@ Checked 2026-09-05:
   probed with a token signed by an RSA key the JWKS genuinely publishes, so only the pin can refuse
   it. Verified by deleting the pin and watching that test, and only that test, fail.
 - 49 BFF tests pass; 12 projects and 22 federation e2e specs remain green.
+
+### What the browser-to-BFF coverage does and does not include
+
+`apps/shell-bff-e2e` drives the real Worker over HTTP through `wrangler dev`, using a **dev-only
+entry** (`worker.dev.ts`) that trusts the mock auth's fake token. That entry is named only by
+`wrangler.dev.jsonc`; the deployed config points at `worker.ts`, so the bypass is not merely disabled
+in production — it is not in the bundle, which `config-parity.spec.ts` asserts.
+
+Those specs cover the API boundary: status codes, role enforcement, server-held state, and the
+audit actor coming from the token. They deliberately do **not** drive the federated remote screens.
+Loading three remotes through a cold `wrangler dev` while Nx was still building them proved flaky in
+a way that reflected the harness rather than the product, and the federation suite already covers
+those screens against static servers. The Angular half of the call — interceptor, HTTP
+implementations, mode selection — is covered by unit tests, and the full path was verified manually
+by tracing the browser's requests.
 
 ### Not demonstrated without a Supabase project
 

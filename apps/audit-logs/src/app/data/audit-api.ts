@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
-import { Observable, delay, of } from 'rxjs';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, delay, map, of } from 'rxjs';
 import { AuditEntry } from './audit-entry';
 
 /**
@@ -50,9 +51,29 @@ export const AUDIT_SEED: readonly AuditEntry[] = [
  * instance inside its own route injector (ADR-0005: nothing crosses a
  * federation boundary).
  */
+/**
+ * What the store depends on. The HTTP implementation filters SERVER-side, so
+ * the query string is treated as untrusted input at the edge rather than here
+ * (ADR-0011).
+ */
 @Injectable()
-export class AuditApi {
-  getEvents(): Observable<AuditEntry[]> {
+export abstract class AuditApi {
+  abstract getEvents(): Observable<AuditEntry[]>;
+}
+
+@Injectable()
+export class AuditMockApi extends AuditApi {
+  override getEvents(): Observable<AuditEntry[]> {
     return of([...AUDIT_SEED]).pipe(delay(300));
+  }
+}
+
+/** The real backend; the trail it returns is written server-side from verified tokens. */
+@Injectable()
+export class AuditHttpApi extends AuditApi {
+  private readonly http = inject(HttpClient);
+
+  override getEvents(): Observable<AuditEntry[]> {
+    return this.http.get<{ entries: AuditEntry[] }>('/api/audit').pipe(map((r) => r.entries));
   }
 }

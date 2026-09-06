@@ -1,0 +1,25 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // DEV/E2E ONLY — never deployed. `main` points at the dev entry, which trusts
+  // the mock auth's fake token so the browser-to-BFF path can be exercised with
+  // no identity provider. apps/shell/wrangler.jsonc points at worker.ts, and
+  // config-parity.spec.ts asserts it.
+  "name": "atlas-shell-dev",
+  "main": "src/worker.dev.ts",
+  "compatibility_date": "2026-09-05",
+  "assets": {
+    "directory": "../../dist/apps/shell/browser",
+    "binding": "ASSETS",
+    // The manifest is listed too, DEV ONLY: with run_worker_first as an array a
+    // non-matching request never invokes the Worker at all, so without this the
+    // override that flips apiMode to http would be dead code and the remotes
+    // would quietly keep using their mocks.
+    "run_worker_first": ["/api/*", "/federation.manifest.json"],
+    "not_found_handling": "single-page-application"
+  },
+  "vars": {
+    "ATLAS_JWKS_URL": "https://dev.invalid/auth/v1/.well-known/jwks.json",
+    "ATLAS_JWT_ISSUER": "https://dev.invalid/auth/v1",
+    "ATLAS_JWT_AUDIENCE": "authenticated"
+  }
+}

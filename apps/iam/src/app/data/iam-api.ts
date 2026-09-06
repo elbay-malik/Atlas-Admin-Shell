@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { AtlasRole } from '@atlas/shared-contracts';
-import { Observable, concatMap, delay, of, throwError } from 'rxjs';
+import { Observable, concatMap, delay, map, of, throwError } from 'rxjs';
 
 export interface IamUser {
   id: string;
@@ -22,6 +23,18 @@ const GET_USERS_DELAY_MS = 300;
 const WRITE_DELAY_MS = 200;
 
 /**
+ * What the store depends on. Satisfied by the mock below and by IamHttpApi
+ * against the edge BFF; the store's optimistic writes and rollback are
+ * identical either way.
+ */
+@Injectable()
+export abstract class IamApi {
+  abstract getUsers(): Observable<IamUser[]>;
+  abstract setRole(id: string, role: AtlasRole): Observable<void>;
+  abstract setActive(id: string, active: boolean): Observable<void>;
+}
+
+/**
  * Mock backend for the IAM domain. Latency is simulated so the store's
  * optimistic paths are real, and `failNext()` arms a single deterministic
  * failure so tests can exercise rollback without racing a network.
@@ -30,7 +43,7 @@ const WRITE_DELAY_MS = 200;
  * route so nothing leaks across the federation boundary.
  */
 @Injectable()
-export class IamApi {
+export class IamMockApi extends IamApi {
   private failing = false;
 
   /** The next call — whichever it is — fails once, then the hook disarms. */
@@ -38,7 +51,7 @@ export class IamApi {
     this.failing = true;
   }
 
-  getUsers(): Observable<IamUser[]> {
+  override getUsers(): Observable<IamUser[]> {
     return this.deliver(
       SEED.map((user) => ({ ...user })),
       GET_USERS_DELAY_MS,
@@ -46,11 +59,11 @@ export class IamApi {
     );
   }
 
-  setRole(id: string, role: AtlasRole): Observable<void> {
+  override setRole(id: string, role: AtlasRole): Observable<void> {
     return this.deliver<void>(undefined, WRITE_DELAY_MS, `Could not make ${id} a ${role}`);
   }
 
-  setActive(id: string, active: boolean): Observable<void> {
+  override setActive(id: string, active: boolean): Observable<void> {
     return this.deliver<void>(
       undefined,
       WRITE_DELAY_MS,
@@ -68,5 +81,31 @@ export class IamApi {
         return throwError(() => new Error(failureMessage));
       })
     );
+  }
+}
+
+/**
+ * The real backend. Every IAM route is admin-only at the edge, and the server
+ * additionally refuses things this client cannot know — demoting the last
+ * admin, or demoting yourself (ADR-0011).
+ */
+@Injectable()
+export class IamHttpApi extends IamApi {
+  private readonly http = inject(HttpClient);
+
+  override getUsers(): Observable<IamUser[]> {
+    return this.http.get<{ users: IamUser[] }>('/api/iam/users').pipe(map((r) => r.users));
+  }
+
+  override setRole(id: string, role: AtlasRole): Observable<void> {
+    return this.http
+      .patch<unknown>(`/api/iam/users/${encodeURIComponent(id)}/role`, { role })
+      .pipe(map(() => undefined));
+  }
+
+  override setActive(id: string, active: boolean): Observable<void> {
+    return this.http
+      .patch<unknown>(`/api/iam/users/${encodeURIComponent(id)}/active`, { active })
+      .pipe(map(() => undefined));
   }
 }

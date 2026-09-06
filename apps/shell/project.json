@@ -145,6 +145,17 @@
           ]
         }
       }
+    },
+    "serve-worker": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "dependsOn": [
+        "build"
+      ],
+      "options": {
+        "cwd": "apps/shell",
+        "command": "pnpm exec wrangler dev --config ../shell-bff/wrangler.dev.jsonc --port 4300 --ip 127.0.0.1"
+      }
     }
   },
   "implicitDependencies": [

@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ATLAS_EVENT_FIXTURES, flagToggled } from '@atlas/shared-contracts';
 import { AtlasEventBus, provideAtlasEventBus } from '@atlas/shared-event-bus';
-import { AuditApi } from './audit-api';
+import { AuditApi, AuditMockApi } from './audit-api';
 import { AuditStore } from './audit.store';
 
 const GET_EVENTS_MS = 300;
@@ -9,7 +9,7 @@ const GET_EVENTS_MS = 300;
 /** Configures the module but does NOT create the store, so the bus can be seeded first. */
 function configure(): AtlasEventBus {
   TestBed.configureTestingModule({
-    providers: [provideAtlasEventBus(), AuditApi, AuditStore],
+    providers: [provideAtlasEventBus(), { provide: AuditApi, useClass: AuditMockApi }, AuditStore],
   });
   return TestBed.inject(AtlasEventBus);
 }

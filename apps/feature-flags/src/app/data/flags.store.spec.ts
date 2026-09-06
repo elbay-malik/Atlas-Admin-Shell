@@ -3,7 +3,7 @@ import { AtlasAuth, MockAtlasAuth } from '@atlas/shared-auth';
 import { AtlasEvent } from '@atlas/shared-contracts';
 import { AtlasEventBus, provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { Subscription } from 'rxjs';
-import { FlagsApi } from './flags-api';
+import { FlagsApi, FlagsMockApi } from './flags-api';
 import { FlagsStore } from './flags.store';
 
 const GET_FLAGS_MS = 300;
@@ -13,7 +13,7 @@ type Store = InstanceType<typeof FlagsStore>;
 
 interface Harness {
   store: Store;
-  api: FlagsApi;
+  api: FlagsMockApi;
   bus: AtlasEventBus;
   published: AtlasEvent[];
   subscription: Subscription;
@@ -25,7 +25,7 @@ function setup(): Harness {
     providers: [
       provideAtlasEventBus(),
       { provide: AtlasAuth, useClass: MockAtlasAuth },
-      FlagsApi,
+      { provide: FlagsApi, useClass: FlagsMockApi },
       FlagsStore,
     ],
   });
@@ -34,7 +34,7 @@ function setup(): Harness {
   const published: AtlasEvent[] = [];
   const subscription = bus.all().subscribe((event) => published.push(event));
 
-  return { store: TestBed.inject(FlagsStore), api: TestBed.inject(FlagsApi), bus, published, subscription };
+  return { store: TestBed.inject(FlagsStore), api: TestBed.inject(FlagsApi) as FlagsMockApi, bus, published, subscription };
 }
 
 /** Signed in as the admin persona, with the initial load settled. */

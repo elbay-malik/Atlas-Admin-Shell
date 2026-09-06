@@ -33,6 +33,15 @@ describe('isAtlasManifest (contract)', () => {
     expect(isAtlasManifest({ version: 1, remotes: { iam: 42 } })).toBe(false);
   });
 
+  it('accepts an absent or valid apiMode, and rejects anything else', () => {
+    const base = { version: 1, remotes: { iam: validRemote } };
+    expect(isAtlasManifest(base)).toBe(true); // absent means mock
+    expect(isAtlasManifest({ ...base, apiMode: 'mock' })).toBe(true);
+    expect(isAtlasManifest({ ...base, apiMode: 'http' })).toBe(true);
+    expect(isAtlasManifest({ ...base, apiMode: 'real' })).toBe(false);
+    expect(isAtlasManifest({ ...base, apiMode: true })).toBe(false);
+  });
+
   it('rejects invalid roles', () => {
     expect(
       isAtlasManifest({ version: 1, remotes: { iam: { ...validRemote, requiredRole: 'root' } } })

@@ -31,8 +31,18 @@ export interface RemoteDefinition {
   requiredRole: AtlasRole;
 }
 
+/** Where the domains get their data. Optional; absent means 'mock'. */
+export type AtlasApiMode = 'mock' | 'http';
+
 export interface AtlasManifest {
   version: typeof ATLAS_MANIFEST_VERSION;
+  /**
+   * Whether the remotes talk to the edge BFF or their built-in mocks. It lives
+   * here because it is environment configuration, and ADR-0010 puts environment
+   * configuration in the manifest — a deployment artifact — rather than in the
+   * build. Optional so every existing manifest stays valid.
+   */
+  apiMode?: AtlasApiMode;
   /**
    * Keyed by remote name. The key MUST equal the `name` in that remote's
    * federation.config.mjs — Native Federation verifies the fetched
@@ -47,6 +57,13 @@ export function isAtlasManifest(value: unknown): value is AtlasManifest {
   const manifest = value as Partial<AtlasManifest>;
   if (manifest.version !== ATLAS_MANIFEST_VERSION) return false;
   if (typeof manifest.remotes !== 'object' || manifest.remotes === null) return false;
+  if (
+    manifest.apiMode !== undefined &&
+    manifest.apiMode !== 'mock' &&
+    manifest.apiMode !== 'http'
+  ) {
+    return false;
+  }
   return Object.values(manifest.remotes).every(
     (def) =>
       // a null/non-object entry is legal JSON; dereferencing it here would

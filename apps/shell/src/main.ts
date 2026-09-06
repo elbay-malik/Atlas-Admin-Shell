@@ -45,5 +45,8 @@ async function fetchManifest(url: string): Promise<unknown> {
   const federation = await initFederation(remotes, { sse: dev });
 
   const { bootstrap } = await import('./bootstrap');
-  await bootstrap(manifest, federation);
+  // Environment configuration lives in the manifest (ADR-0010), so which
+  // backend the domains use is a deployment decision, not a build one.
+  const apiMode = (manifest as { apiMode?: 'mock' | 'http' } | null)?.apiMode ?? 'mock';
+  await bootstrap(manifest, federation, apiMode);
 })().catch((err) => console.error(err));

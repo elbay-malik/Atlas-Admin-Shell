@@ -9,7 +9,8 @@ import {
   withNavigationErrorHandler,
 } from '@angular/router';
 import type { NativeFederationResult } from '@angular-architects/native-federation-v4';
-import { AtlasAuth, provideAtlasAuth } from '@atlas/shared-auth';
+import { AtlasAuth, provideAtlasAuth, provideAtlasHttp } from '@atlas/shared-auth';
+import { ATLAS_API_MODE, AtlasApiMode } from '@atlas/shared-util';
 import { ATLAS_MANIFEST_VERSION, AtlasManifest, isAtlasManifest } from '@atlas/shared-contracts';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { App } from './app/app';
@@ -84,13 +85,21 @@ export function resolveManifest(rawManifest: unknown): AtlasManifest {
   return { version: ATLAS_MANIFEST_VERSION, remotes: {} };
 }
 
-export function bootstrap(rawManifest: unknown, federation: NativeFederationResult) {
+export function bootstrap(
+  rawManifest: unknown,
+  federation: NativeFederationResult,
+  apiMode: AtlasApiMode = 'mock'
+) {
   const manifest = resolveManifest(rawManifest);
   return bootstrapApplication(App, {
     providers: [
       provideBrowserGlobalErrorListeners(),
       provideRouter(buildRoutes(manifest), withNavigationErrorHandler(remoteUnavailableRedirect)),
       provideAtlasAuth(),
+      provideAtlasHttp(),
+      // The mock auth cannot produce a token the edge would accept, so the data
+      // source follows the auth provider (see api-mode.token.ts).
+      { provide: ATLAS_API_MODE, useValue: apiMode },
       // The shell is the bus HOST; remotes inject AtlasEventBus and receive
       // this instance through federation sharing (ADR-0005).
       provideAtlasEventBus(),

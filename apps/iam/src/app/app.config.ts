@@ -3,7 +3,7 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideAtlasAuth } from '@atlas/shared-auth';
+import { provideAtlasAuth, provideAtlasHttp } from '@atlas/shared-auth';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { appRoutes } from './app.routes';
 
@@ -18,6 +18,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(appRoutes),
     provideAtlasAuth(),
+    provideAtlasHttp(),
     provideAtlasEventBus(),
   ],
 };

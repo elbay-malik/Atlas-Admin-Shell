@@ -77,4 +77,14 @@ describe('the test config mirrors what actually deploys', () => {
   it('points the deployed config at this Worker source', () => {
     expect(shell['main']).toBe('../shell-bff/src/worker.ts');
   });
+
+  /**
+   * The dev entry trusts the mock auth's fake token. The guarantee that it
+   * cannot reach production is not a flag but the bundle: the deployed config
+   * never names it, so it is never bundled.
+   */
+  it('never ships the dev entry that trusts mock tokens', () => {
+    expect(shell['main']).not.toContain('worker.dev');
+    expect(JSON.stringify(shell)).not.toContain('worker.dev');
+  });
 });

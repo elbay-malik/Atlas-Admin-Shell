@@ -122,7 +122,13 @@ jobs:
 
       # `e2e`, not `e2e-ci`: the atomized per-spec targets refuse to run without
       # Nx Cloud, which this repo deliberately has not connected.
-      - run: pnpm exec nx affected -t e2e
+      # The two e2e projects are run in SEPARATE invocations on purpose. Each
+      # starts its own web servers, and several of those build the same apps —
+      # in one invocation they clobber each other's output and fight over ports.
+      - run: pnpm exec nx affected -t e2e --exclude=shell-bff-e2e
+
+      # The edge BFF over real HTTP, via wrangler dev. Needs no credentials.
+      - run: pnpm exec nx affected -t e2e --exclude=shell-e2e
 
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}

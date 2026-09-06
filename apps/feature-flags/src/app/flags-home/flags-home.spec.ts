@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AtlasAuth, MockAtlasAuth } from '@atlas/shared-auth';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
-import { FlagsApi } from '../data/flags-api';
+import { FlagsApi, FlagsMockApi } from '../data/flags-api';
 import { FlagsStore } from '../data/flags.store';
 import { FlagsHome } from './flags-home';
 
@@ -37,7 +37,7 @@ describe('FlagsHome', () => {
         provideRouter([]),
         provideAtlasEventBus(),
         { provide: AtlasAuth, useClass: MockAtlasAuth },
-        FlagsApi,
+        { provide: FlagsApi, useClass: FlagsMockApi },
         FlagsStore,
       ],
     });
@@ -138,7 +138,7 @@ describe('FlagsHome', () => {
   });
 
   it('shows the error state with a Retry that reloads', async () => {
-    TestBed.inject(FlagsApi).failNext();
+    (TestBed.inject(FlagsApi) as FlagsMockApi).failNext();
 
     const fixture = TestBed.createComponent(FlagsHome);
     await vi.advanceTimersByTimeAsync(GET_FLAGS_MS);

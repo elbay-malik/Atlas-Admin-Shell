@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "peerDependencies": {
     "@angular/core": "~21.2.0",
-    "@atlas/shared-contracts": "0.0.1"
+    "@atlas/shared-contracts": "0.0.1",
+    "@angular/common": "~21.2.0",
+    "rxjs": "~7.8.0"
   },
   "sideEffects": false
 }

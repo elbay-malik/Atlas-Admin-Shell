@@ -102,6 +102,7 @@ docs/
 | Federation e2e | Playwright specs against production builds over real import maps | `nx affected -t e2e` |
 | Auth boundary | no remote may bundle the identity client (ADR-0006) | `pnpm run bundles:check` |
 | Edge authorization | token verification and role rules in real workerd (ADR-0011) | `nx test shell-bff` |
+| Edge API over HTTP | the real Worker via `wrangler dev`, no credentials needed | `nx e2e shell-bff-e2e` |
 | Deploy artifacts | every environment manifest satisfies the contract | `pnpm run manifest:check` |
 | Boundaries | `@nx/enforce-module-boundaries` tag rules | `nx affected -t lint` |
 | Zoneless | fails if `zone.js` ever resolves into the tree (ADR-0003) | CI guard step |
@@ -163,7 +164,9 @@ rebuild, no shell redeploy.
   - [x] Edge BFF on the shell's Worker (`/api/*`), verifying tokens and enforcing authorization
     server-side — including invariants the client cannot, such as refusing to demote the last admin.
     Closed a real hole: a viewer could toggle a feature flag (ADR-0011).
-  - [ ] PR previews, and swapping the remotes' mock APIs for the BFF over HTTP.
+  - [x] Remotes call the BFF over HTTP behind a contract, selected by the manifest's `apiMode`;
+    the mock stays the default so the console runs with no backend.
+  - [ ] PR previews (needs Cloudflare credentials).
 - [ ] **Slice 4 — Polish**: Lighthouse CI + Core Web Vitals, axe pass, whitepaper completion,
   demo video, Angular 22 migration (once Nx & NgRx support lands) as a showcase PR.
 
