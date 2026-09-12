@@ -156,6 +156,12 @@
         "cwd": "apps/shell",
         "command": "pnpm exec wrangler dev --config ../shell-bff/wrangler.dev.jsonc --port 4300 --ip 127.0.0.1"
       }
+    },
+    "lighthouse": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec concurrently -k -s first -n SERVE,LH -c magenta,blue \"pnpm exec nx run-many -t serve-static -p shell,iam,feature-flags,audit-logs\" \"pnpm exec wait-on http://localhost:4200 http://localhost:4201/remoteEntry.json http://localhost:4202/remoteEntry.json http://localhost:4203/remoteEntry.json && node tools/lighthouse/run.mjs --runs 3\""
+      }
     }
   },
   "implicitDependencies": [

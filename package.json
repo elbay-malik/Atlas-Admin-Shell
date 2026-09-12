@@ -55,6 +55,7 @@
     "http-server": "14.1.1",
     "jsdom": "^27.1.0",
     "jsonc-eslint-parser": "^2.1.0",
+    "lighthouse": "13.4.1",
     "ng-packagr": "~21.2.0",
     "nx": "23.0.1",
     "postcss": "^8.5.16",

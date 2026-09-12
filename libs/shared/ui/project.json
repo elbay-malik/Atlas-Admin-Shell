@@ -83,7 +83,7 @@
         "build-storybook"
       ],
       "options": {
-        "command": "pnpm exec concurrently -k -s first -n SB,A11Y -c magenta,blue \"pnpm exec http-server dist/storybook/shared-ui -p 4400 -s --silent\" \"pnpm exec wait-on tcp:127.0.0.1:4400 && pnpm exec test-storybook --url http://127.0.0.1:4400 -c libs/shared/ui/.storybook --maxWorkers 2\""
+        "command": "pnpm exec concurrently -k -s first -n SB,A11Y -c magenta,blue \"pnpm exec http-server dist/storybook/shared-ui -p 4400 -s --silent\" \"pnpm exec wait-on http://127.0.0.1:4400 && pnpm exec test-storybook --url http://127.0.0.1:4400 -c libs/shared/ui/.storybook --maxWorkers 2\""
       }
     },
     "static-storybook": {

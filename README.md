@@ -53,6 +53,7 @@ dated receipts (npm peer ranges, GitHub issue states) for its claims.
 | [0009](docs/adr/0009-federation-e2e-on-production-builds-in-ci.md) | Federation e2e against production builds served statically in CI |
 | [0010](docs/adr/0010-manifest-is-a-deployment-artifact.md) | The federation manifest is a deployment artifact, not a build input |
 | [0011](docs/adr/0011-edge-bff-as-the-authorization-boundary.md) | The edge BFF is the authorization boundary; the client only hides things |
+| [0012](docs/adr/0012-lighthouse-without-lhci-and-an-honest-budget.md) | Drive Lighthouse directly rather than the dormant LHCI wrapper; budget for the architecture we chose |
 
 ## Quickstart
 
@@ -103,6 +104,7 @@ docs/
 | Auth boundary | no remote may bundle the identity client (ADR-0006) | `pnpm run bundles:check` |
 | Edge authorization | token verification and role rules in real workerd (ADR-0011) | `nx test shell-bff` |
 | Edge API over HTTP | the real Worker via `wrangler dev`, no credentials needed | `nx e2e shell-bff-e2e` |
+| Performance | Lighthouse over the shell AND a federated route, median of 3 | `nx run shell:lighthouse` |
 | Deploy artifacts | every environment manifest satisfies the contract | `pnpm run manifest:check` |
 | Boundaries | `@nx/enforce-module-boundaries` tag rules | `nx affected -t lint` |
 | Zoneless | fails if `zone.js` ever resolves into the tree (ADR-0003) | CI guard step |
@@ -169,6 +171,10 @@ rebuild, no shell redeploy.
   - [ ] PR previews (needs Cloudflare credentials).
 - [ ] **Slice 4 — Polish**: Lighthouse CI + Core Web Vitals, axe pass, whitepaper completion,
   demo video, Angular 22 migration (once Nx & NgRx support lands) as a showcase PR.
+  - [x] Lighthouse in CI over the production build, measuring both the shell alone and a **federated**
+    route, so the cost of runtime composition is visible rather than assumed (ADR-0012). INP is
+    deliberately not asserted — a lab run cannot produce it.
+  - [x] axe pass — gated on every Storybook story in both themes and across the whole console.
 
 Nx Cloud (remote caching) is deliberately not connected yet; opting in later is
 `pnpm exec nx connect` on the free Hobby plan.

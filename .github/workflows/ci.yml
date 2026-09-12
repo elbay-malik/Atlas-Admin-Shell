@@ -130,6 +130,12 @@ jobs:
       # The edge BFF over real HTTP, via wrangler dev. Needs no credentials.
       - run: pnpm exec nx affected -t e2e --exclude=shell-e2e
 
+      # Performance, in this job because it already warmed the four production
+      # builds and uses the same serve-static harness (ADR-0009), so the number
+      # and any e2e failure describe the same artifact. Timing metrics are
+      # warn-level; only CLS and console errors fail the build (ADR-0012).
+      - run: pnpm exec nx affected -t lighthouse
+
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
@@ -137,5 +143,13 @@ jobs:
           path: |
             dist/.playwright/apps/shell-e2e/playwright-report
             dist/.playwright/apps/shell-e2e/test-output
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: lighthouse-reports
+          path: dist/lighthouse
           if-no-files-found: ignore
           retention-days: 7
