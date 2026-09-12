@@ -26,7 +26,61 @@ decision recorded as an ADR with dated, verifiable receipts.
 
 ## Architecture
 
-<!-- TODO: Mermaid diagram — shell / remotes / manifest / event bus / auth context flow -->
+```mermaid
+flowchart TD
+    Browser(["Browser"])
+    Manifest[("federation.manifest.json<br/>remotes: url, route, requiredRole, exposedModule<br/>apiMode: mock | http — ADR-0010")]
+
+    subgraph Shell["shell — dynamic host, :4200"]
+        Boot["main.ts<br/>fetch manifest, no-cache → initFederation()<br/>installs the import map"]
+        Router["Router<br/>canMatch(AtlasAuth.hasRole) per remote — ADR-0007"]
+        Auth["AtlasAuth<br/>shared singleton — mock or Supabase OIDC, ADR-0006"]
+        Bus["AtlasEventBus<br/>shared singleton — bounded replay, ADR-0005"]
+    end
+
+    subgraph Remotes["Domain remotes — loaded lazily via Native Federation"]
+        IAM["iam :4201<br/>requires admin"]
+        Flags["feature-flags :4202<br/>requires viewer"]
+        Audit["audit-logs :4203<br/>requires viewer"]
+    end
+
+    subgraph Edge["Edge BFF — /api/*, only if apiMode: 'http' — ADR-0011"]
+        BFF["authz table + JWT verify, ES256<br/>server-only invariants: last-admin,<br/>self-demotion, idempotency"]
+        JWKS[("JWKS")]
+    end
+
+    Browser --> Boot
+    Boot -- reads --> Manifest
+    Manifest -- "route + requiredRole" --> Router
+    Boot --> Auth
+    Boot --> Bus
+
+    Router -- "canMatch passes → loadChildren" --> IAM
+    Router --> Flags
+    Router --> Audit
+
+    Auth ===|"one shared instance, no re-login"| IAM
+    Auth === Flags
+    Auth === Audit
+
+    IAM <==>|"typed, versioned events"| Bus
+    Flags <==> Bus
+    Audit <==> Bus
+
+    IAM -.->|"only if apiMode: 'http' — bearer token"| BFF
+    Flags -.-> BFF
+    Audit -.-> BFF
+    BFF --> JWKS
+```
+
+Thin solid arrows are deterministic call and configuration flow: reading the manifest, building
+routes from it, `canMatch` letting a navigation through. Thick arrows are the two shared
+singletons — `AtlasAuth` and `AtlasEventBus` — that cross the federation boundary as one instance per
+browser session, not a call. Dotted arrows are conditional at runtime: a remote reaches the edge BFF
+only when the manifest sets `apiMode: 'http'`; every manifest committed in this repo defaults to
+`'mock'` (ADR-0010), so a fresh checkout runs every domain with zero server calls. The manifest is
+the only thing that tells the shell which remotes exist at all: adding a domain is an edit there,
+never a shell rebuild.
 
 | App | Role | Port (dev) | Route |
 | --- | --- | --- | --- |
@@ -175,6 +229,11 @@ rebuild, no shell redeploy.
     route, so the cost of runtime composition is visible rather than assumed (ADR-0012). INP is
     deliberately not asserted — a lab run cannot produce it.
   - [x] axe pass — gated on every Storybook story in both themes and across the whole console.
+  - [x] Whitepaper completion — this README carries the architecture diagram, every ADR with dated
+    receipts, and the full quality-gate table; nothing here is a stub.
+  - [ ] Demo video (needs a person on camera).
+  - [ ] Angular 22 migration — blocked upstream (ADR-0002): `@nx/angular` and `@ngrx/signals` do not
+    yet both support it within their declared peer ranges.
 
 Nx Cloud (remote caching) is deliberately not connected yet; opting in later is
 `pnpm exec nx connect` on the free Hobby plan.
