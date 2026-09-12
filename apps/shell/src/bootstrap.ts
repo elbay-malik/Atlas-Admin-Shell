@@ -85,12 +85,13 @@ export function resolveManifest(rawManifest: unknown): AtlasManifest {
   return { version: ATLAS_MANIFEST_VERSION, remotes: {} };
 }
 
-export function bootstrap(
-  rawManifest: unknown,
-  federation: NativeFederationResult,
-  apiMode: AtlasApiMode = 'mock'
-) {
+export function bootstrap(rawManifest: unknown, federation: NativeFederationResult) {
   const manifest = resolveManifest(rawManifest);
+  // Read from the VALIDATED manifest, never from the raw one. Reading it before
+  // the guard would let a manifest that fails the contract still choose the
+  // data source: the console would degrade to zero remotes AND carry an
+  // out-of-contract apiMode. Deriving it here makes that unrepresentable.
+  const apiMode: AtlasApiMode = manifest.apiMode ?? 'mock';
   return bootstrapApplication(App, {
     providers: [
       provideBrowserGlobalErrorListeners(),

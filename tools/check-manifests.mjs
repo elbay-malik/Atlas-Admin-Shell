@@ -2,6 +2,10 @@
  * Validates every environment manifest against the shared contract, so a typo
  * in a deploy artifact fails CI instead of silently booting the console with no
  * remotes. Cheap enough to run without building anything.
+ *
+ * `problems()` is exported so check-manifests.spec.mjs can hold it against the
+ * real `isAtlasManifest`. That parity test is the point: this file duplicates
+ * the guard, and a duplicate that is only ASSERTED to stay in step will not.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -25,15 +29,30 @@ function safePath(url) {
 // rules the runtime guard has no reason to enforce. Duplicated deliberately:
 // this script must run before, and without, a TypeScript build.
 //
-// The duplication is safe in one direction only, and that direction is checked:
-// this validator is strictly STRICTER than isAtlasManifest, so a manifest that
-// passes CI always satisfies the shell at runtime. Loosening anything here
-// would break that property. libs/shared/contracts remains the source of truth
-// for the shape itself.
-function problems(manifest) {
+// The duplication is safe in one direction only: this validator must be
+// strictly STRICTER than isAtlasManifest, so a manifest that passes CI always
+// satisfies the shell at runtime. libs/shared/contracts remains the source of
+// truth for the shape itself.
+//
+// That direction used to be checked by hand, and it rotted the first time the
+// contract grew: `apiMode` was added to AtlasManifest with the edge BFF and
+// never added here, so a manifest with a typo'd mode passed CI, failed the
+// runtime guard, and booted the console with ZERO remotes — the exact outcome
+// this script exists to prevent. check-manifests.spec.mjs now enforces the
+// implication over generated mutations instead of trusting a comment.
+export function problems(manifest) {
   const found = [];
   if (typeof manifest !== 'object' || manifest === null) return ['not an object'];
   if (manifest.version !== 1) found.push(`version must be 1, got ${JSON.stringify(manifest.version)}`);
+  // Optional, but a WRONG value is fatal: isAtlasManifest rejects the whole
+  // manifest over it, and the shell then degrades to zero remotes.
+  if (
+    manifest.apiMode !== undefined &&
+    manifest.apiMode !== 'mock' &&
+    manifest.apiMode !== 'http'
+  ) {
+    found.push(`apiMode must be 'mock' or 'http' when present, got ${JSON.stringify(manifest.apiMode)}`);
+  }
   if (typeof manifest.remotes !== 'object' || manifest.remotes === null) {
     return [...found, 'remotes must be an object'];
   }
@@ -67,44 +86,50 @@ function problems(manifest) {
   return found;
 }
 
-if (!existsSync(ENV_DIR)) {
-  console.error(`check-manifests: ${ENV_DIR} does not exist`);
-  process.exit(1);
+/** The CLI. Split out so importing this module for the parity test runs nothing. */
+function main() {
+  if (!existsSync(ENV_DIR)) {
+    console.error(`check-manifests: ${ENV_DIR} does not exist`);
+    process.exit(1);
+  }
+
+  let failed = false;
+  // directories only — this folder also holds a README
+  const envs = readdirSync(ENV_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+  if (envs.length === 0) {
+    console.error('check-manifests: no environments found');
+    process.exit(1);
+  }
+
+  for (const env of envs) {
+    const path = join(ENV_DIR, env, MANIFEST);
+    if (!existsSync(path)) {
+      console.error(`✖ ${env}: missing ${MANIFEST}`);
+      failed = true;
+      continue;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(readFileSync(path, 'utf8'));
+    } catch (error) {
+      console.error(`✖ ${env}: invalid JSON — ${error.message}`);
+      failed = true;
+      continue;
+    }
+    const found = problems(parsed);
+    if (found.length) {
+      console.error(`✖ ${env}:`);
+      for (const p of found) console.error(`    ${p}`);
+      failed = true;
+    } else {
+      console.log(`✔ ${env}: ${Object.keys(parsed.remotes).length} remotes`);
+    }
+  }
+
+  process.exit(failed ? 1 : 0);
 }
 
-let failed = false;
-// directories only — this folder also holds a README
-const envs = readdirSync(ENV_DIR, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name);
-if (envs.length === 0) {
-  console.error('check-manifests: no environments found');
-  process.exit(1);
-}
-
-for (const env of envs) {
-  const path = join(ENV_DIR, env, MANIFEST);
-  if (!existsSync(path)) {
-    console.error(`✖ ${env}: missing ${MANIFEST}`);
-    failed = true;
-    continue;
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(readFileSync(path, 'utf8'));
-  } catch (error) {
-    console.error(`✖ ${env}: invalid JSON — ${error.message}`);
-    failed = true;
-    continue;
-  }
-  const found = problems(parsed);
-  if (found.length) {
-    console.error(`✖ ${env}:`);
-    for (const p of found) console.error(`    ${p}`);
-    failed = true;
-  } else {
-    console.log(`✔ ${env}: ${Object.keys(parsed.remotes).length} remotes`);
-  }
-}
-
-process.exit(failed ? 1 : 0);
+// Only when run as `node tools/check-manifests.mjs`, never on import.
+if (import.meta.main) main();

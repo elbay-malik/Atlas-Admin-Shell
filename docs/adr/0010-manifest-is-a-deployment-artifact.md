@@ -117,6 +117,52 @@ Checked 2026-09-05 against the installed tooling:
   it. It deliberately does **not** require the filename `remoteEntry.json`: that is Native
   Federation's default, but the name is configurable and a valid deployment may use another.
 
+## Correction, 2026-09-06: "checked case by case" was not a mechanism, and it failed
+
+The claim above — that the validator is strictly stricter than the runtime guard — was true when it
+was written and **false within one slice**. The receipt said the duplication "was checked case by
+case", which is a description of an act, not of a property that holds afterwards.
+
+`apiMode` was added to `AtlasManifest` with the edge BFF (ADR-0011). It went into `isAtlasManifest`,
+which rejects anything other than `'mock'` or `'http'`. It was never added to the validator. So from
+that slice onward:
+
+```
+$ node tools/check-manifests.mjs        # manifest carrying apiMode: "htp"
+✔ production: 3 remotes
+exit: 0
+```
+
+and the shell then rejected the same file wholesale and booted with **zero remotes** — the precise
+outcome the validator exists to prevent, walked straight past the gate that was supposed to catch it.
+Reproduced before fixing, by adding a probe environment with a single typo'd character.
+
+Two things were wrong, and both are fixed:
+
+- **The rule was missing.** The validator now checks `apiMode`.
+- **Nothing would have noticed.** The invariant is now a test rather than a comment.
+  `libs/shared/contracts/src/lib/manifest-validator-parity.spec.mjs` imports the real `problems()`
+  and the real `isAtlasManifest`, generates 80-odd mutations of a valid manifest by deleting and
+  corrupting each field in turn, and asserts the implication *guard rejects ⟹ validator rejects* for
+  every one. It is written as an implication, not an equality, so the validator stays free to be
+  stricter — which it still is, and which the suite also asserts with an origin-only URL. Verified by
+  deleting the new rule and watching the parity cases, and only those, fail.
+
+Because the mutations are generated from a valid manifest rather than enumerated, the next field
+added to the contract is covered the moment it appears in the fixture. That is the actual repair: the
+original defect was not a missing branch, it was relying on a person to remember a duplicate.
+
+A related hole was closed on the shell side. `main.ts` read `apiMode` off the **raw** fetched
+manifest and passed it to `bootstrap`, which independently validated and could discard that same
+manifest — so a rejected manifest could still choose the data source, giving a console with zero
+remotes *and* an out-of-contract API mode. `bootstrap` now derives it from the validated manifest and
+the parameter is gone, which makes the combination unrepresentable rather than merely unlikely.
+
+Finally, `deploy/manifests/production/` now states `"apiMode": "mock"` explicitly. The value is
+unchanged — absent already meant mock — but the edge BFF is deployed on the shell's own origin, so a
+reader was entitled to assume production talks to it. It does not, and cannot, until an identity
+provider exists (ADR-0006). Writing it down turns a default into a decision.
+
 ## References
 
 - https://developers.cloudflare.com/workers/static-assets/

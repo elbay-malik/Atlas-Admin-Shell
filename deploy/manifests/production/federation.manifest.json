@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "apiMode": "mock",
   "remotes": {
     "iam": {
       "url": "https://iam.atlas.example/remoteEntry.json",

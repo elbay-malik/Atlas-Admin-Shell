@@ -46,7 +46,9 @@ async function fetchManifest(url: string): Promise<unknown> {
 
   const { bootstrap } = await import('./bootstrap');
   // Environment configuration lives in the manifest (ADR-0010), so which
-  // backend the domains use is a deployment decision, not a build one.
-  const apiMode = (manifest as { apiMode?: 'mock' | 'http' } | null)?.apiMode ?? 'mock';
-  await bootstrap(manifest, federation, apiMode);
+  // backend the domains use is a deployment decision, not a build one. It is
+  // read inside bootstrap, from the manifest that passed the contract guard —
+  // reading it here would mean trusting a field on an object we have not
+  // validated yet.
+  await bootstrap(manifest, federation);
 })().catch((err) => console.error(err));

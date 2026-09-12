@@ -42,4 +42,21 @@ describe('resolveManifest', () => {
     expect(manifest).toEqual({ version: 1, remotes: {} });
     expect(consoleError).toHaveBeenCalledOnce();
   });
+
+  /**
+   * apiMode picks the data source, so it must not survive a manifest the
+   * contract rejected. bootstrap() reads it off THIS return value rather than
+   * off the raw fetch, which is what makes the bad combination — zero remotes
+   * plus a live backend — unrepresentable rather than merely unlikely.
+   */
+  it('drops apiMode along with everything else when the manifest is rejected', () => {
+    const rejected = resolveManifest({ version: 99, apiMode: 'http', remotes: {} });
+
+    expect(rejected.apiMode).toBeUndefined();
+    expect(rejected.apiMode ?? 'mock').toBe('mock');
+  });
+
+  it('keeps apiMode when the manifest is valid', () => {
+    expect(resolveManifest({ ...valid, apiMode: 'http' }).apiMode).toBe('http');
+  });
 });

@@ -8,7 +8,17 @@ Adding an environment is adding a directory here. Repointing a remote is editing
 re-uploading it — no rebuild, no shell redeploy.
 
 `tools/check-manifests.mjs` validates every environment in CI. It is deliberately **stricter** than
-the shell's runtime guard, so anything that passes CI is guaranteed to satisfy the shell.
+the shell's runtime guard, so anything that passes CI is guaranteed to satisfy the shell. That
+direction is enforced by `manifest-validator-parity.spec.mjs` rather than asserted in a comment —
+it went stale once already, and the failure mode is a console that boots with zero remotes.
+
+## Why production says `apiMode: "mock"`
+
+The edge BFF is deployed (it shares the shell's Worker), but it verifies real OIDC tokens against a
+JWKS endpoint, and there is no identity provider yet (ADR-0006). Pointing production at it would
+mean every request answering 401. `mock` is therefore the correct value today, and it is written
+out rather than left to the `absent means mock` default so that it reads as a decision — with a
+single, reviewable place to change when a Supabase project exists.
 
 ## Why there is no `preview` environment yet
 
