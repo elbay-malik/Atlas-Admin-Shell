@@ -15,7 +15,9 @@
       "!{projectRoot}/.storybook/**/*",
       "!{workspaceRoot}/apps/shell-bff/**/*"
     ],
-    "sharedGlobals": []
+    "sharedGlobals": [
+      "{workspaceRoot}/tools/**/*"
+    ]
   },
   "analytics": false,
   "defaultBase": "main",

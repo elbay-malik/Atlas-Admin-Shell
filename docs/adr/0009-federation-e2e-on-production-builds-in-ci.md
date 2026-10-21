@@ -51,6 +51,36 @@ stay exactly `pnpm exec nx run <app>:<target>` because `@nx/playwright` parses t
 project-graph edge to any remote (that is the whole point of a runtime manifest), so without it a
 remote-only change would never mark the e2e suite affected.
 
+## Extension, 2026-09-23: the same blind spot applied to `tools/`
+
+The paragraph above fixes one instance of a general problem — *a real dependency the project graph
+cannot see* — and the general problem had two more instances, both found by an adversarial audit.
+The design-token one is recorded in ADR-0008. This is the other.
+
+`tools/` belongs to no Nx project, and `nx.json` carried `sharedGlobals: []`. Measured:
+
+```
+$ nx show projects --affected --files=tools/lighthouse/budget.mjs -t lighthouse   -> []
+$ nx show projects --affected --files=tools/lighthouse/run.mjs    -t lighthouse   -> []
+$ nx show projects --affected --files=tools/check-manifests.mjs   -t test         -> []
+```
+
+So **loosening a performance budget, or deleting one of the runner's anti-vacuous-pass guards, ran
+no Lighthouse gate at all** — and editing `check-manifests.mjs` did not run the parity spec that
+exists specifically to hold it to the runtime contract. The two unconditional CI steps
+(`manifest:check`, `bundles:check`) still executed, so a *crashing* tool would surface; a quietly
+weakened one would not.
+
+`sharedGlobals` now lists `{workspaceRoot}/tools/**/*`, which marks every project affected when any
+tool changes. The same probes now return `["shell"]` for `lighthouse` and the full unit set for
+`test`, while ordinary source changes stay narrow (`apps/iam/**` still affects only `iam`).
+
+**The trade is deliberate.** A per-consumer edge would be more surgical, but the failure being fixed
+is precisely *"someone forgot to declare an edge"*, so a surgical fix reintroduces the bug's own
+cause. These are five files that change rarely and can affect any output in the workspace; a blanket
+invalidation is both cheap here and the conservative direction. If `tools/` ever grows something
+genuinely inert, the answer is to move that file out of `tools/`, not to narrow the glob.
+
 ### Consequences
 
 - Positive: CI tests the artifacts slice 3 deploys, including hashed production chunks and real
