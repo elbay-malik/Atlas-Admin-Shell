@@ -5,6 +5,7 @@
   "scripts": {
     "manifest:apply": "node tools/apply-manifest.mjs",
     "manifest:check": "node tools/check-manifests.mjs",
+    "tokens:check": "node libs/shared/design-tokens/build-tokens.mjs --check",
     "bundles:check": "node tools/check-remote-bundles.mjs"
   },
   "private": true,

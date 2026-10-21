@@ -96,5 +96,9 @@
         "spa": true
       }
     }
-  }
+  },
+  "// implicitDependencies": "Nx cannot see a CSS @import, so the dependency on the design tokens is invisible to the project graph. Without this edge a colour change is 'affected: nothing' and skips every axe, contrast and build gate that exists to judge it.",
+  "implicitDependencies": [
+    "shared-design-tokens"
+  ]
 }

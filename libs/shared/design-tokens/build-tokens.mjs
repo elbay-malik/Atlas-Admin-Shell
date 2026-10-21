@@ -1,6 +1,12 @@
 /**
  * Design-token pipeline: tokens/*.json → generated CSS.
  *
+ * Run with --check to verify the committed CSS still matches tokens/*.json
+ * instead of rewriting it. That mode exists because the generated files are
+ * COMMITTED and are what the apps actually @import: without it, editing
+ * tokens/color.json — the declared source of truth — is a silent no-op, and
+ * the two can drift apart indefinitely with nothing to notice.
+ *
  * Emits two artifacts consumed by every app's styles.css:
  *  - src/generated/tokens.css  — --atlas-* custom properties (:root light, .dark overrides)
  *  - src/generated/theme.css   — Tailwind v4 @theme block mapping utilities onto the vars
@@ -8,7 +14,17 @@
  * Semantic tokens (bg/surface/text/text-muted/border) resolve to the light set at
  * :root and flip to the dark set under .dark — components only ever read semantics.
  */
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import StyleDictionary from 'style-dictionary';
+
+const CHECK = process.argv.includes('--check');
+const COMMITTED = 'libs/shared/design-tokens/src/generated/';
+// In check mode build somewhere disposable, so a drifted tree is reported
+// rather than quietly repaired — the whole point is to fail, not to fix.
+const BUILD_PATH = CHECK ? mkdtempSync(join(tmpdir(), 'atlas-tokens-')) + '/' : COMMITTED;
+const FILES = ['tokens.css', 'theme.css'];
 
 const PREFIX = 'atlas';
 
@@ -99,7 +115,7 @@ const sd = new StyleDictionary({
     css: {
       // full-path kebab names keep token names unique (both formats read `path` anyway)
       transforms: ['name/kebab'],
-      buildPath: 'libs/shared/design-tokens/src/generated/',
+      buildPath: BUILD_PATH,
       files: [
         { destination: 'tokens.css', format: 'css/atlas-vars' },
         { destination: 'theme.css', format: 'css/atlas-tailwind-theme' },
@@ -109,4 +125,20 @@ const sd = new StyleDictionary({
 });
 
 await sd.buildAllPlatforms();
-console.log('tokens built: src/generated/{tokens.css,theme.css}');
+
+if (!CHECK) {
+  console.log('tokens built: src/generated/{tokens.css,theme.css}');
+} else {
+  const drifted = FILES.filter(
+    (file) => readFileSync(join(BUILD_PATH, file), 'utf8') !== readFileSync(join(COMMITTED, file), 'utf8')
+  );
+  rmSync(BUILD_PATH, { recursive: true, force: true });
+  if (drifted.length) {
+    console.error(
+      `\u2716 generated CSS is out of date with tokens/*.json: ${drifted.join(', ')}\n` +
+        '  run: pnpm exec nx run shared-design-tokens:build-tokens'
+    );
+    process.exit(1);
+  }
+  console.log(`\u2714 generated CSS matches tokens/*.json (${FILES.join(', ')})`);
+}

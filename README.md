@@ -159,6 +159,7 @@ docs/
 | Edge authorization | token verification and role rules in real workerd (ADR-0011) | `nx test shell-bff` |
 | Edge API over HTTP | the real Worker via `wrangler dev`, no credentials needed | `nx e2e shell-bff-e2e` |
 | Performance | Lighthouse over the shell AND a federated route, median of 3 | `nx run shell:lighthouse` |
+| Design tokens | the committed CSS still matches `tokens/*.json` | `pnpm run tokens:check` |
 | Deploy artifacts | every environment manifest satisfies the contract | `pnpm run manifest:check` |
 | Boundaries | `@nx/enforce-module-boundaries` tag rules | `nx affected -t lint` |
 | Zoneless | fails if `zone.js` ever resolves into the tree (ADR-0003) | CI guard step |

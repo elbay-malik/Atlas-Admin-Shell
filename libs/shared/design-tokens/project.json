@@ -21,6 +21,18 @@
       "options": {
         "command": "node libs/shared/design-tokens/build-tokens.mjs"
       }
+    },
+    "check-tokens": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/tokens/**/*",
+        "{projectRoot}/build-tokens.mjs",
+        "{projectRoot}/src/generated/**/*"
+      ],
+      "options": {
+        "command": "node libs/shared/design-tokens/build-tokens.mjs --check"
+      }
     }
   }
 }

@@ -64,6 +64,46 @@ light in dark mode, so the badge keeps its tinted look and clears AA in both the
 
 - Positive: every component has a workbench; axe runs on every story in CI; a contrast regression
   in the shared library now fails a build instead of shipping to four applications.
+
+## Correction, 2026-09-23: the gate was blind to the tokens themselves
+
+The Positive line above was true for a change to a *component*, and false for a change to the
+*tokens those components read* — which is the more likely way a contrast regression actually
+arrives, and precisely how the one recorded above got in.
+
+`libs/shared/design-tokens` had **zero inbound edges in the Nx project graph**. Every app and the
+Storybook preview consume it through a relative CSS `@import`, which Nx does not parse, so nothing
+declared the dependency. The consequence was measured, not inferred:
+
+```
+$ nx show projects --affected --files=libs/shared/design-tokens/src/generated/tokens.css -t test-storybook
+[]
+$ ... -t e2e          -> []
+$ ... -t lighthouse   -> []
+$ ... -t build        -> []
+```
+
+So reverting `--atlas-color-border-strong` to the weak value — the exact 1.18:1 / 1.29:1 defect
+`control-contrast.spec.ts` was written to catch — was a one-file pull request on which CI ran a
+single eslint task. The gate this ADR is about could not see the one file class it most needed to.
+
+Two things were wrong, and both are fixed:
+
+- **The edge did not exist.** The four apps and `shared-ui` now declare
+  `implicitDependencies: ["shared-design-tokens"]`, which is how a dependency Nx cannot infer is
+  supposed to be stated. The same probes now return `["shared-ui"]` for `test-storybook`,
+  `["shell-e2e","shell-bff-e2e"]` for `e2e`, `["shell"]` for `lighthouse`, and all five projects
+  for `build`.
+- **The pipeline had no receipt.** `src/generated/*.css` is committed and is what the apps actually
+  import, while `tokens/*.json` is the declared source of truth — and nothing checked they agreed.
+  Editing a colour in the source was a silent no-op. `build-tokens.mjs --check` now rebuilds into a
+  temporary directory and compares, wired as `pnpm run tokens:check` in CI. Verified in both
+  directions: editing `tokens/color.json` fails it, and hand-editing the generated CSS fails it too.
+
+The root cause is worth naming, because it is the fourth instance of one pattern in this repository:
+a gate that is green while measuring nothing. Here the gate was real and the *graph* was wrong, so
+the gate was simply never scheduled. An assertion about coverage is only as good as the edge that
+schedules it.
 - Negative: webpack 5 enters `devDependencies` alongside the esbuild toolchain — acceptable for
   dev-only tooling that never touches an application bundle, but it is a wart on the
   "esbuild-era" story and is the main reason to revisit. The test-runner also brings Jest 30 and a

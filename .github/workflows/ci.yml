@@ -57,6 +57,11 @@ jobs:
       # as a console that boots with zero remotes (ADR-0010).
       - run: pnpm run manifest:check
 
+      # The generated CSS is COMMITTED and is what every app @imports, so
+      # tokens/*.json can drift from it silently — editing the declared source
+      # of truth would otherwise be a no-op nobody notices.
+      - run: pnpm run tokens:check
+
       - run: pnpm exec nx affected -t lint typecheck test build build-storybook
 
       # Type-checks every wrangler config and its asset directory. Needs no
