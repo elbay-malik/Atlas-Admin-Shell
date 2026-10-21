@@ -3,7 +3,7 @@
   "apiMode": "mock",
   "remotes": {
     "iam": {
-      "url": "https://iam.atlas.example/remoteEntry.json",
+      "url": "https://atlas-iam.eleo-666.workers.dev/remoteEntry.json",
       "displayName": "Identity & Access",
       "route": "iam",
       "icon": "👥",
@@ -11,7 +11,7 @@
       "requiredRole": "admin"
     },
     "feature-flags": {
-      "url": "https://flags.atlas.example/remoteEntry.json",
+      "url": "https://atlas-feature-flags.eleo-666.workers.dev/remoteEntry.json",
       "displayName": "Feature Flags",
       "route": "flags",
       "icon": "🚩",
@@ -19,7 +19,7 @@
       "requiredRole": "viewer"
     },
     "audit-logs": {
-      "url": "https://audit.atlas.example/remoteEntry.json",
+      "url": "https://atlas-audit-logs.eleo-666.workers.dev/remoteEntry.json",
       "displayName": "Audit Logs",
       "route": "audit",
       "icon": "🧾",

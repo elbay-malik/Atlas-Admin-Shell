@@ -166,6 +166,17 @@ docs/
 
 ## Deploying
 
+The platform deploys as **four independent Workers**, one per app, each on its own origin — which is
+the point rather than an accident: the remotes really are cross-origin, so the import map, the CORS
+headers and the error boundary are all exercised in production exactly as ADR-0004 describes.
+
+| App | URL |
+| --- | --- |
+| `shell` | https://atlas-shell.eleo-666.workers.dev |
+| `iam` | https://atlas-iam.eleo-666.workers.dev |
+| `feature-flags` | https://atlas-feature-flags.eleo-666.workers.dev |
+| `audit-logs` | https://atlas-audit-logs.eleo-666.workers.dev |
+
 Each app publishes as a Cloudflare Worker serving static assets (`apps/<app>/wrangler.jsonc`). The
 shell sets `not_found_handling: "single-page-application"` because it owns routes; the remotes
 deliberately do not, so a missing chunk 404s and the shell's error boundary can classify it rather
