@@ -148,9 +148,39 @@ Two things were wrong, and both are fixed:
   stricter — which it still is, and which the suite also asserts with an origin-only URL. Verified by
   deleting the new rule and watching the parity cases, and only those, fail.
 
-Because the mutations are generated from a valid manifest rather than enumerated, the next field
-added to the contract is covered the moment it appears in the fixture. That is the actual repair: the
-original defect was not a missing branch, it was relying on a person to remember a duplicate.
+That is the actual repair: the original defect was not a missing branch, it was relying on a person
+to remember a duplicate.
+
+### Second correction, 2026-09-23: that last paragraph used to overclaim
+
+This section originally ended by asserting that "because the mutations are generated from a valid
+manifest rather than enumerated, the next field added to the contract is covered the moment it
+appears in the fixture." **That was not true when it was written.** The generator enumerated
+`version`, `remotes` and `apiMode` by name and iterated a hardcoded `REMOTE_FIELDS` array, so a new
+contract field was covered only when someone remembered to add it — the exact dependence on human
+memory this correction claims to have removed, reintroduced one paragraph below the claim.
+
+Found by an adversarial audit of the whole repository, which is the only reason it did not sit there
+indefinitely being cited as a receipt.
+
+It is true now, and in two layers rather than one:
+
+- The mutation generator derives its field lists from the fixture (`Object.keys(base)` and
+  `Object.keys(base.remotes.iam)`), so adding a field to the fixture covers it everywhere.
+- A new test asks the guard **what it actually reads** — a recording `Proxy` over a valid manifest,
+  valid so `isAtlasManifest` runs to completion rather than short-circuiting — and fails if the
+  fixture has fallen behind it. That is what closes the loop: deriving from the fixture only helps
+  if the fixture keeps up, and now forgetting the fixture is itself a failing test.
+
+Verified in two stages by simulating the next field, `theme`:
+
+| Stage | What was changed | Result |
+| --- | --- | --- |
+| A | added to `AtlasManifest` + `isAtlasManifest` only | `has a fixture covering every field the runtime guard inspects` fails: *add these to `base`: theme* |
+| B | also added to the fixture, still not to the validator | 6 mutation cases fail — the `apiMode` rot, caught |
+
+Then restored: 117 tests green. The lesson is narrow and worth keeping: *"generated rather than
+enumerated"* is a property to test for, not a property you get by describing your code that way.
 
 A related hole was closed on the shell side. `main.ts` read `apiMode` off the **raw** fetched
 manifest and passed it to `bootstrap`, which independently validated and could discard that same

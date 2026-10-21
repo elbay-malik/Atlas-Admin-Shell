@@ -33,28 +33,70 @@ const validRemote = {
   requiredRole: 'admin',
 };
 
-const base = { version: 1, remotes: { iam: validRemote } };
+/**
+ * The fixture carries EVERY field the contract defines, optional ones included.
+ * The mutation generator reads its shape rather than a hand-written list, and
+ * `fieldsTheGuardInspects()` below fails if this fixture ever falls behind the
+ * guard — which is what makes "a new field is covered automatically" true
+ * rather than merely claimed.
+ */
+const base = { version: 1, apiMode: 'mock', remotes: { iam: validRemote } };
 
 /** Structured clone that is cheap and dependency-free for plain JSON. */
 const clone = (value) => JSON.parse(JSON.stringify(value));
-
-const REMOTE_FIELDS = ['url', 'displayName', 'route', 'icon', 'exposedModule', 'requiredRole'];
 
 /** Values that are legal JSON but wrong for every field in this contract. */
 const WRONG_VALUES = [undefined, null, 42, true, '', {}, []];
 
 /**
+ * Which property names `isAtlasManifest` actually reads, observed rather than
+ * assumed: a recording Proxy over a VALID manifest (valid so the guard runs to
+ * completion instead of short-circuiting) reports every key it touches.
+ *
+ * This is the piece that closes the loop. Deriving the mutation list from the
+ * fixture only helps if the fixture keeps up with the contract; this makes
+ * forgetting the fixture a failing test rather than silent lost coverage.
+ */
+function fieldsTheGuardInspects() {
+  const seen = [];
+  const record = (path) => seen.push(path);
+  const spy = (target, path = []) =>
+    new Proxy(target, {
+      get(object, property, receiver) {
+        if (typeof property === 'string') record([...path, property]);
+        const value = Reflect.get(object, property, receiver);
+        return value && typeof value === 'object' && !Array.isArray(value)
+          ? spy(value, [...path, property])
+          : value;
+      },
+    });
+
+  isAtlasManifest(spy(clone(base)));
+
+  const top = new Set(seen.filter((p) => p.length === 1).map((p) => p[0]));
+  // ['remotes', '<name>', '<field>']
+  const remote = new Set(seen.filter((p) => p.length === 3 && p[0] === 'remotes').map((p) => p[2]));
+  return { top, remote };
+}
+
+const TOP_LEVEL_FIELDS = Object.keys(base);
+const REMOTE_FIELDS = Object.keys(base.remotes.iam);
+
+/**
  * Every way this manifest can be malformed that either implementation could
- * plausibly have an opinion about. Built by mutation so a new field is covered
- * the moment it appears in `base`, without anyone remembering to add a case.
+ * plausibly have an opinion about. The field lists are DERIVED from the
+ * fixture, so adding a field there covers it everywhere below.
  */
 function mutations() {
   const cases = [];
 
   for (const value of WRONG_VALUES) {
-    cases.push([`version = ${JSON.stringify(value)}`, { ...clone(base), version: value }]);
-    cases.push([`remotes = ${JSON.stringify(value)}`, { ...clone(base), remotes: value }]);
-    cases.push([`apiMode = ${JSON.stringify(value)}`, { ...clone(base), apiMode: value }]);
+    for (const field of TOP_LEVEL_FIELDS) {
+      const manifest = clone(base);
+      if (value === undefined) delete manifest[field];
+      else manifest[field] = value;
+      cases.push([`${field} = ${JSON.stringify(value)}`, manifest]);
+    }
     cases.push([`remotes.iam = ${JSON.stringify(value)}`, { ...clone(base), remotes: { iam: value } }]);
 
     for (const field of REMOTE_FIELDS) {
@@ -100,6 +142,29 @@ describe('check-manifests is strictly stricter than isAtlasManifest (ADR-0010)',
   it.each(mutations())('rejects %s if the runtime guard does', (_label, manifest) => {
     if (isAtlasManifest(manifest)) return;
     expect(problems(manifest).length).toBeGreaterThan(0);
+  });
+
+  /**
+   * The guard against this file quietly going stale. If a field is added to
+   * AtlasManifest and to isAtlasManifest but NOT to `base`, every mutation
+   * above silently stops covering it — which is exactly how `apiMode` rotted
+   * out of the deploy validator in the first place. Asking the guard what it
+   * reads makes that omission fail here instead of shipping.
+   */
+  it('has a fixture covering every field the runtime guard inspects', () => {
+    const { top, remote } = fieldsTheGuardInspects();
+
+    const missingTop = [...top].filter((f) => !TOP_LEVEL_FIELDS.includes(f));
+    const missingRemote = [...remote].filter((f) => !REMOTE_FIELDS.includes(f));
+
+    expect(missingTop, `add these to \`base\`: ${missingTop.join(', ')}`).toEqual([]);
+    expect(
+      missingRemote,
+      `add these to \`validRemote\`: ${missingRemote.join(', ')}`
+    ).toEqual([]);
+    // and prove the observation actually observed something
+    expect(top.size).toBeGreaterThan(0);
+    expect(remote.size).toBeGreaterThan(0);
   });
 
   it('is allowed to be stricter, and is', () => {
