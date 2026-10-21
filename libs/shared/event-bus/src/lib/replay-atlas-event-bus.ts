@@ -27,8 +27,23 @@ export class ReplayAtlasEventBus extends AtlasEventBus {
         `Invalid Atlas event: ${String((event as Partial<AtlasEvent> | null)?.type ?? event)}`
       );
     }
-    this.buffer.update((events) => [...events, event].slice(-this.config.bufferSize));
+    this.buffer.update((events) => this.bounded([...events, event]));
     this.live.next(event);
+  }
+
+  /**
+   * Keeps the newest N, where N = 0 genuinely means "keep nothing".
+   *
+   * `slice(-n)` cannot express that: `-0` is `0` in JavaScript, so
+   * `slice(-0)` returns the WHOLE array and a bufferSize of 0 — the one value
+   * that reads as "disable replay" — would instead make the buffer grow
+   * without limit for the lifetime of the page. Negative and fractional values
+   * are clamped for the same reason: this is a memory bound, so it should fail
+   * towards keeping less, never towards keeping everything.
+   */
+  private bounded(events: readonly AtlasEvent[]): readonly AtlasEvent[] {
+    const limit = Math.max(0, Math.trunc(this.config.bufferSize));
+    return limit === 0 ? [] : events.slice(-limit);
   }
 
   on<T extends AtlasEventType>(

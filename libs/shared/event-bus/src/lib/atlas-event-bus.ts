@@ -3,7 +3,12 @@ import { AtlasEvent, AtlasEventOf, AtlasEventType } from '@atlas/shared-contract
 import { Observable } from 'rxjs';
 
 export interface AtlasEventBusConfig {
-  /** Newest N events kept for replay to late-loading remotes. */
+  /**
+   * Newest N events kept for replay to late-loading remotes.
+   *
+   * 0 disables replay entirely. Negative and fractional values are clamped
+   * towards 0 — this is a memory bound, so it fails towards keeping less.
+   */
   bufferSize: number;
 }
 

@@ -106,4 +106,55 @@ describe('ReplayAtlasEventBus', () => {
     (bus as unknown as { live: { complete(): void } }).live.complete();
     expect((await collected).map((e) => e.id)).toEqual([flag.id, role.id, 'id-x']);
   });
+
+  /**
+   * `slice(-n)` cannot express "keep nothing": -0 === 0 in JavaScript, so
+   * slice(-0) returns the whole array. A bufferSize of 0 — the one value that
+   * reads as "disable replay" — therefore used to make the buffer UNBOUNDED,
+   * growing for the lifetime of the page. The opposite of what it asks for,
+   * and the failure direction that matters for a memory bound.
+   */
+  describe('buffer bounds', () => {
+    it('keeps nothing at bufferSize 0, rather than everything', () => {
+      const bus = makeBus(0);
+      bus.publish(flag);
+      bus.publish(role);
+
+      expect(bus.history()).toEqual([]);
+    });
+
+    it('replays nothing to a late subscriber at bufferSize 0', () => {
+      const bus = makeBus(0);
+      bus.publish(flag);
+      const seen: AtlasEvent[] = [];
+      const sub = bus.all({ replay: true }).subscribe((e) => seen.push(e));
+
+      expect(seen).toEqual([]);
+      sub.unsubscribe();
+    });
+
+    it('keeps only the newest N', () => {
+      const bus = makeBus(1);
+      bus.publish(flag);
+      bus.publish(role);
+
+      expect(bus.history().map((e) => e.id)).toEqual([role.id]);
+    });
+
+    it('clamps a negative bufferSize towards keeping less, never everything', () => {
+      const bus = makeBus(-5);
+      bus.publish(flag);
+      bus.publish(role);
+
+      expect(bus.history()).toEqual([]);
+    });
+
+    it('does not keep a fractional extra event', () => {
+      const bus = makeBus(1.9);
+      bus.publish(flag);
+      bus.publish(role);
+
+      expect(bus.history().map((e) => e.id)).toEqual([role.id]);
+    });
+  });
 });
