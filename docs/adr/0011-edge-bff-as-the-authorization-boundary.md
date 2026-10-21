@@ -76,6 +76,16 @@ Option 1. The shell's existing Cloudflare Worker gains `main` and
   unacceptable the migration is an `apiBaseUrl` field on the manifest plus CORS, which is one field
   rather than a redesign. Domain state is in-memory per isolate; persistence is a later slice, and
   the boundary is what this one exists to prove.
+- Negative, and stated because it was found rather than designed: **deactivating a user does not
+  revoke their token.** Nothing on the request path consults the directory's `active` flag for the
+  *caller* — only for the target of a mutation — so a deactivated admin keeps administering until
+  their token expires. Not fixed here on purpose: the correct place to answer "is this principal
+  still allowed in" is the identity provider (short token lifetimes plus revocation), and the
+  alternative is having the edge re-read a user directory that is currently an in-memory demo store
+  on every request, which would encode the wrong architecture to close a gap the provider closes
+  better. It is written down because it is exactly what makes the `&& u.active` clause in
+  `wouldRemoveLastAdmin` load-bearing: a deactivated admin still holds a working token, so counting
+  them as cover for a live admin is how a platform reaches zero usable administrators.
 - The Angular remotes now have both a mock and an HTTP implementation behind one contract, selected
   by `ATLAS_API_MODE`. That token lives in `@atlas/shared-util` for a reason worth recording: an
   InjectionToken's identity is the object, not its description, so declaring "the same" token in the

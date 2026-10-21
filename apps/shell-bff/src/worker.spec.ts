@@ -134,6 +134,46 @@ describe('invariants the client cannot enforce', () => {
     expect(response.status).toBe(409);
   });
 
+  /**
+   * The `&& u.active` half of wouldRemoveLastAdmin, which nothing else reaches.
+   *
+   * Every other invariant test DEMOTES an admin, which strips `role: 'admin'`
+   * and so removes them from the count by role alone. Deactivation is the case
+   * where the distinction bites: a deactivated user KEEPS their admin role, so
+   * counting by role treats someone who cannot sign in as cover for someone who
+   * can. Delete `&& u.active` and both requests below succeed, leaving a
+   * platform with zero admins able to sign in — from two individually legal
+   * requests.
+   */
+  it('counts only ACTIVE admins, so a deactivated one cannot stand in for a live one', async () => {
+    const operator: Principal = { sub: 'u-9', email: 'ops@atlas.dev', role: 'admin' };
+
+    // u-2 is deactivated but keeps role: 'admin'
+    expect(
+      (await call('PATCH', '/api/iam/users/u-2/active', operator, { active: false })).status
+    ).toBe(200);
+
+    // u-1 is now the only admin who could actually sign in — both routes out must refuse
+    const demote = await call('PATCH', '/api/iam/users/u-1/role', operator, { role: 'viewer' });
+    expect(demote.status, 'demoting the last ACTIVE admin').toBe(409);
+
+    const deactivate = await call('PATCH', '/api/iam/users/u-1/active', operator, { active: false });
+    expect(deactivate.status, 'deactivating the last ACTIVE admin').toBe(409);
+  });
+
+  it('leaves at least one admin able to sign in after the refusals', async () => {
+    const operator: Principal = { sub: 'u-9', email: 'ops@atlas.dev', role: 'admin' };
+    await call('PATCH', '/api/iam/users/u-2/active', operator, { active: false });
+    await call('PATCH', '/api/iam/users/u-1/role', operator, { role: 'viewer' });
+    await call('PATCH', '/api/iam/users/u-1/active', operator, { active: false });
+
+    const { users } = (await (await call('GET', '/api/iam/users', operator)).json()) as {
+      users: { role: string; active: boolean }[];
+    };
+    // the property that actually matters: somebody can still administer this thing
+    expect(users.filter((u) => u.role === 'admin' && u.active).length).toBeGreaterThan(0);
+  });
+
   it('refuses self-demotion outright, even while other admins remain', async () => {
     // u-2 is still an admin here, so only the self-demotion rule can refuse this
     const response = await call('PATCH', '/api/iam/users/u-1/role', admin, { role: 'viewer' });
