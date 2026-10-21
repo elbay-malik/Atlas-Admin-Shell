@@ -58,12 +58,59 @@ describe('atlasAuthInterceptor', () => {
    * The guard that matters. Without it the token would ride along on every
    * cross-origin remoteEntry.json and chunk fetch, handing each remote's CDN a
    * credential it has no business seeing.
+   *
+   * Note this case alone does NOT exercise the origin check — /remoteEntry.json
+   * fails the path test too, so it passed even while the origin check was
+   * missing. The cases below are the ones that pin it.
    */
   it('never attaches the token to a cross-origin federation fetch', async () => {
     await auth.login('admin');
     http.get('http://localhost:4201/remoteEntry.json').subscribe();
 
     const request = controller.expectOne('http://localhost:4201/remoteEntry.json');
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush({});
+  });
+
+  /**
+   * THE REGRESSION TEST. Until 2026-09-23 the guard resolved the URL and then
+   * checked only its PATHNAME, so any foreign origin serving /api/ was handed a
+   * live bearer token. Every other case in this file passes on the path check
+   * alone, which is why the hole survived: the suite was green with no origin
+   * check at all.
+   */
+  it.each([
+    'https://evil.example/api/steal',
+    'http://localhost:4201/api/anything',
+    'https://iam.atlas.example/api/iam/users',
+  ])('never attaches the token to cross-origin %s', async (url) => {
+    await auth.login('admin');
+    http.get(url).subscribe();
+    await settle();
+
+    const request = controller.expectOne(url);
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush({});
+  });
+
+  it('still attaches the token to an absolute SAME-origin API url', async () => {
+    await auth.login('admin');
+    const url = `${location.origin}/api/flags`;
+    http.get(url).subscribe();
+    await settle();
+
+    const request = controller.expectOne(url);
+    expect(request.request.headers.get('Authorization')).toBe('Bearer mock.u-admin.admin');
+    request.flush({});
+  });
+
+  it('fails closed on an unparseable url rather than throwing out of the interceptor', async () => {
+    await auth.login('admin');
+    const url = 'http://[::1';
+    expect(() => http.get(url).subscribe()).not.toThrow();
+    await settle();
+
+    const request = controller.expectOne(url);
     expect(request.request.headers.has('Authorization')).toBe(false);
     request.flush({});
   });

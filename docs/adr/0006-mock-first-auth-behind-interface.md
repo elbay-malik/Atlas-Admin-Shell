@@ -70,6 +70,37 @@ still ships as the default, so the console runs with no identity provider at all
    event, so the state is correct; enforcing it on already-open routes is a separate concern and is
    not solved here.
 
+## Correction, 2026-09-23: the guard that keeps the token off other origins did not check origin
+
+Adding `getAccessToken()` (point 2 above) put a live credential into a shared singleton that every
+remote can inject, which makes the interceptor's URL guard the thing standing between that token and
+every other origin the console talks to. Its own comment states the stake plainly: without it "the
+token would ride along on cross-origin `remoteEntry.json` and chunk requests, i.e. this platform
+would hand every remote's CDN a credential it has no business seeing."
+
+It resolved the URL and then tested only the **pathname**:
+
+```ts
+const isApiCall = url.startsWith(API_PREFIX) || new URL(url, location.origin).pathname.startsWith(API_PREFIX);
+```
+
+`new URL('https://evil.example/api/steal', location.origin).pathname` is `/api/steal`, so that
+returned true and the bearer token was attached. The check answered "does this look like an API
+call" when the question is "is this credential going to the party it was minted for".
+
+Nothing exploited it, because no code path in this repo issues an `HttpClient` request to a foreign
+`/api/` URL — the federation runtime fetches remote entries through `importShim`, not `HttpClient`,
+so the specific leak the comment describes was never reachable through this interceptor anyway. It
+was a latent hole in a protection documented as load-bearing, not a live one.
+
+**Why the suite did not catch it.** All four existing cases passed on the path test alone:
+`/remoteEntry.json` and `/assets/api/thing.json` both fail `startsWith('/api/')` regardless of
+origin, so the origin half could be deleted with everything green — the same shape as the ES256
+pin in ADR-0011. The guard now compares `target.origin === location.origin` as well, fails closed on
+an unparseable URL, and three new cases pin exactly that (`https://evil.example/api/steal`,
+`http://localhost:4201/api/anything`, `https://iam.atlas.example/api/iam/users`). Verified by
+restoring the path-only guard and watching precisely those three fail, and nothing else.
+
 **Role trust.** The role is read from `app_metadata` or a Custom Access Token Hook claim, and never
 from `user_metadata`, which Supabase documents as editable by the user without checks. It is also
 never read from the `role` claim, which is the Postgres role and is `authenticated` for everyone.
