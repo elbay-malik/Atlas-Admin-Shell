@@ -20,6 +20,19 @@ mean every request answering 401. `mock` is therefore the correct value today, a
 out rather than left to the `absent means mock` default so that it reads as a decision — with a
 single, reviewable place to change when a Supabase project exists.
 
+## The deploy pre-flight
+
+`node tools/check-manifests.mjs --require <env>` asserts that one NAMED environment exists, and the
+deploy workflow runs it before a single upload. Plain `manifest:check` validates whatever manifests
+happen to be present, which does not answer *"can this deploy proceed"* — and the workflow publishes
+the three remotes two steps later. Selecting an environment with no manifest used to publish the
+remotes and only then fail on the shell, leaving the platform half-deployed with newer remotes and
+an older shell.
+
+Adding an environment therefore means three things, not one: the directory here, the `options:` list
+in `.github/workflows/deploy.yml`, and a check that the shell's `deploy` target does what that
+environment needs.
+
 ## Why there is no `preview` environment yet
 
 A path-routed preview (`/iam/remoteEntry.json`, one origin per pull request, so a single manifest
@@ -29,3 +42,8 @@ origin — so root-relative entries would resolve against the shell's origin and
 
 `resolveRemoteUrls` already supports relative entries and is unit-tested for them, so the shell side
 is ready. The missing piece is the router, which lands with the edge BFF.
+
+The shell's `deploy` target does carry a `preview` configuration (`wrangler versions upload`), which
+is the right primitive for when that lands. It is deliberately **not reachable** from the deploy
+workflow today: there is no manifest for it to apply, and the pre-flight above would refuse the run
+anyway. It stays as the shape of the eventual answer, not as a working path.

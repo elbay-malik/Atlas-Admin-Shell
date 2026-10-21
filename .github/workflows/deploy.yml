@@ -11,7 +11,12 @@ on:
       environment:
         description: Which manifest to publish alongside the shell
         type: choice
-        options: [production, preview]
+        # Only environments that actually have a deploy/manifests/<env>/ entry
+        # belong here. `preview` was listed before one existed, and choosing it
+        # published all three remotes and only then failed on the shell — see
+        # deploy/manifests/README.md for why preview needs an edge router first.
+        # Adding an environment means adding the directory AND this option.
+        options: [production]
         default: production
 
 permissions:
@@ -61,7 +66,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm run manifest:check
+      # --require is the pre-flight: it asserts the SELECTED environment exists
+      # before a single upload happens. Validating whatever manifests happen to
+      # be present does not answer "can this deploy proceed", and the remotes
+      # publish two steps below.
+      - run: node tools/check-manifests.mjs --require "$ATLAS_ENV"
 
       # Remotes first: the shell's manifest points at them, so publishing the
       # shell before its remotes exist would show every domain as offline.

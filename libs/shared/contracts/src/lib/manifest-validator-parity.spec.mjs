@@ -20,9 +20,22 @@
  * This file is .mjs on purpose: it imports a plain-JavaScript repo tool, which
  * is not a TypeScript module and has no types to import.
  */
+import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { problems } from '../../../../../tools/check-manifests.mjs';
 import { isAtlasManifest } from './manifest';
+
+const CHECKER = new URL('../../../../../tools/check-manifests.mjs', import.meta.url).pathname;
+
+/** Runs the real CLI and returns its exit code, so the receipt is the process. */
+function runChecker(args) {
+  try {
+    execFileSync(process.execPath, [CHECKER, ...args], { stdio: 'pipe' });
+    return 0;
+  } catch (error) {
+    return error.status ?? 1;
+  }
+}
 
 const validRemote = {
   url: 'https://iam.atlas.example/remoteEntry.json',
@@ -182,5 +195,30 @@ describe('check-manifests is strictly stricter than isAtlasManifest (ADR-0010)',
 
     expect(isAtlasManifest(manifest)).toBe(false);
     expect(problems(manifest).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/**
+ * The deploy pre-flight. `manifest:check` validates whatever manifests happen
+ * to exist, which does NOT answer "can this deploy proceed" — and the deploy
+ * workflow publishes the three remotes two steps after it. Selecting an
+ * environment with no manifest therefore used to publish the remotes and only
+ * then fail on the shell, leaving the platform half-deployed.
+ */
+describe('check-manifests --require (deploy pre-flight)', () => {
+  it('accepts an environment that exists', () => {
+    expect(runChecker(['--require', 'production'])).toBe(0);
+  });
+
+  it('REFUSES an environment with no manifest, so nothing deploys', () => {
+    expect(runChecker(['--require', 'preview'])).toBe(1);
+  });
+
+  it('refuses a bare --require with no environment name', () => {
+    expect(runChecker(['--require'])).toBe(1);
+  });
+
+  it('still passes with no --require at all, for plain CI validation', () => {
+    expect(runChecker([])).toBe(0);
   });
 });

@@ -86,8 +86,21 @@ export function problems(manifest) {
   return found;
 }
 
+/**
+ * `--require <env>` additionally asserts that ONE named environment exists and
+ * passes. The deploy workflow uses it as a pre-flight: without it, selecting an
+ * environment that has no manifest published the three remotes and only THEN
+ * failed on the shell, leaving the platform half-deployed. Validating every
+ * manifest that happens to exist does not answer "can this deploy proceed".
+ */
+function requiredEnv(argv) {
+  const index = argv.indexOf('--require');
+  return index === -1 ? null : argv[index + 1];
+}
+
 /** The CLI. Split out so importing this module for the parity test runs nothing. */
 function main() {
+  const required = requiredEnv(process.argv.slice(2));
   if (!existsSync(ENV_DIR)) {
     console.error(`check-manifests: ${ENV_DIR} does not exist`);
     process.exit(1);
@@ -125,6 +138,21 @@ function main() {
       failed = true;
     } else {
       console.log(`✔ ${env}: ${Object.keys(parsed.remotes).length} remotes`);
+    }
+  }
+
+    if (required !== null) {
+    if (!required) {
+      console.error('check-manifests: --require needs an environment name');
+      failed = true;
+    } else if (!envs.includes(required)) {
+      console.error(
+        `\u2716 required environment "${required}" has no manifest. Available: ${envs.join(', ')}`
+      );
+      console.error('    nothing was deployed. Add deploy/manifests/' + required + '/ first.');
+      failed = true;
+    } else {
+      console.log(`\u2714 required environment "${required}" is present`);
     }
   }
 
