@@ -50,12 +50,25 @@ interface TokenOptions {
   /** Pass `false` to mint a token with no `exp` at all. */
   expiresIn?: string | false;
   claims?: Record<string, unknown>;
+  /** Merged into the namespace object, where custom claims actually live. */
+  namespace?: Record<string, unknown>;
   /** Pass `false` to mint a token with no `sub` at all. */
   subject?: string | false;
 }
 
 async function token(options: TokenOptions = {}): Promise<string> {
-  const builder = new SignJWT({ email: 'ada@atlas.dev', ...(options.claims ?? {}) })
+  // Shaped like a real token: everything custom lives inside the namespace,
+  // and the top level carries only the registered claims.
+  const builder = new SignJWT({
+    'https://hasura.io/jwt/claims': {
+      'x-hasura-user-id': 'u-1',
+      'x-hasura-allowed-roles': ['user', 'me'],
+      'x-hasura-default-role': 'user',
+      'x-hasura-email': 'ada@atlas.dev',
+      ...(options.namespace ?? {}),
+    },
+    ...(options.claims ?? {}),
+  })
     .setProtectedHeader({ alg: options.alg ?? 'RS256' })
     .setIssuedAt()
     .setIssuer(options.issuer ?? ISSUER);
@@ -85,28 +98,45 @@ describe('token verification', () => {
     });
   });
 
-  it('reads admin from app_metadata, the service-role-only field', async () => {
+  it('reads admin from the server-minted allowed-roles list', async () => {
     const result = await verifier()(
-      request(await token({ claims: { app_metadata: { atlas_role: 'admin' } } }))
+      request(await token({ namespace: { 'x-hasura-allowed-roles': ['user', 'me', 'admin'] } }))
     );
     expect(result).toMatchObject({ ok: true, principal: { role: 'admin' } });
   });
 
-  it('reads admin from a custom access token hook claim', async () => {
-    const result = await verifier()(request(await token({ claims: { atlas_role: 'admin' } })));
+  /**
+   * Measured from a real token: a user holding the admin role still has
+   * default-role "user". Reading default-role would make a genuine admin a
+   * viewer — failing closed, and therefore invisible until nobody can
+   * administer anything.
+   */
+  it('grants admin even though the default role stays user', async () => {
+    const result = await verifier()(
+      request(
+        await token({
+          namespace: {
+            'x-hasura-allowed-roles': ['user', 'me', 'admin'],
+            'x-hasura-default-role': 'user',
+          },
+        })
+      )
+    );
     expect(result).toMatchObject({ ok: true, principal: { role: 'admin' } });
   });
 
   /** The whole point of deriving the role server-side rather than trusting the client. */
-  it('IGNORES a role smuggled in user_metadata', async () => {
+  it('IGNORES a default role of admin without the allowed-roles entry', async () => {
     const result = await verifier()(
-      request(await token({ claims: { user_metadata: { atlas_role: 'admin' } } }))
+      request(await token({ namespace: { 'x-hasura-default-role': 'admin' } }))
     );
     expect(result).toMatchObject({ ok: true, principal: { role: 'viewer' } });
   });
 
-  it('IGNORES the database role claim', async () => {
-    const result = await verifier()(request(await token({ claims: { role: 'admin' } })));
+  it('IGNORES a role smuggled in at the top level, outside the namespace', async () => {
+    const result = await verifier()(
+      request(await token({ claims: { atlas_role: 'admin', role: 'admin' } }))
+    );
     expect(result).toMatchObject({ ok: true, principal: { role: 'viewer' } });
   });
 

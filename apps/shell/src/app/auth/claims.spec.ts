@@ -1,54 +1,99 @@
+import { CLAIMS_NAMESPACE } from '@atlas/shared-contracts';
 import { toAuthUser } from './claims';
 
+/**
+ * Fixtures are shaped like a REAL token from the identity provider, captured
+ * during the migration. The namespace object is the whole claim surface; there
+ * is nothing at the top level but `exp`, `iat`, `iss` and `sub`.
+ */
+const claims = (ns: Record<string, unknown> = {}, top: Record<string, unknown> = {}) => ({
+  sub: '7833c50f-5e99-4ad2-8a88-1e326f591990',
+  iss: 'https://project.auth.eu-central-1.nhost.run/v1',
+  [CLAIMS_NAMESPACE]: {
+    'x-hasura-user-id': '7833c50f-5e99-4ad2-8a88-1e326f591990',
+    'x-hasura-user-is-anonymous': 'false',
+    ...ns,
+  },
+  ...top,
+});
+
 describe('toAuthUser', () => {
-  const base = { sub: 'u-1', email: 'ada@atlas.dev' };
-
-  it('reads an admin role from app_metadata', () => {
-    expect(toAuthUser({ ...base, app_metadata: { atlas_role: 'admin' } })).toEqual({
-      id: 'u-1',
-      name: 'ada@atlas.dev',
-      email: 'ada@atlas.dev',
-      role: 'admin',
-    });
-  });
-
-  it('reads a role from a custom access token hook claim', () => {
-    expect(toAuthUser({ ...base, atlas_role: 'admin' })?.role).toBe('admin');
+  it('grants admin when the allowed roles include it', () => {
+    const user = toAuthUser(
+      claims({ 'x-hasura-allowed-roles': ['user', 'me', 'admin'], 'x-hasura-default-role': 'user' })
+    );
+    expect(user?.role).toBe('admin');
   });
 
   /**
-   * The security-critical case. Supabase documents user_metadata as editable by
-   * the user without any checks, so honouring it would let anyone self-promote.
+   * The case that decided the implementation, taken from a measured token: a
+   * user holding the admin role still has default-role "user", because default
+   * is what you ACT AS and allowed is what you MAY be. Reading default-role
+   * made a genuine admin a viewer — a lockout that fails closed and therefore
+   * looks like correct behaviour until nobody can administer anything.
    */
-  it('IGNORES a role claimed in user_metadata', () => {
-    const user = toAuthUser({ ...base, user_metadata: { atlas_role: 'admin' } });
+  it('grants admin even though the default role is user', () => {
+    const user = toAuthUser(
+      claims({ 'x-hasura-allowed-roles': ['user', 'me', 'admin'], 'x-hasura-default-role': 'user' })
+    );
+    expect(user?.role).toBe('admin');
+  });
+
+  it('is a viewer when admin is not among the allowed roles', () => {
+    const user = toAuthUser(
+      claims({ 'x-hasura-allowed-roles': ['user', 'me'], 'x-hasura-default-role': 'user' })
+    );
     expect(user?.role).toBe('viewer');
   });
 
-  /** `role` is the Postgres role — literally "authenticated" for everyone. */
-  it('IGNORES the Postgres role claim', () => {
-    expect(toAuthUser({ ...base, role: 'authenticated' })?.role).toBe('viewer');
-    expect(toAuthUser({ ...base, role: 'admin' })?.role).toBe('viewer');
-  });
-
-  it('fails closed for anything unrecognised', () => {
-    expect(toAuthUser({ ...base, app_metadata: { atlas_role: 'root' } })?.role).toBe('viewer');
-    expect(toAuthUser({ ...base, app_metadata: { atlas_role: 42 } })?.role).toBe('viewer');
-    expect(toAuthUser({ ...base, app_metadata: null })?.role).toBe('viewer');
-    expect(toAuthUser(base)?.role).toBe('viewer');
-  });
-
-  it('prefers a full name but falls back to email, then id', () => {
-    expect(toAuthUser({ ...base, app_metadata: { full_name: 'Ada Lovelace' } })?.name).toBe(
-      'Ada Lovelace'
+  it('IGNORES a default role of admin without the allowed-roles entry', () => {
+    // Belt and braces: a token shaped this way should not exist, and if one
+    // ever does it must not be a promotion.
+    const user = toAuthUser(
+      claims({ 'x-hasura-allowed-roles': ['user'], 'x-hasura-default-role': 'admin' })
     );
-    expect(toAuthUser(base)?.name).toBe('ada@atlas.dev');
-    expect(toAuthUser({ sub: 'u-1' })?.name).toBe('u-1');
+    expect(user?.role).toBe('viewer');
+  });
+
+  it('IGNORES a role claimed at the top level, outside the namespace', () => {
+    // Anything outside the namespace is not minted by the auth server's role
+    // machinery, so it carries no authority here.
+    const user = toAuthUser(claims({ 'x-hasura-allowed-roles': ['user'] }, { atlas_role: 'admin' }));
+    expect(user?.role).toBe('viewer');
+  });
+
+  it('IGNORES a display name that says admin, because it is user-editable', () => {
+    const user = toAuthUser(
+      claims({ 'x-hasura-allowed-roles': ['user'], 'x-hasura-display-name': 'admin' })
+    );
+    expect(user?.role).toBe('viewer');
+  });
+
+  it('fails closed when the namespace is missing entirely', () => {
+    expect(toAuthUser({ sub: 'u-1' })?.role).toBe('viewer');
+  });
+
+  it('fails closed when allowed-roles is not an array', () => {
+    expect(toAuthUser(claims({ 'x-hasura-allowed-roles': 'admin' }))?.role).toBe('viewer');
+  });
+
+  it('uses the display name when the project mints one', () => {
+    const user = toAuthUser(
+      claims({ 'x-hasura-display-name': 'Elbay Malik', 'x-hasura-email': 'e@example.com' })
+    );
+    expect(user?.name).toBe('Elbay Malik');
+    expect(user?.email).toBe('e@example.com');
+  });
+
+  it('falls back to email, then to the subject, when no name is minted', () => {
+    expect(toAuthUser(claims({ 'x-hasura-email': 'e@example.com' }))?.name).toBe('e@example.com');
+    // What production looks like TODAY: no email claim and no display name, so
+    // the console shows the id rather than an empty header.
+    expect(toAuthUser(claims())?.name).toBe('7833c50f-5e99-4ad2-8a88-1e326f591990');
+    expect(toAuthUser(claims())?.email).toBe('');
   });
 
   it('rejects claims with no subject', () => {
-    expect(toAuthUser({ email: 'x@y.z' })).toBeNull();
-    expect(toAuthUser({ sub: 42 })).toBeNull();
-    expect(toAuthUser({})).toBeNull();
+    expect(toAuthUser({ [CLAIMS_NAMESPACE]: { 'x-hasura-allowed-roles': ['admin'] } })).toBeNull();
   });
 });

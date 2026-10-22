@@ -65,7 +65,16 @@ function setup(configure: (fake: FakeGoTrue) => void = () => undefined) {
   return { fake, auth: TestBed.inject(AtlasAuth) };
 }
 
-const adminClaims = { sub: 'u-1', email: 'ada@atlas.dev', app_metadata: { atlas_role: 'admin' } };
+/** Shaped like a real token: custom claims live inside the namespace. */
+const adminClaims = {
+  sub: 'u-1',
+  'https://hasura.io/jwt/claims': {
+    'x-hasura-user-id': 'u-1',
+    'x-hasura-allowed-roles': ['user', 'me', 'admin'],
+    'x-hasura-default-role': 'user',
+    'x-hasura-email': 'ada@atlas.dev',
+  },
+};
 
 describe('SupabaseAtlasAuth', () => {
   it('starts unauthenticated when there is no session', async () => {
@@ -151,8 +160,17 @@ describe('SupabaseAtlasAuth', () => {
     const { auth, fake } = setup((f) => (f.claims = adminClaims));
     await auth.init();
 
-    // the role was revoked server-side between issuing and refreshing
-    fake.claims = { ...adminClaims, app_metadata: { atlas_role: 'viewer' } };
+    // The role was revoked server-side between issuing and refreshing: the new
+    // token's allowed-roles no longer contains admin. Re-reading the claims is
+    // what makes a revocation take effect at the next refresh instead of
+    // persisting for the life of the tab.
+    fake.claims = {
+      ...adminClaims,
+      'https://hasura.io/jwt/claims': {
+        ...(adminClaims['https://hasura.io/jwt/claims'] as Record<string, unknown>),
+        'x-hasura-allowed-roles': ['user', 'me'],
+      },
+    };
     fake.emit('TOKEN_REFRESHED', { access_token: 'jwt-2' });
     await new Promise((resolve) => queueMicrotask(() => resolve(null)));
 

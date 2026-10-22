@@ -1,4 +1,4 @@
-import { AtlasRole, toAtlasRole } from '@atlas/shared-contracts';
+import { AtlasRole, toAtlasEmail, toAtlasRole } from '@atlas/shared-contracts';
 import { type JWTVerifyGetKey, jwtVerify } from 'jose';
 import { Principal } from './authz';
 
@@ -69,8 +69,11 @@ export function createVerifier(options: VerifierOptions) {
       const sub = typeof payload.sub === 'string' ? payload.sub : '';
       if (!sub) return { ok: false, status: 401, reason: 'token has no subject' };
 
-      const role: AtlasRole = toAtlasRole(payload as Record<string, unknown>);
-      const email = typeof payload['email'] === 'string' ? payload['email'] : '';
+      const claims = payload as Record<string, unknown>;
+      const role: AtlasRole = toAtlasRole(claims);
+      // '' when the project mints no email claim; handlers already fall back to
+      // `sub` for audit entries, so the trail degrades rather than breaking.
+      const email = toAtlasEmail(claims);
       return { ok: true, principal: { sub, email, role } };
     } catch (error) {
       // Deliberately coarse to the caller, but not silent: without this an
