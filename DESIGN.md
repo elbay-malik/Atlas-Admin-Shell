@@ -501,6 +501,36 @@ against a secondary **Retry**.
   page message — the column headers stay on screen so the operator can see what they
   filtered.
 
+### Action Status
+
+The acknowledgement line every domain screen carries, directly under its header.
+
+- **Always in the DOM, even when silent.** It is a `role="status"` / `aria-live="polite"`
+  region, and a region inserted at the same moment its text appears is frequently never
+  announced — assistive tech watches regions it already knows about. The element renders
+  unconditionally and only its contents change.
+- **`polite`, never `assertive`.** The operator did this on purpose; it can wait for a
+  pause rather than interrupt them.
+- **It carries Undo, not a confirmation.** A confirm dialog interrupts every action to
+  guard against the rare one, and an operator working down a list learns to dismiss it
+  unread. Undo keeps the common path at one click and makes the rare mistake cheap.
+- **Undo performs the inverse action**, through the same API call and the same event
+  publication — so the audit trail shows the flag going on and then off, rather than an
+  edit silently vanishing from the record.
+
+### Refusals
+
+Some actions are not undoable because they would remove the ability to undo them:
+demoting yourself, deactivating your own session, or removing the last administrator.
+Those controls are **disabled and say why**, in a `title` on the host element and in the
+accessible name — a disabled `<button>` stops receiving the mouse events that would
+surface its own tooltip, so the reason has to live somewhere that is not disabled.
+
+**These are error prevention, not security.** The edge BFF is the authorization boundary
+(ADR-0011) and the same invariants live there; the client only hides things. They exist
+here because production runs `apiMode: 'mock'`, where nothing else would stop an
+administrator demoting themselves out of the screen they are standing in.
+
 ### Signature Component — the Overview Registry
 
 The landing screen is a table of `federation.manifest.json`: one row per remote, with
@@ -545,6 +575,16 @@ decision, not a component-level convenience.
 One exception, and it is not stylistic: `transition-colors` also transitions
 `outline-color`, which must never animate. The focus rule clears its
 `transition-property` for exactly that reason.
+
+**The Undo Over Confirm Rule.** A reversible action is acknowledged and offers Undo; it
+does not ask first. Only an action that would remove the ability to undo it — losing
+your own access, or the platform's last administrator — is refused outright, and a
+refusal always says why on the control itself.
+
+**The Silent Success Rule.** No write completes without saying so. A label flipping is
+not feedback: it is invisible to a screen reader, and it is invisible to anyone whose
+eyes were on the control they clicked rather than on a counter at the far corner of the
+screen.
 
 **The Focus Ring Rule.** One ring, declared once, for everything: a 2px solid
 outline in the semantic `text` colour at `outline-offset: 2px`, from
@@ -599,6 +639,8 @@ outright — including the ring forced-colors mode synthesises.
   dark fails.
 - **Do** draw a new icon into the shared set at the same 1.5 stroke weight on the
   20px grid, in `currentColor`, and give the manifest its name.
+- **Do** acknowledge every write in the screen's action status, and offer Undo unless
+  the action is one of the refusals.
 - **Do** leave focus to the shared ring. It already covers `<button>`, `<a>`,
   `<input>`, `[tabindex]` holders and anything added later.
 
@@ -613,6 +655,8 @@ outright — including the ring forced-colors mode synthesises.
   active route. Its rarity is what makes it readable.
 - **Don't** use a status hue as text on its own tint, or a status colour to set a mood.
 - **Don't** animate geometry. Colour transitions only — no transform, lift or scale.
+- **Don't** add a confirmation dialog to a reversible action.
+- **Don't** let a write complete silently, or signal it only by a control changing.
 - **Don't** write `outline: none`, anywhere, for any reason. It is the single edit
   that can remove focus indication outright.
 - **Don't** add a focus utility to a component. The shared ring covers it; a local

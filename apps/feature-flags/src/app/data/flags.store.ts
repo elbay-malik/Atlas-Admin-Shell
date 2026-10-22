@@ -27,9 +27,11 @@ const flagsConfig = entityConfig({
 interface FlagsState {
   /** Keys whose write is in flight — one row can be busy while others are not. */
   pendingKeys: string[];
+  /** The last confirmed toggle, kept so it can be announced and reversed. */
+  lastToggle: { key: string; message: string } | null;
 }
 
-const initialState: FlagsState = { pendingKeys: [] };
+const initialState: FlagsState = { pendingKeys: [], lastToggle: null };
 
 /**
  * The feature-flags domain store (ADR-0005: a store never crosses a federation
@@ -94,7 +96,12 @@ export const FlagsStore = signalStore(
                 next: () => {
                   // clear any error left by an earlier failed write, or the
                   // banner would outlive the failure for the whole session
-                  patchState(store, setFulfilled());
+                  patchState(store, setFulfilled(), {
+                    lastToggle: {
+                      key,
+                      message: `${key} turned ${enabled ? 'on' : 'off'}.`,
+                    },
+                  });
                   bus.publish(
                     flagToggled(
                       { key, enabled },
@@ -119,6 +126,25 @@ export const FlagsStore = signalStore(
       ),
     })
   ),
+  // A second pass, because undo has to call the toggle defined above.
+  withMethods((store) => ({
+    /**
+     * Reverses the last toggle by toggling again, not by patching state back.
+     * The inverse goes through the same API call and publishes its own event,
+     * so the audit trail records the undo as a real change — an operator
+     * reading the log later needs to see that the flag went on and then off,
+     * not an edit that silently vanished.
+     */
+    undoLastToggle(): void {
+      const last = store.lastToggle();
+      if (!last) return;
+      patchState(store, { lastToggle: null });
+      store.toggle(last.key);
+    },
+    dismissLastToggle(): void {
+      patchState(store, { lastToggle: null });
+    },
+  })),
   withHooks({
     onInit: ({ load }) => load(),
   })

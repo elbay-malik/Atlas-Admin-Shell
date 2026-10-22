@@ -494,6 +494,14 @@
       "description": "The drawn set. Stroke-only, single 1.5 weight on a 20px grid, always currentColor so it takes the ink of whatever it sits in.",
       "html": "<span class=\"ds-icon-row\"><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2.75 8.5 10 2.75l7.25 5.75\"/><path d=\"M4.5 7.9v8.35h11V7.9\"/></svg>overview</span><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M7.5 9.75a2.875 2.875 0 1 0 0-5.75 2.875 2.875 0 0 0 0 5.75Z\"/><path d=\"M2.5 16.75c0-2.625 2.239-4.75 5-4.75s5 2.125 5 4.75\"/><path d=\"M13.25 4.6a2.625 2.625 0 0 1 0 5.05\"/><path d=\"M15 12.4c1.625.65 2.5 2.2 2.5 4.35\"/></svg>users</span><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5.5 2.75v14.5\"/><path d=\"M5.5 4h8.75l-1.75 3.125L14.25 10.25H5.5z\"/></svg>flag</span><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5.25 2.75h9.5v14.5l-2.375-1.5L10 17.25l-2.375-1.5L5.25 17.25z\"/><path d=\"M7.75 6.5h4.5\"/><path d=\"M7.75 9.25h4.5\"/><path d=\"M7.75 12h2.75\"/></svg>ledger</span><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 17.25a7.25 7.25 0 1 0 0-14.5 7.25 7.25 0 0 0 0 14.5Z\"/><path d=\"M12.9 7.1l-1.45 4.35-4.35 1.45 1.45-4.35z\"/></svg>compass</span></span>",
       "css": ".ds-icon-row { display: flex; flex-wrap: wrap; gap: 1.5rem; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text-muted, #475569); } .ds-icon { display: inline-flex; align-items: center; gap: 0.5rem; }"
+    },
+    {
+      "name": "Action Status",
+      "kind": "custom",
+      "refersTo": "button-secondary",
+      "description": "The acknowledgement line each domain screen carries. A polite live region that is always in the DOM even when silent, carrying Undo rather than a confirmation.",
+      "html": "<p class=\"ds-action-status\" role=\"status\" aria-live=\"polite\"><span>new-dashboard turned off.</span><button class=\"ds-btn ds-btn-secondary\" type=\"button\">Undo</button></p>",
+      "css": ".ds-action-status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; min-height: 2.25rem; margin: 0; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text-muted, #475569); }"
     }
   ],
   "narrative": {
@@ -584,6 +592,16 @@
         "name": "The Page Never Pans Rule",
         "body": "Horizontal scrolling belongs to a container, never to the document. A table may overflow inside its own box; if the document scrolls sideways the chrome leaves with it, and the page is broken rather than dense.",
         "section": "layout"
+      },
+      {
+        "name": "The Undo Over Confirm Rule",
+        "body": "A reversible action is acknowledged and offers Undo; it does not ask first. A confirm dialog interrupts every action to guard against the rare one, and an operator working down a list learns to dismiss it unread. Only an action that would remove the ability to undo it — losing your own access, or the platform last administrator — is refused outright, and a refusal always says why on the control itself.",
+        "section": "components"
+      },
+      {
+        "name": "The Silent Success Rule",
+        "body": "No write completes without saying so. A label flipping is not feedback: it is invisible to a screen reader, and invisible to anyone whose eyes were on the control they clicked rather than on a counter at the far corner of the screen.",
+        "section": "components"
       }
     ],
     "dos": [
@@ -598,7 +616,8 @@
       "Do verify both themes for every change. A component that passes light and fails dark fails.",
       "Do leave focus to the shared ring. It already covers <button>, <a>, <input>, [tabindex] holders and anything added later.",
       "Do draw a new icon into the shared set at the same 1.5 stroke weight on the 20px grid, in currentColor, and give the manifest its name.",
-      "Do let a dense table scroll inside its own container at phone width, and never let the document pan."
+      "Do let a dense table scroll inside its own container at phone width, and never let the document pan.",
+      "Do acknowledge every write in the screen action status, and offer Undo unless the action is one of the refusals."
     ],
     "donts": [
       "Don’t add a box-shadow to a single component. The system has no elevation vocabulary; an improvised value becomes the de facto system without anyone choosing it. Design it deliberately, once.",
@@ -615,7 +634,9 @@
       "Don't let outline-color transition. transition-colors includes it, and an indicator that fades in is not an indicator on the frame it is needed.",
       "Don't reach for an emoji, a Unicode glyph, or an icon font. The set is drawn; a glyph is a different weight, a different colour, and a different shape on every operating system.",
       "Don't give an icon its own colour. currentColor is what keeps it inside the colour ration.",
-      "Don't add a second breakpoint. md is the whole vocabulary: the console is either at a desk or in a hand."
+      "Don't add a second breakpoint. md is the whole vocabulary: the console is either at a desk or in a hand.",
+      "Don't add a confirmation dialog to a reversible action.",
+      "Don't let a write complete silently, or signal it only by a control changing."
     ]
   }
 }

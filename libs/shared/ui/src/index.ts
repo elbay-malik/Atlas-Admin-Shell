@@ -1,3 +1,4 @@
+export * from './lib/action-status/ui-action-status';
 export * from './lib/badge/ui-badge';
 export * from './lib/button/ui-button';
 export * from './lib/icon/ui-icon';

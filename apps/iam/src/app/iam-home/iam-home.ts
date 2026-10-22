@@ -1,14 +1,14 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { AtlasRole } from '@atlas/shared-contracts';
-import { UiBadge, UiButton } from '@atlas/shared-ui';
+import { UiActionStatus, UiBadge, UiButton } from '@atlas/shared-ui';
 import { IamUser } from '../data/iam-api';
-import { IamUsersStore } from '../data/iam-users.store';
+import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-users.store';
 
 @Component({
   selector: 'iam-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiBadge, UiButton],
+  imports: [UiActionStatus, UiBadge, UiButton],
   template: `
     <section class="p-6">
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -49,6 +49,11 @@ import { IamUsersStore } from '../data/iam-users.store';
       @if (store.isPending() && store.entities().length === 0) {
         <p data-testid="users-loading" class="text-sm text-text-muted">Loading users…</p>
       }
+
+      <ui-action-status
+        [message]="store.lastChange()?.message ?? null"
+        (undo)="store.undoLastChange()"
+      />
 
       <!--
         A dense record table is the one thing that legitimately scrolls
@@ -91,6 +96,8 @@ import { IamUsersStore } from '../data/iam-users.store';
                          text-sm text-text disabled:cursor-not-allowed disabled:opacity-50
                          md:min-h-0"
                   [value]="user.role"
+                  [disabled]="!!roleRefusal(user)"
+                  [attr.title]="roleRefusal(user)"
                   [attr.aria-busy]="isPending(user.id)"
                   [attr.aria-label]="'Role for ' + user.name"
                   (change)="onRoleChange(user, $event)"
@@ -114,10 +121,28 @@ import { IamUsersStore } from '../data/iam-users.store';
                 </ui-badge>
               </td>
               <td class="py-2">
+                <!--
+                  Disabled rather than allowed-and-rejected: the operator should
+                  not be able to reach for the one action that would lock them
+                  out. The store refuses it too, because a hidden control is not
+                  the same as an impossible change.
+
+                  The title goes on the HOST element, which is never disabled —
+                  a disabled <button> does not reliably surface its own tooltip,
+                  since it stops receiving the mouse events that trigger one.
+                  The reason is appended to the accessible name as well, so it
+                  reaches someone who never sees a tooltip at all.
+                -->
                 <ui-button
                   data-testid="toggle-active"
                   variant="secondary"
-                  [ariaLabel]="(user.active ? 'Deactivate ' : 'Activate ') + user.name"
+                  [attr.title]="activeRefusal(user)"
+                  [disabled]="!!activeRefusal(user)"
+                  [ariaLabel]="
+                    (user.active ? 'Deactivate ' : 'Activate ') +
+                    user.name +
+                    (activeRefusal(user) ? '. ' + activeRefusal(user) : '')
+                  "
                   [busy]="isPending(user.id)"
                   (pressed)="store.setActive({ id: user.id, active: !user.active })"
                 >
@@ -135,6 +160,22 @@ import { IamUsersStore } from '../data/iam-users.store';
 export class IamHome {
   protected readonly auth = inject(AtlasAuth);
   protected readonly store = inject(IamUsersStore);
+
+  /** Context the refusals need, recomputed as the table changes. */
+  private readonly guardContext = computed(() => ({
+    actorEmail: this.auth.user()?.email ?? '',
+    adminCount: this.store.entities().filter((u) => u.role === 'admin' && u.active).length,
+  }));
+
+  /** Why this row's role cannot be changed to viewer, or null when it can. */
+  protected roleRefusal(user: IamUser): string | null {
+    return refuseRoleChange(user, 'viewer', this.guardContext());
+  }
+
+  /** Why this row cannot be deactivated, or null when it can. */
+  protected activeRefusal(user: IamUser): string | null {
+    return user.active ? refuseDeactivate(user, false, this.guardContext()) : null;
+  }
 
   /** True while this row's write is in flight — only that row is disabled. */
   protected isPending(id: string): boolean {
