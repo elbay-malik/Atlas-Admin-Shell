@@ -243,7 +243,7 @@ rebuild, no shell redeploy.
     the mock stays the default so the console runs with no backend.
   - [ ] PR previews (needs Cloudflare credentials).
 - [ ] **Slice 4 — Polish**: Lighthouse CI + Core Web Vitals, axe pass, whitepaper completion,
-  demo video, Angular 22 migration (once Nx & NgRx support lands) as a showcase PR.
+  demo video, Angular 22 migration (deferred on cost/benefit, see ADR-0002) as a showcase PR.
   - [x] Lighthouse in CI over the production build, measuring both the shell alone and a **federated**
     route, so the cost of runtime composition is visible rather than assumed (ADR-0012). INP is
     deliberately not asserted — a lab run cannot produce it.
@@ -251,8 +251,11 @@ rebuild, no shell redeploy.
   - [x] Whitepaper completion — this README carries the architecture diagram, every ADR with dated
     receipts, and the full quality-gate table; nothing here is a stub.
   - [ ] Demo video (needs a person on camera).
-  - [ ] Angular 22 migration — blocked upstream (ADR-0002): `@nx/angular` and `@ngrx/signals` do not
-    yet both support it within their declared peer ranges.
+  - [ ] Angular 22 migration — **deliberately deferred**, not blocked (ADR-0002). Nx, NgRx,
+    Storybook and Native Federation all support Angular 22 as of 2026-10-22; the original blocker
+    expired. Staying on 21 is now a cost/benefit call: 22 has no `v22-lts` tag yet, nothing in it
+    addresses a gap this codebase has, and its `canMatch` signature change lands on the exact
+    mechanism ADR-0007 is built around.
 
 Nx Cloud (remote caching) is deliberately not connected yet; opting in later is
 `pnpm exec nx connect` on the free Hobby plan.
