@@ -3,7 +3,8 @@
  * in a deploy artifact fails CI instead of silently booting the console with no
  * remotes. Cheap enough to run without building anything.
  *
- * `problems()` is exported so check-manifests.spec.mjs can hold it against the
+ * `problems()` is exported so manifest-validator-parity.spec.mjs can hold it
+ * against the
  * real `isAtlasManifest`. That parity test is the point: this file duplicates
  * the guard, and a duplicate that is only ASSERTED to stay in step will not.
  */
@@ -38,8 +39,32 @@ function safePath(url) {
 // contract grew: `apiMode` was added to AtlasManifest with the edge BFF and
 // never added here, so a manifest with a typo'd mode passed CI, failed the
 // runtime guard, and booted the console with ZERO remotes — the exact outcome
-// this script exists to prevent. check-manifests.spec.mjs now enforces the
+// this script exists to prevent. manifest-validator-parity.spec.mjs now enforces the
 // implication over generated mutations instead of trusting a comment.
+/**
+ * Paths the SHELL owns. A remote claiming one of these does not fail — it wins,
+ * and silently takes over a screen the shell is responsible for. `unavailable`
+ * is the ADR-0007 error boundary: a remote mounted there would be asked to
+ * render the page that explains why a remote could not be rendered.
+ */
+const SHELL_RESERVED_ROUTES = ['unavailable'];
+
+/** Segments of a route path, ignoring incidental slashes. */
+const segments = (route) => route.split('/').filter(Boolean);
+
+/**
+ * True when `a` owns everything under it that `b` would need.
+ *
+ * buildRoutes gives each remote `{ path: def.route, loadChildren }`, and Angular
+ * matches by segment prefix, so a remote at `iam` swallows `iam/users` — the
+ * second remote is unreachable even for a user allowed to enter it. Equal paths
+ * are the degenerate case of the same problem.
+ */
+function shadows(a, b) {
+  const [x, y] = [segments(a), segments(b)];
+  return x.length <= y.length && x.every((segment, i) => segment === y[i]);
+}
+
 export function problems(manifest) {
   const found = [];
   if (typeof manifest !== 'object' || manifest === null) return ['not an object'];
@@ -55,6 +80,12 @@ export function problems(manifest) {
   }
   if (typeof manifest.remotes !== 'object' || manifest.remotes === null) {
     return [...found, 'remotes must be an object'];
+  }
+  // The headline failure this script exists to prevent, and the one it used to
+  // wave through: `remotes: {}` satisfies the runtime contract, so the console
+  // boots, renders its chrome, and offers nothing. "✔ 0 remotes" is not a pass.
+  if (Object.keys(manifest.remotes).length === 0) {
+    found.push('remotes is empty — the console would boot with no domains at all');
   }
   for (const [name, def] of Object.entries(manifest.remotes)) {
     if (typeof def !== 'object' || def === null) {
@@ -82,7 +113,36 @@ export function problems(manifest) {
         found.push(`${name}.url must point at a remote entry .json file, got ${def.url}`);
       }
     }
+
+    // Angular validates route config at router creation and THROWS on a leading
+    // slash (RuntimeError 4014, "path cannot start with a slash"), so this does
+    // not degrade to zero remotes — it takes the whole shell down before first
+    // paint. Strictly worse than the failure the rest of this file guards.
+    if (typeof def.route === 'string' && def.route.startsWith('/')) {
+      found.push(`${name}.route must not start with "/" — Angular refuses the route config and the shell will not boot`);
+    }
+    if (typeof def.route === 'string' && SHELL_RESERVED_ROUTES.includes(def.route)) {
+      found.push(`${name}.route "${def.route}" is reserved by the shell`);
+    }
   }
+
+  // Cross-remote: routes must not shadow one another.
+  const routed = Object.entries(manifest.remotes).filter(
+    ([, def]) => typeof def === 'object' && def !== null && typeof def.route === 'string' && def.route
+  );
+  for (const [name, def] of routed) {
+    for (const [other, otherDef] of routed) {
+      if (name === other) continue;
+      if (!shadows(otherDef.route, def.route)) continue;
+      found.push(
+        otherDef.route === def.route
+          ? `${name}.route "${def.route}" is also used by ${other} — the first one wins and ${name} is unreachable`
+          : `${name}.route "${def.route}" is shadowed by ${other}.route "${otherDef.route}"`
+      );
+      break;
+    }
+  }
+
   return found;
 }
 

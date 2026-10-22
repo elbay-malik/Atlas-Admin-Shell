@@ -21,6 +21,7 @@
  * is not a TypeScript module and has no types to import.
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { problems } from '../../../../../tools/check-manifests.mjs';
 import { isAtlasManifest } from './manifest';
@@ -222,3 +223,80 @@ describe('check-manifests --require (deploy pre-flight)', () => {
     expect(runChecker([])).toBe(0);
   });
 });
+
+/**
+ * Deployment-only rules: things the RUNTIME guard has no reason to reject
+ * (they satisfy the contract shape) but that break a deployed console.
+ *
+ * Each case here is a manifest that `isAtlasManifest` accepts. That is why the
+ * implication suite above cannot cover them — it only asserts
+ * "guard rejects => validator rejects", and the guard says yes to all of these.
+ * They slipped through for exactly that reason.
+ */
+describe('check-manifests deployment rules (stricter than the contract, on purpose)', () => {
+  const remote = (route) => ({
+    url: 'https://x.example/remoteEntry.json',
+    displayName: 'D',
+    route,
+    icon: 'i',
+    exposedModule: './Routes',
+    requiredRole: 'admin',
+  });
+
+  it('rejects an empty remotes map — the zero-remotes console this gate exists to prevent', () => {
+    const manifest = { version: 1, apiMode: 'mock', remotes: {} };
+
+    expect(isAtlasManifest(manifest), 'the contract permits it').toBe(true);
+    expect(problems(manifest).join(' ')).toMatch(/empty/i);
+  });
+
+  it('rejects a leading slash, which makes Angular refuse the route config outright', () => {
+    // RuntimeError 4014 "path cannot start with a slash" is thrown when the
+    // router validates its config, so this does not degrade to zero remotes —
+    // the shell never boots at all.
+    const manifest = { version: 1, remotes: { a: remote('/iam') } };
+
+    expect(isAtlasManifest(manifest)).toBe(true);
+    expect(problems(manifest).join(' ')).toMatch(/must not start with/);
+  });
+
+  it('rejects a route the shell reserves for its own error boundary', () => {
+    const manifest = { version: 1, remotes: { a: remote('unavailable') } };
+
+    expect(isAtlasManifest(manifest)).toBe(true);
+    expect(problems(manifest).join(' ')).toMatch(/reserved/);
+  });
+
+  it('rejects two remotes claiming the same route, where the second is unreachable', () => {
+    const manifest = { version: 1, remotes: { a: remote('iam'), b: remote('iam') } };
+
+    expect(isAtlasManifest(manifest)).toBe(true);
+    expect(problems(manifest).join(' ')).toMatch(/also used by/);
+  });
+
+  it('rejects a route shadowed by a shorter one, since Angular matches by segment prefix', () => {
+    const manifest = { version: 1, remotes: { a: remote('iam'), b: remote('iam/users') } };
+
+    expect(isAtlasManifest(manifest)).toBe(true);
+    expect(problems(manifest).join(' ')).toMatch(/shadowed by/);
+  });
+
+  it('still accepts siblings that share a segment without shadowing', () => {
+    // 'admin/users' and 'admin/roles' are distinct two-segment paths; neither is
+    // a prefix of the other, so both remain reachable. A rule that rejected
+    // these would be stricter than reality and block a legitimate topology.
+    const manifest = { version: 1, remotes: { a: remote('admin/users'), b: remote('admin/roles') } };
+
+    expect(problems(manifest)).toEqual([]);
+  });
+
+  it('accepts the manifest actually deployed to production', () => {
+    const live = JSON.parse(
+      readFileSync(new URL('../../../../../deploy/manifests/production/federation.manifest.json', import.meta.url))
+    );
+
+    expect(isAtlasManifest(live)).toBe(true);
+    expect(problems(live)).toEqual([]);
+  });
+});
+
