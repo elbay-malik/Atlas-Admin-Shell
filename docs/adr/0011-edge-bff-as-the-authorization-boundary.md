@@ -164,6 +164,32 @@ those screens against static servers. The Angular half of the call — intercept
 implementations, mode selection — is covered by unit tests, and the full path was verified manually
 by tracing the browser's requests.
 
+**Correction, 2026-10-22.** That sentence was one third true when written. The interceptor was
+covered; the HTTP implementations and the mode selection were not — no spec referenced
+`FlagsHttpApi` or `provideFlagsApi`, so the code that talks to the edge and the switch deciding
+whether to use it could both have been deleted with the suite green. They are small surfaces, which
+is precisely why they went uncovered and why the claim was easy to leave standing.
+
+Now genuinely covered (`flags-api.spec.ts`): the `{ flags }` envelope is unwrapped, the PATCH body
+and URL are asserted, a key containing a slash is encoded so it cannot change which route it
+addresses, and the URL stays relative so the interceptor recognises it as same-origin. Mode
+selection is asserted in all three states — `http`, `mock`, and nothing provided at all, which must
+fall back to the mock so a remote loaded outside the shell never starts calling an edge that is not
+there.
+
+Two more gaps from the same audit, both in this file's subject:
+
+- **`matchRoute`'s malformed-percent-encoding guard had no test.** `decodeURIComponent('%')` throws,
+  and `matchRoute` runs *before* authentication, so an uncaught throw escapes as a workerd error
+  page rather than the JSON this API documents — the exact defect recorded above as found and fixed,
+  with nothing stopping its return. Seven cases now pin it; removing the `try/catch` fails all seven.
+- **`config-parity.spec.ts` compared the two wrangler configs only to each other.** A var dropped
+  from *both* leaves them equal and the test green. That is worse than a missing value normally is:
+  jose validates `issuer` and `audience` only when those options are **defined**, and silently skips
+  the check when they are not. Dropping those vars would not break the verifier loudly — it would
+  quietly stop checking who issued the token. The three vars the Worker reads are now asserted
+  absolutely, not merely identically.
+
 ### Not demonstrated without a Supabase project
 
 The configured JWKS URL, the real issuer string, that the provider ever mints `atlas_role`, and any

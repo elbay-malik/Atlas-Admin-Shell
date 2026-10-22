@@ -74,6 +74,24 @@ describe('the test config mirrors what actually deploys', () => {
     expect(testVars).toEqual(shellVars);
   });
 
+  /**
+   * Parity is not enough on its own, and this is the case it cannot see: a var
+   * removed from BOTH configs leaves them equal, so the test above stays green.
+   *
+   * That matters more than a missing value usually would. jose only validates
+   * `issuer` and `audience` when those options are DEFINED — pass undefined and
+   * it skips the check silently rather than failing. So dropping these two vars
+   * would not break the verifier loudly; it would quietly stop verifying who
+   * issued the token and who it was minted for, while every test still passed.
+   */
+  it.each(['ATLAS_JWKS_URL', 'ATLAS_JWT_ISSUER', 'ATLAS_JWT_AUDIENCE'])(
+    'declares %s absolutely, not merely identically in both configs',
+    (name) => {
+      expect(Object.keys((shell['vars'] ?? {}) as object)).toContain(name);
+      expect(Object.keys((test['vars'] ?? {}) as object)).toContain(name);
+    }
+  );
+
   it('points the deployed config at this Worker source', () => {
     expect(shell['main']).toBe('../shell-bff/src/worker.ts');
   });

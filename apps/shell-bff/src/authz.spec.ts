@@ -59,4 +59,33 @@ describe('role satisfaction mirrors AtlasAuth.hasRole', () => {
     expect(satisfies('viewer', 'viewer')).toBe(true);
     expect(satisfies('viewer', 'admin')).toBe(false);
   });
+
+  /**
+   * The malformed-percent-encoding guard, which had no test.
+   *
+   * `decodeURIComponent('%')` throws a URIError. matchRoute runs BEFORE
+   * authentication, so an uncaught throw there escapes as a workerd runtime
+   * error page — not the JSON this API documents, and from an unauthenticated
+   * request. ADR-0011 records that exact defect being found and fixed; nothing
+   * stopped it coming back.
+   *
+   * Delete the try/catch and these turn a documented 404 into a 500.
+   */
+  describe('malformed percent-encoding in a route parameter', () => {
+    it.each(['%', '%C0', '%zz', '%E0%A4%A'])('does not throw for %s', (bad) => {
+      expect(() => matchRoute('PATCH', `/api/flags/${bad}`)).not.toThrow();
+    });
+
+    it.each(['%', '%C0', '%zz'])('declines to match, so it falls through to the JSON 404', (bad) => {
+      expect(matchRoute('PATCH', `/api/flags/${bad}`)).toBeNull();
+    });
+
+    it('still matches and decodes a legitimately encoded key', () => {
+      // the guard must refuse the undecodable, not everything encoded
+      const match = matchRoute('PATCH', '/api/flags/team%2Fbeta');
+
+      expect(match).not.toBeNull();
+      expect(match?.params['key']).toBe('team/beta');
+    });
+  });
 });

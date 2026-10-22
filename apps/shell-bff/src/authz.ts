@@ -24,9 +24,10 @@ export interface RouteRule {
  * The client already hides most of this, but hiding is UX: `canMatch` stops a
  * download, not a curl. These rules are the actual boundary.
  *
- * Note `PATCH /api/flags/:key` is admin-only even though the flags UI does not
- * gate it today — a viewer can currently toggle a flag. The server refuses
- * regardless, and the UI is being brought in line (ADR-0011).
+ * `PATCH /api/flags/:key` is admin-only. The flags screen now hides the control
+ * from a viewer too (`flags-home.ts`, `canEdit()`), but that is UX and this is
+ * the boundary: the order matters, and the server refused first. When this
+ * comment was written the UI did NOT gate it, and the server still said no.
  */
 export const ROUTES: readonly RouteRule[] = [
   { method: 'GET', pattern: '/api/iam/users', requires: 'admin' },
