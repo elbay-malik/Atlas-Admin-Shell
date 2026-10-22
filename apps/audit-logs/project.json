@@ -11,6 +11,15 @@
   "targets": {
     "build": {
       "executor": "@angular-architects/native-federation-v4:build",
+      "// cache": "Cacheable here rather than via a targetDefault: `serve` uses the SAME executor and is continuous, so an executor-keyed default sets cache on it too and Nx rejects that. Outputs name the whole dist/apps/<app> directory, not just browser/ \u2014 a restore that recreates part of it is worse than no cache, because the deploy would upload it.",
+      "cache": true,
+      "outputs": [
+        "{workspaceRoot}/dist/apps/audit-logs"
+      ],
+      "inputs": [
+        "production",
+        "^production"
+      ],
       "options": {
         "cacheExternalArtifacts": true
       },
