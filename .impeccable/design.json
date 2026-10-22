@@ -318,6 +318,36 @@
           "#b5c4ff",
           "#d9eaff"
         ]
+      },
+      "light-scrim": {
+        "role": "neutral",
+        "displayName": "Scrim (light)",
+        "canonical": "oklch(20.8% 0.040 265.8)",
+        "tonalRamp": [
+          "#040a1c",
+          "#1c2539",
+          "#384258",
+          "#566178",
+          "#77829b",
+          "#99a5bf",
+          "#bdc9e4",
+          "#e2efff"
+        ]
+      },
+      "dark-scrim": {
+        "role": "neutral",
+        "displayName": "Scrim (dark)",
+        "canonical": "oklch(12.9% 0.035 265.0)",
+        "tonalRamp": [
+          "#060a19",
+          "#1e2535",
+          "#3a4254",
+          "#596174",
+          "#798296",
+          "#9ca5ba",
+          "#bfc9df",
+          "#e4efff"
+        ]
       }
     },
     "typographyMeta": {
@@ -359,15 +389,16 @@
         "purpose": "Tailwind's transition-colors transitions outline-color, so without this the focus ring fades in over 150ms from each control's own currentColor. The indicator must be correct on the frame focus arrives."
       }
     ],
-    "breakpoints": [],
+    "breakpoints": [
+      {
+        "name": "md",
+        "value": "768px"
+      }
+    ],
     "gaps": [
       {
         "area": "elevation",
         "note": "No box-shadow exists anywhere. Flat is sufficient for the surfaces that exist, but there is no answer for a floating surface (dialog, popover, toast). Design it deliberately before the first one ships."
-      },
-      {
-        "area": "responsive",
-        "note": "Zero breakpoint variants in the workspace and a fixed 15rem sidebar. Below ~768px the frame does not reflow."
       },
       {
         "area": "unconsumed-tokens",
@@ -543,6 +574,16 @@
         "name": "The Drawn Icon Rule",
         "body": "Icons come from the shared set in libs/shared/ui/src/lib/icon: stroke-only on a 20px grid at a single 1.5 weight, round caps and joins, no fills, always currentColor. The manifest carries an icon NAME, not a glyph, so a domain icon is a registry edit like everything else about it (ADR-0004); an unrecognised name renders verbatim, because the manifest ships independently of the bundle and a deploy must never empty the nav. currentColor is what keeps an icon inside the Rationed Colour Rule rather than exempt from it — which is exactly what the emoji it replaced were not.",
         "section": "components"
+      },
+      {
+        "name": "The One Breakpoint Rule",
+        "body": "md (768px) is the only breakpoint in the system. A component that needs a second one is usually a component that should change shape once, not three times — and every extra breakpoint is another pair of layouts that has to stay correct in both themes.",
+        "section": "layout"
+      },
+      {
+        "name": "The Page Never Pans Rule",
+        "body": "Horizontal scrolling belongs to a container, never to the document. A table may overflow inside its own box; if the document scrolls sideways the chrome leaves with it, and the page is broken rather than dense.",
+        "section": "layout"
       }
     ],
     "dos": [
@@ -556,7 +597,8 @@
       "Do put anything a second surface needs into libs/shared/ui. Drift between independently deployed remotes is this architecture’s defining failure mode.",
       "Do verify both themes for every change. A component that passes light and fails dark fails.",
       "Do leave focus to the shared ring. It already covers <button>, <a>, <input>, [tabindex] holders and anything added later.",
-      "Do draw a new icon into the shared set at the same 1.5 stroke weight on the 20px grid, in currentColor, and give the manifest its name."
+      "Do draw a new icon into the shared set at the same 1.5 stroke weight on the 20px grid, in currentColor, and give the manifest its name.",
+      "Do let a dense table scroll inside its own container at phone width, and never let the document pan."
     ],
     "donts": [
       "Don’t add a box-shadow to a single component. The system has no elevation vocabulary; an improvised value becomes the de facto system without anyone choosing it. Design it deliberately, once.",
@@ -572,7 +614,8 @@
       "Don't add a focus utility to a component. The shared ring covers it; a local one would fragment the only indicator a keyboard user has.",
       "Don't let outline-color transition. transition-colors includes it, and an indicator that fades in is not an indicator on the frame it is needed.",
       "Don't reach for an emoji, a Unicode glyph, or an icon font. The set is drawn; a glyph is a different weight, a different colour, and a different shape on every operating system.",
-      "Don't give an icon its own colour. currentColor is what keeps it inside the colour ration."
+      "Don't give an icon its own colour. currentColor is what keeps it inside the colour ration.",
+      "Don't add a second breakpoint. md is the whole vocabulary: the console is either at a desk or in a hand."
     ]
   }
 }

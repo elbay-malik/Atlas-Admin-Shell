@@ -17,6 +17,11 @@
     ],
     "sharedGlobals": [
       "{workspaceRoot}/tools/**/*"
+    ],
+    "federatedTemplates": [
+      "{workspaceRoot}/apps/iam/src/**/*.ts",
+      "{workspaceRoot}/apps/feature-flags/src/**/*.ts",
+      "{workspaceRoot}/apps/audit-logs/src/**/*.ts"
     ]
   },
   "analytics": false,

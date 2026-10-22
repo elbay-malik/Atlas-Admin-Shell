@@ -21,4 +21,5 @@
   --color-on-warning: var(--atlas-color-on-warning);
   --color-on-danger: var(--atlas-color-on-danger);
   --color-on-brand: var(--atlas-color-on-brand);
+  --color-scrim: var(--atlas-color-scrim);
 }

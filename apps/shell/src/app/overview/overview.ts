@@ -72,7 +72,14 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
         </div>
       </header>
 
-      <table class="w-full text-left text-sm">
+      <!--
+        Two presentations of one list, because five columns is the right shape
+        at desktop and the wrong one at 390px. The table stays a real table
+        where it fits; below md each remote becomes a block, so the origin —
+        the part that carries the architecture claim — survives the narrow
+        viewport instead of being scrolled off it.
+      -->
+      <table class="hidden w-full text-left text-sm md:table">
         <thead>
           <tr class="border-b border-border text-text-muted">
             <th scope="col" class="py-2 pr-4 font-medium">Domain</th>
@@ -117,6 +124,34 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
           }
         </tbody>
       </table>
+
+      <ul class="md:hidden">
+        @for (remote of remotes(); track remote.name) {
+          <li
+            data-testid="overview-remote"
+            [attr.data-remote]="remote.name"
+            [attr.data-state]="remote.status"
+            class="flex flex-col gap-1 border-b border-border/60 py-3"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <span class="inline-flex min-w-0 items-center gap-2 font-medium">
+                <ui-icon [name]="remote.icon" />
+                <span class="truncate">{{ remote.displayName }}</span>
+              </span>
+              <ui-badge [tone]="state(remote).tone">{{ state(remote).label }}</ui-badge>
+            </div>
+            <span class="font-mono text-xs break-all text-text-muted">{{ remote.origin }}</span>
+            <span class="text-xs text-text-muted">
+              <span class="font-mono">/{{ remote.route }}</span>
+              · needs {{ remote.requiredRole }}
+            </span>
+          </li>
+        } @empty {
+          <li class="py-4 text-sm text-text-muted">
+            The manifest declares no remotes, so this console has no domains to show.
+          </li>
+        }
+      </ul>
 
       @if (!auth.isAuthenticated()) {
         <p class="mt-4 max-w-prose text-sm text-text-muted" data-testid="overview-signed-out">

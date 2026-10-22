@@ -230,6 +230,10 @@ that `surface` can lift above `bg` without either becoming grey mush.
   used on a control.
 - **Control Edge** (`light-border-strong` / `dark-border-strong`): the boundary of an
   interactive control. Measurably distinct from Hairline and the reason both exist.
+- **Scrim** (`light-scrim` / `dark-scrim`): the wash behind an overlay, used at 50%.
+  It is the one semantic token that is dark in **both** themes, because a scrim is a
+  shadow rather than a surface — its job is to recede what is under it. Reaching for
+  `text` here lightened the page in dark mode, which is the opposite effect.
 
 ### Named Rules
 
@@ -312,13 +316,41 @@ between row groups, `1.5rem` between a screen's major blocks. Reading measure is
 capped with `max-w-prose` on every paragraph and `max-w-md` on the filter input;
 tables and lists run the full column.
 
-**Responsive behaviour: there is none.** The workspace contains no breakpoint variant
-— not one `sm:`, `md:` or `lg:` utility — and the sidebar width is fixed. Below roughly
-768px the frame does not reflow: the sidebar keeps its full width and the content
-column is squeezed. This is recorded as the current truth, not as an intent. It is the
-system's largest open gap and the right scope for a dedicated adaptation pass.
+**Responsive behaviour** turns on a single breakpoint, `md` (768px), and nothing else.
+One breakpoint is the whole vocabulary: the console is either at a desk or in a hand,
+and inventing intermediate states would mean maintaining layouts nobody uses.
+
+- **At `md` and up:** the frame described above — a static `15rem` sidebar beside a
+  fluid content column.
+- **Below `md`:** the sidebar leaves the flow entirely (`fixed`, `-translate-x-full`,
+  `invisible`) and becomes a drawer opened from a control in the header. It is
+  `invisible` rather than merely translated, which is what keeps every nav link out of
+  the tab order while it is closed — a transform alone would leave them focusable off
+  screen. A scrim covers the content, Escape closes it, and navigating closes it.
+- **The drawer does not slide.** The system's motion vocabulary is colour; a panel
+  that animated its geometry would be the first thing here to move, and an instant
+  panel cannot be caught half-open by a fast tap.
+- **Dense tables scroll inside themselves,** never moving the page. An operator
+  expects to pan a ledger, and dropping columns would hide the comparison the table
+  exists for — but the document itself must never pan, or the chrome drifts off screen
+  with it.
+- **The Overview is the exception** and changes shape rather than scrolling: below
+  `md` each remote becomes a block instead of a table row, because it is the arrival
+  screen and the origin — the part carrying the architecture claim — has to survive
+  the narrow viewport.
+- **Touch targets** reach 44px below `md` on the controls an operator actually taps
+  (the flag toggle, the role select) and return to the dense 34px at the desk.
 
 ### Named Rules
+
+**The One Breakpoint Rule.** `md` (768px) is the only breakpoint in the system. A
+component that needs a second one is usually a component that should change shape
+once, not three times — and every extra breakpoint is another pair of layouts that has
+to stay correct in both themes.
+
+**The Page Never Pans Rule.** Horizontal scrolling belongs to a container, never to
+the document. A table may overflow inside its own box; if the document scrolls
+sideways, the chrome leaves with it and the page is broken, not dense.
 
 **The Uniform Page Padding Rule.** Every routed screen opens with `p-6`. The frame
 owns the chrome; the screen owns its content and nothing in between. A screen that

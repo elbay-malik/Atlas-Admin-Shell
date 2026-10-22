@@ -12,6 +12,11 @@ import { type Page, expect, test } from '@playwright/test';
  * just claimed"; nothing verified either.
  */
 
+/*
+ * The overview renders two presentations of one list — a table at md and up,
+ * stacked blocks below it — so every locator here is scoped to `:visible`.
+ * Counting both would double every expectation and hide which one is broken.
+ */
 interface Manifest {
   remotes: Record<string, { displayName: string; route: string; url: string; requiredRole: string }>;
 }
@@ -41,10 +46,10 @@ test('the overview lists every remote in the manifest, with its origin and role'
   const names = Object.keys(remotes);
   expect(names.length, 'the fixture manifest must declare remotes').toBeGreaterThan(0);
 
-  await expect(page.getByTestId('overview-remote')).toHaveCount(names.length);
+  await expect(page.locator('[data-testid="overview-remote"]:visible')).toHaveCount(names.length);
 
   for (const [name, def] of Object.entries(remotes)) {
-    const row = page.locator(`[data-testid="overview-remote"][data-remote="${name}"]`);
+    const row = page.locator(`[data-testid="overview-remote"][data-remote="${name}"]:visible`);
     await expect(row).toHaveCount(1);
     await expect(row).toContainText(def.displayName);
     await expect(row).toContainText(`/${def.route}`);
@@ -62,7 +67,7 @@ test('the registry is visible before signing in, because it is fetched before au
 
   // Signed out, this screen used to show nothing at all and the sidebar was
   // empty under copy telling the visitor to pick a domain from it.
-  await expect(page.getByTestId('overview-remote')).toHaveCount(Object.keys(remotes).length);
+  await expect(page.locator('[data-testid="overview-remote"]:visible')).toHaveCount(Object.keys(remotes).length);
   await expect(page.getByTestId('overview-signed-out')).toBeVisible();
 });
 
@@ -102,7 +107,7 @@ test('the module state reflects what federation actually did', async ({ page }) 
   // At rest every reachable remote is "resolved": its remoteEntry.json was
   // fetched during initFederation, but its code has not been imported yet.
   // That distinction is the lazy-loading story, visible without a failure.
-  const flags = page.locator('[data-testid="overview-remote"][data-remote="feature-flags"]');
+  const flags = page.locator('[data-testid="overview-remote"][data-remote="feature-flags"]:visible');
   await expect(flags).toContainText('resolved');
 
   await page.click('a[href="/flags"]');

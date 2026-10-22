@@ -26,6 +26,7 @@
   --atlas-color-light-on-danger: #b91c1c;
   --atlas-color-light-on-brand: #4338ca;
   --atlas-color-light-border-strong: #475569;
+  --atlas-color-light-scrim: #0f172a;
   --atlas-color-bg: #f8fafc;
   --atlas-color-surface: #ffffff;
   --atlas-color-text: #0f172a;
@@ -36,6 +37,7 @@
   --atlas-color-on-danger: #b91c1c;
   --atlas-color-on-brand: #4338ca;
   --atlas-color-border-strong: #475569;
+  --atlas-color-scrim: #0f172a;
 }
 
 .dark {
@@ -49,6 +51,7 @@
   --atlas-color-dark-on-danger: #fca5a5;
   --atlas-color-dark-on-brand: #a5b4fc;
   --atlas-color-dark-border-strong: #64748b;
+  --atlas-color-dark-scrim: #020617;
   --atlas-color-bg: #0b1120;
   --atlas-color-surface: #111a2e;
   --atlas-color-text: #e2e8f0;
@@ -59,4 +62,5 @@
   --atlas-color-on-danger: #fca5a5;
   --atlas-color-on-brand: #a5b4fc;
   --atlas-color-border-strong: #64748b;
+  --atlas-color-scrim: #020617;
 }

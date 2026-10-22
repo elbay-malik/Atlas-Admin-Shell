@@ -44,6 +44,10 @@ const SEMANTIC_KEYS = [
   'on-warning',
   'on-danger',
   'on-brand',
+  // the wash behind an overlay. Dark in BOTH themes on purpose: a scrim is a
+  // shadow, not a surface, so it must recede the content under it. Using `text`
+  // for this lightened the page in dark mode, which is the opposite effect.
+  'scrim',
 ];
 
 StyleDictionary.registerFormat({

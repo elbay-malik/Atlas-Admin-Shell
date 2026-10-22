@@ -55,6 +55,14 @@ import { AuditStore } from '../data/audit.store';
         <p data-testid="audit-loading" class="text-sm text-text-muted">Loading audit events…</p>
       }
 
+      <!--
+        A dense record table is the one thing that legitimately scrolls
+        sideways on a phone: an operator expects to pan a ledger, and dropping
+        columns would hide the comparison the table exists for. Containing the
+        scroll HERE rather than letting it reach the document is the fix — the
+        page itself must never pan, or the chrome drifts off screen with it.
+      -->
+      <div class="overflow-x-auto">
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="border-b border-border text-text-muted">
@@ -94,6 +102,7 @@ import { AuditStore } from '../data/audit.store';
           }
         </tbody>
       </table>
+      </div>
     </section>
   `,
 })

@@ -72,10 +72,10 @@ import { FlagsStore } from '../data/flags.store';
               data-testid="flag-toggle"
               [disabled]="!canEdit()"
               [attr.title]="canEdit() ? null : 'Only admins can change feature flags'"
-              class="rounded-md border border-border-strong px-3 py-1 text-sm font-medium transition-colors
-                     hover:border-brand-primary disabled:cursor-not-allowed disabled:opacity-50
-                     aria-pressed:border-brand-primary aria-pressed:bg-brand-primary
-                     aria-pressed:text-white"
+              class="min-h-11 rounded-md border border-border-strong px-4 py-1 text-sm font-medium
+                     transition-colors hover:border-brand-primary disabled:cursor-not-allowed
+                     disabled:opacity-50 aria-pressed:border-brand-primary
+                     aria-pressed:bg-brand-primary aria-pressed:text-white md:min-h-0 md:px-3"
               [attr.aria-pressed]="flag.enabled"
               [attr.aria-label]="(flag.enabled ? 'On' : 'Off') + ', toggle ' + flag.key"
               [attr.data-pending]="isPending(flag.key)"

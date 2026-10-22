@@ -50,6 +50,14 @@ import { IamUsersStore } from '../data/iam-users.store';
         <p data-testid="users-loading" class="text-sm text-text-muted">Loading users…</p>
       }
 
+      <!--
+        A dense record table is the one thing that legitimately scrolls
+        sideways on a phone: an operator expects to pan a ledger, and dropping
+        columns would hide the comparison the table exists for. Containing the
+        scroll HERE rather than letting it reach the document is the fix — the
+        page itself must never pan, or the chrome drifts off screen with it.
+      -->
+      <div class="overflow-x-auto">
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="border-b border-border text-text-muted">
@@ -79,8 +87,9 @@ import { IamUsersStore } from '../data/iam-users.store';
               <td class="py-2 pr-4">
                 <select
                   data-testid="role-select"
-                  class="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm
-                         text-text disabled:cursor-not-allowed disabled:opacity-50"
+                  class="min-h-11 rounded-md border border-border-strong bg-surface px-3 py-1.5
+                         text-sm text-text disabled:cursor-not-allowed disabled:opacity-50
+                         md:min-h-0"
                   [value]="user.role"
                   [attr.aria-busy]="isPending(user.id)"
                   [attr.aria-label]="'Role for ' + user.name"
@@ -119,6 +128,7 @@ import { IamUsersStore } from '../data/iam-users.store';
           }
         </tbody>
       </table>
+      </div>
     </section>
   `,
 })

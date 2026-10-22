@@ -16,7 +16,16 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
  * the ink of whatever it sits in — muted in a resting nav item, `on-brand` in
  * the active one — and can never introduce a hue of its own.
  */
-export type UiIconName = 'overview' | 'users' | 'flag' | 'ledger' | 'compass' | 'sun' | 'moon';
+export type UiIconName =
+  | 'overview'
+  | 'users'
+  | 'flag'
+  | 'ledger'
+  | 'compass'
+  | 'sun'
+  | 'moon'
+  | 'menu'
+  | 'close';
 
 const PATHS: Record<UiIconName, readonly string[]> = {
   // a roof over an open body: "the top level", not a house
@@ -37,6 +46,9 @@ const PATHS: Record<UiIconName, readonly string[]> = {
     'M7.75 9.25h4.5',
     'M7.75 12h2.75',
   ],
+  // the drawer control, below md only
+  menu: ['M3.25 6h13.5', 'M3.25 10h13.5', 'M3.25 14h13.5'],
+  close: ['M5.25 5.25l9.5 9.5', 'M14.75 5.25l-9.5 9.5'],
   // the theme toggle's two states. They were ☀ and ☾ — the same "glyph instead
   // of an icon" substitution as the nav emoji, and the last of it in the
   // product.
