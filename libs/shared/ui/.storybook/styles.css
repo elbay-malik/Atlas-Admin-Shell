@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import '../../design-tokens/src/generated/tokens.css';
 @import '../../design-tokens/src/generated/theme.css';
+@import '../src/focus-visible.css';
 
 body {
   background-color: var(--atlas-color-bg);

@@ -194,10 +194,16 @@ aspiration.
 - Automated axe coverage is a CI gate, over Storybook stories and over the real
   federated console (ADR-0008).
 - The criteria axe cannot automate are explicitly in scope and must be checked by
-  hand or by targeted e2e assertion. Already covered: 1.4.11 non-text contrast for
-  control boundaries. Also binding and **not** currently asserted anywhere: 2.4.11
-  focus not obscured, 2.5.8 target size (minimum), 2.4.7 focus visible across both
-  themes.
+  hand or by targeted e2e assertion. **axe-core has no rule that measures a focus
+  indicator at all**, which is why the axe suites passed for months with no focus
+  style anywhere in the workspace — a gate's silence is not coverage.
+- Already asserted by targeted e2e: 1.4.11 non-text contrast for control boundaries
+  (`control-contrast.spec.ts`), and 2.4.7 focus visible — the shared ring, walked
+  over the real tab order in both themes, including the error boundary, asserting
+  authored style and width as well as contrast, because the user agent's own ring
+  would pass a colour-only check (`focus-visible.spec.ts`).
+- Binding and still **not** asserted anywhere: 2.4.11 focus not obscured, and 2.5.8
+  target size (minimum).
 - Both themes are in scope for every criterion. A component that passes in light and
   fails in dark fails.
 - Zoneless and signals-first does not exempt anything: live-region announcements for

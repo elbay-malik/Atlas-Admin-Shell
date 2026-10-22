@@ -1,0 +1,108 @@
+/*
+ * The single focus treatment for every Atlas surface.
+ *
+ * Until this file existed, nothing in the workspace styled focus at all — no
+ * `:focus-visible` rule, no `outline` declaration, in any app or lib. Every
+ * control fell back to the user agent's 1px `outline-style: auto` ring, which
+ * was never verified against either theme and is not something a design system
+ * gets to claim as its own (DESIGN.md, The Focus Debt Rule). The product is
+ * committed to WCAG 2.2 AA, where 2.4.7 Focus Visible is a Level A criterion.
+ *
+ * WHY ONE GLOBAL RULE, NOT A UTILITY PER COMPONENT
+ *
+ * The controls that need it are heterogeneous — <button> in ui-button and in
+ * the flag toggle, <a> in ui-nav-item, <input type="search"> in audit-logs —
+ * and the set grows. A universal selector covers all of them plus [tabindex]
+ * holders, <summary>, contenteditable, and anything added later, in one
+ * declaration. Nine local answers would be worse than the one default we had.
+ *
+ * WHY `text` AND NOT A DEDICATED FOCUS TOKEN
+ *
+ * `text` is, by definition, the colour guaranteed to be legible against any
+ * background this system paints — that is what makes it the text colour. So it
+ * clears 1.4.11's 3:1 against every current surface by a wide margin (17.06:1
+ * on `bg` and 17.85:1 on `surface` in light; 15.27:1 and 14.07:1 in dark), and
+ * it keeps clearing it against any surface added later, because a surface that
+ * failed against `text` could not carry text. A dedicated `--atlas-color-focus`
+ * would have to be re-verified against every new surface by hand; this cannot
+ * drift.
+ *
+ * It also keeps focus OFF the brand colour. Control Indigo is rationed to the
+ * action to take and the route you are on; focus is a state of the user's
+ * attention, not of the system, so it must not spend that budget. And indigo
+ * would not have worked anyway: #4f46e5 measures 1.00:1 on a primary button's
+ * own fill and 2.99:1 against the dark page background — a failure that rounds
+ * to a pass if you are not looking.
+ *
+ * WHY THE 2px OFFSET IS LOAD-BEARING
+ *
+ * Backgrounds paint only inside the border box, so the offset gap shows the
+ * PARENT's background, not the control's fill. That is what makes one ring
+ * colour sufficient: the ring's adjacent colour on both sides is `bg` or
+ * `surface`, never the indigo or red fill it surrounds. Remove the offset and
+ * the ring sits directly on those fills, at 2.84:1 and 3.70:1 in light — and
+ * the indigo case fails.
+ *
+ * WHY `outline` AND NOT `box-shadow`
+ *
+ * An outline survives both `overflow: hidden` ancestors and Windows
+ * forced-colors mode, where the UA maps outline-color into its own palette. A
+ * box-shadow ring is clipped by the former and erased by the latter, which is
+ * also why DESIGN.md forbids reaching for a shadow here.
+ *
+ * NOT LAYERED, DELIBERATELY. Tailwind puts preflight in `@layer base` and
+ * utilities in `@layer utilities`; an unlayered normal declaration outranks
+ * every layered one regardless of specificity, so this cannot be defeated by a
+ * utility class — and it correctly replaces the UA ring without anyone having
+ * to write `outline: none`, which would be the one change capable of removing
+ * focus indication outright.
+ *
+ * NO TRANSITION, AND IT HAS TO BE SAID OUT LOUD. Tailwind v4's
+ * `transition-colors` transitions `outline-color` along with `color`,
+ * `background-color` and `border-color`. Three components in this workspace use
+ * that utility, so without the `transition-property` reset below the focus ring
+ * FADES IN over 150ms, starting from whatever colour the element's
+ * `outline-color` previously computed to — which, with no authored ring, is its
+ * own `currentColor`. A keyboard user tabbing quickly never sees the finished
+ * ring at all, and WCAG 2.4.7 is about the indicator being visible, not about it
+ * arriving eventually.
+ *
+ * Measured on the error boundary, in light mode, one frame after Tab:
+ *
+ *   a "Back to overview" (no transition)  rgb(15,23,42)    <- correct, instantly
+ *   button "Sign out"    (text-text)      rgb(15,23,42)    <- looked correct
+ *   nav item             (text-text-muted) rgb(71,85,105)
+ *   nav item, active     (text-on-brand)  rgb(67,56,202)
+ *   button "Retry"       (text-white)     rgb(255,255,255) <- 1.05:1, invisible
+ *
+ * Note how nearly invisible this was: most controls carry dark text on a light
+ * page, so the colour they faded FROM resembled the one they were heading to.
+ * Only the white-on-indigo primary button made it measurable. A ring that is
+ * briefly the wrong colour on every other control is the same bug.
+ *
+ * LONGHANDS, NOT THE `outline` SHORTHAND. This is not style preference, it is
+ * the bug this rule shipped with for one commit. Written as
+ * `outline: 2px solid var(--atlas-color-text)`, the width and style applied but
+ * the COLOUR did not: every control drew its ring in its own `currentColor`
+ * instead. Measured, on the error boundary in light mode:
+ *
+ *   Sign out (text-text)          rgb(15,23,42)    <- looked correct
+ *   nav item (text-text-muted)    rgb(71,85,105)
+ *   active nav item (on-brand)    rgb(67,57,198)
+ *   Retry (text-white)            rgb(255,255,255) <- 1.05:1, invisible
+ *
+ * The failure was nearly invisible precisely because most controls carry dark
+ * text on a light page, so their accidental ring resembled the intended one.
+ * Only the white-on-indigo primary button made it obvious. Declaring
+ * `outline-color` on its own removes the shorthand substitution entirely.
+ */
+*:focus-visible:not(:is(html, body)) {
+  outline-color: var(--atlas-color-text);
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+  /* Not `transition: none` — that would also clear duration and timing, which
+     this rule has no business redefining. Clearing the property list is enough
+     to stop the ring animating, and nothing else changes on focus anyway. */
+  transition-property: none;
+}

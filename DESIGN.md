@@ -172,6 +172,8 @@ placeholders and are treated as such below.
 - Native system type, no webfont, no font loading cost.
 - Every semantic colour is defined twice, light and dark, and components read only
   the semantic name.
+- One focus ring for the whole system, in the text colour, offset so it never sits
+  on a control's own fill.
 
 ## Colors
 
@@ -426,8 +428,8 @@ route, or a reported state.
   `0.5rem 0.75rem` padding, working size, Muted Ink placeholder.
 - **Label:** visually hidden (`sr-only`) where the placeholder carries the visible
   affordance — the accessible name is never dropped, only hidden.
-- **Focus:** **nothing is defined.** No `focus-visible` rule exists anywhere in the
-  workspace; every control relies on the user agent's default ring. See the rule below.
+- **Focus:** the shared ring — a 2px `text`-coloured outline at a 2px offset. See
+  The Focus Ring Rule below; it is declared once, globally, not per component.
 
 ### Cards / Containers
 
@@ -468,12 +470,38 @@ move, scale, lift or shadow. `transition-colors` is the system's entire motion
 vocabulary and there is no duration or easing token — adding one is a deliberate
 decision, not a component-level convenience.
 
-**The Focus Debt Rule.** No focus style exists in this system, and the product is
-committed to WCAG 2.2 AA. Every control is currently at the mercy of the user agent's
-default ring, which is not verified against either theme — and on `dark-surface` there
-is no evidence it clears 3:1. **A single focus treatment belongs in `libs/shared/ui`,
-defined once against both themes.** Do not solve this per component; nine local
-answers is a worse outcome than the current one.
+One exception, and it is not stylistic: `transition-colors` also transitions
+`outline-color`, which must never animate. The focus rule clears its
+`transition-property` for exactly that reason.
+
+**The Focus Ring Rule.** One ring, declared once, for everything: a 2px solid
+outline in the semantic `text` colour at `outline-offset: 2px`, from
+`libs/shared/ui/src/focus-visible.css`, imported by all four apps **and** by
+Storybook. Never per component.
+
+Three parts of it are load-bearing, and each was a measured failure before it was a
+rule:
+
+- **`text`, not a focus token.** `text` is by definition legible against anything
+  this system paints, so the ring clears 1.4.11's 3:1 against every surface that
+  exists (17.06:1 on `bg`, 17.85:1 on `surface` in light; 15.27:1 and 14.07:1 in
+  dark) *and* against any surface added later — a surface that failed against `text`
+  could not carry text. A dedicated token would need re-verifying by hand each time.
+  It also keeps focus off Control Indigo, which The Rationed Colour Rule reserves;
+  indigo would have failed anyway, at 1.00:1 on a primary button's own fill and
+  2.99:1 on the dark page.
+- **The 2px offset.** Backgrounds paint only inside the border box, so the gap shows
+  the *parent's* background, never the control's fill. That is what lets one colour
+  serve every control. Remove the offset and the ring sits on the indigo and red
+  fills at 2.84:1 and 3.70:1 — the indigo case fails.
+- **It does not animate.** Tailwind's `transition-colors` includes `outline-color`,
+  so without `transition-property: none` the ring fades in over 150ms from each
+  control's own `currentColor` — white on the primary button. The indicator must be
+  right on the frame focus arrives.
+
+Never write `outline: none`. Declaring `outline-color` replaces the user agent ring
+on its own, and `outline: none` is the one edit that can remove focus indication
+outright — including the ring forced-colors mode synthesises.
 
 ## Do's and Don'ts
 
@@ -497,6 +525,8 @@ answers is a worse outcome than the current one.
   independently deployed remotes is this architecture's defining failure mode.
 - **Do** verify both themes for every change. A component that passes light and fails
   dark fails.
+- **Do** leave focus to the shared ring. It already covers `<button>`, `<a>`,
+  `<input>`, `[tabindex]` holders and anything added later.
 
 ### Don't
 
@@ -509,8 +539,12 @@ answers is a worse outcome than the current one.
   active route. Its rarity is what makes it readable.
 - **Don't** use a status hue as text on its own tint, or a status colour to set a mood.
 - **Don't** animate geometry. Colour transitions only — no transform, lift or scale.
-- **Don't** solve focus per component. One treatment, in the shared library, verified
-  against both themes.
+- **Don't** write `outline: none`, anywhere, for any reason. It is the single edit
+  that can remove focus indication outright.
+- **Don't** add a focus utility to a component. The shared ring covers it; a local
+  one would fragment the only indicator a keyboard user has.
+- **Don't** let `outline-color` transition. `transition-colors` includes it, and an
+  indicator that fades in is not an indicator on the frame it is needed.
 - **Don't** make a badge interactive, or give a button a pill radius. The shapes are
   how an operator tells a report from a control.
 - **Don't** remove or disable the navigation item for a failed remote. It is the route

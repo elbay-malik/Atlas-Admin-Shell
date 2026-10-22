@@ -352,6 +352,11 @@
         "name": "transition-colors",
         "value": "transition-property: color, background-color, border-color; transition-duration: 150ms; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1)",
         "purpose": "The system's entire motion vocabulary, inherited from Tailwind's default. Colour moves; geometry never does. No duration or easing token is declared — adding one is a deliberate decision."
+      },
+      {
+        "name": "focus-ring-no-transition",
+        "value": "transition-property: none (on :focus-visible)",
+        "purpose": "Tailwind's transition-colors transitions outline-color, so without this the focus ring fades in over 150ms from each control's own currentColor. The indicator must be correct on the frame focus arrives."
       }
     ],
     "breakpoints": [],
@@ -359,10 +364,6 @@
       {
         "area": "elevation",
         "note": "No box-shadow exists anywhere. Flat is sufficient for the surfaces that exist, but there is no answer for a floating surface (dialog, popover, toast). Design it deliberately before the first one ships."
-      },
-      {
-        "area": "focus",
-        "note": "No focus-visible rule exists in the workspace. Every control relies on the user agent default ring, unverified against either theme, while the product is committed to WCAG 2.2 AA. One treatment belongs in libs/shared/ui."
       },
       {
         "area": "responsive",
@@ -385,7 +386,7 @@
       "refersTo": "button-primary",
       "description": "The one action a screen wants taken. Control Indigo fill; the only solid brand colour in the system.",
       "html": "<button class=\"ds-btn ds-btn-primary\" type=\"button\">Retry</button>",
-      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid transparent; border-radius: var(--atlas-radius-md, 0.5rem); padding: 0.375rem 0.75rem; font: 500 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); cursor: pointer; } .ds-btn:disabled { cursor: not-allowed; opacity: 0.5; } .ds-btn-primary { background: var(--atlas-color-brand-primary, #4f46e5); color: #fff; } .ds-btn-primary:hover:not(:disabled) { background: var(--atlas-color-brand-primary-strong, #4338ca); }"
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid transparent; border-radius: var(--atlas-radius-md, 0.5rem); padding: 0.375rem 0.75rem; font: 500 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); cursor: pointer; } .ds-btn:disabled { cursor: not-allowed; opacity: 0.5; } .ds-btn-primary { background: var(--atlas-color-brand-primary, #4f46e5); color: #fff; } .ds-btn-primary:hover:not(:disabled) { background: var(--atlas-color-brand-primary-strong, #4338ca); } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     },
     {
       "name": "Secondary Button",
@@ -393,7 +394,7 @@
       "refersTo": "button-secondary",
       "description": "The system's most used control. Hover shifts the border, not the fill — border-strong because this outline is the only affordance (WCAG 1.4.11).",
       "html": "<button class=\"ds-btn ds-btn-secondary\" type=\"button\">Sign out</button>",
-      "css": ".ds-btn-secondary { background: var(--atlas-color-surface, #fff); color: var(--atlas-color-text, #0f172a); border-color: var(--atlas-color-border-strong, #475569); } .ds-btn-secondary:hover:not(:disabled) { border-color: var(--atlas-color-brand-primary, #4f46e5); }"
+      "css": ".ds-btn-secondary { background: var(--atlas-color-surface, #fff); color: var(--atlas-color-text, #0f172a); border-color: var(--atlas-color-border-strong, #475569); } .ds-btn-secondary:hover:not(:disabled) { border-color: var(--atlas-color-brand-primary, #4f46e5); } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     },
     {
       "name": "Danger Button",
@@ -401,7 +402,7 @@
       "refersTo": "button-danger",
       "description": "Destructive confirmation only. Fault Red fill, stepping to Fault Red Deep on hover.",
       "html": "<button class=\"ds-btn ds-btn-danger\" type=\"button\">Revoke access</button>",
-      "css": ".ds-btn-danger { background: var(--atlas-color-status-danger, #dc2626); color: #fff; } .ds-btn-danger:hover:not(:disabled) { background: var(--atlas-color-status-danger-strong, #b91c1c); }"
+      "css": ".ds-btn-danger { background: var(--atlas-color-status-danger, #dc2626); color: #fff; } .ds-btn-danger:hover:not(:disabled) { background: var(--atlas-color-status-danger-strong, #b91c1c); } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     },
     {
       "name": "Status Badge",
@@ -409,7 +410,7 @@
       "refersTo": "badge-success",
       "description": "Reports a condition; never interactive. A 15% status tint behind the dedicated on-* ink — the hue itself measures 3.65:1 on its own tint and would fail AA.",
       "html": "<span class=\"ds-badge ds-badge-success\">live</span> <span class=\"ds-badge ds-badge-danger\">offline</span> <span class=\"ds-badge ds-badge-neutral\">viewer</span>",
-      "css": ".ds-badge { display: inline-flex; align-items: center; border-radius: var(--atlas-radius-full, 9999px); padding: 0.125rem 0.5rem; font: 500 0.75rem/1rem ui-sans-serif, system-ui, sans-serif; } .ds-badge-success { background: color-mix(in srgb, var(--atlas-color-status-success, #16a34a) 15%, transparent); color: var(--atlas-color-on-success, #166534); } .ds-badge-danger { background: color-mix(in srgb, var(--atlas-color-status-danger, #dc2626) 15%, transparent); color: var(--atlas-color-on-danger, #b91c1c); } .ds-badge-neutral { background: color-mix(in srgb, var(--atlas-color-text, #0f172a) 10%, transparent); color: var(--atlas-color-text-muted, #475569); }"
+      "css": ".ds-badge { display: inline-flex; align-items: center; border-radius: var(--atlas-radius-full, 9999px); padding: 0.125rem 0.5rem; font: 500 0.75rem/1rem ui-sans-serif, system-ui, sans-serif; } .ds-badge-success { background: color-mix(in srgb, var(--atlas-color-status-success, #16a34a) 15%, transparent); color: var(--atlas-color-on-success, #166534); } .ds-badge-danger { background: color-mix(in srgb, var(--atlas-color-status-danger, #dc2626) 15%, transparent); color: var(--atlas-color-on-danger, #b91c1c); } .ds-badge-neutral { background: color-mix(in srgb, var(--atlas-color-text, #0f172a) 10%, transparent); color: var(--atlas-color-text-muted, #475569); } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     },
     {
       "name": "Navigation Item",
@@ -417,7 +418,7 @@
       "refersTo": "nav-item",
       "description": "Sidebar row, Muted Ink at rest, lifting to surface on hover. The active state is a 10% brand tint with on-brand ink — a tint, never a fill.",
       "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><a class=\"ds-nav-item ds-nav-item-active\" href=\"#\"><span class=\"ds-nav-icon\" aria-hidden=\"true\">🚩</span><span>Feature Flags</span></a><a class=\"ds-nav-item\" href=\"#\"><span class=\"ds-nav-icon\" aria-hidden=\"true\">🧾</span><span>Audit Logs</span></a></nav>",
-      "css": ".ds-nav { display: flex; flex-direction: column; gap: 0.25rem; width: 15rem; padding: 0.75rem; background: var(--atlas-color-surface, #fff); } .ds-nav-item { display: flex; align-items: center; gap: 0.75rem; border-radius: var(--atlas-radius-md, 0.5rem); padding: 0.5rem 0.75rem; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text-muted, #475569); text-decoration: none; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-nav-item:hover { background: var(--atlas-color-bg, #f8fafc); color: var(--atlas-color-text, #0f172a); } .ds-nav-item-active { background: color-mix(in srgb, var(--atlas-color-brand-primary, #4f46e5) 10%, transparent); color: var(--atlas-color-on-brand, #4338ca); font-weight: 500; } .ds-nav-icon { width: 1.25rem; text-align: center; }"
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 0.25rem; width: 15rem; padding: 0.75rem; background: var(--atlas-color-surface, #fff); } .ds-nav-item { display: flex; align-items: center; gap: 0.75rem; border-radius: var(--atlas-radius-md, 0.5rem); padding: 0.5rem 0.75rem; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text-muted, #475569); text-decoration: none; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-nav-item:hover { background: var(--atlas-color-bg, #f8fafc); color: var(--atlas-color-text, #0f172a); } .ds-nav-item-active { background: color-mix(in srgb, var(--atlas-color-brand-primary, #4f46e5) 10%, transparent); color: var(--atlas-color-on-brand, #4338ca); font-weight: 500; } .ds-nav-icon { width: 1.25rem; text-align: center; } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     },
     {
       "name": "Search Input",
@@ -425,7 +426,7 @@
       "refersTo": "input-search",
       "description": "The filter field. Control Edge border, 0.25rem radius — the system's one radius outlier. No focus style is defined anywhere in the real system; the UA default ring is what ships today.",
       "html": "<input class=\"ds-input-search\" type=\"search\" placeholder=\"Filter by actor, action or target…\" aria-label=\"Filter events\" />",
-      "css": ".ds-input-search { width: 100%; max-width: 28rem; background: var(--atlas-color-surface, #fff); color: var(--atlas-color-text, #0f172a); border: 1px solid var(--atlas-color-border-strong, #475569); border-radius: var(--atlas-radius-sm, 0.25rem); padding: 0.5rem 0.75rem; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; } .ds-input-search::placeholder { color: var(--atlas-color-text-muted, #475569); }"
+      "css": ".ds-input-search { width: 100%; max-width: 28rem; background: var(--atlas-color-surface, #fff); color: var(--atlas-color-text, #0f172a); border: 1px solid var(--atlas-color-border-strong, #475569); border-radius: var(--atlas-radius-sm, 0.25rem); padding: 0.5rem 0.75rem; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; } .ds-input-search::placeholder { color: var(--atlas-color-text-muted, #475569); } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     },
     {
       "name": "Theme Toggle",
@@ -433,7 +434,7 @@
       "refersTo": "icon-button",
       "description": "The only square icon button: 2.25rem, Control Edge border, glyph swapping with the theme. Carries aria-pressed and a label naming the destination theme.",
       "html": "<button class=\"ds-icon-btn\" type=\"button\" aria-pressed=\"false\" aria-label=\"Switch to dark theme\">☀</button>",
-      "css": ".ds-icon-btn { display: inline-flex; align-items: center; justify-content: center; height: 2.25rem; width: 2.25rem; border: 1px solid var(--atlas-color-border-strong, #475569); border-radius: var(--atlas-radius-md, 0.5rem); background: transparent; color: var(--atlas-color-text, #0f172a); font-size: 1.125rem; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-icon-btn:hover { background: var(--atlas-color-surface, #fff); }"
+      "css": ".ds-icon-btn { display: inline-flex; align-items: center; justify-content: center; height: 2.25rem; width: 2.25rem; border: 1px solid var(--atlas-color-border-strong, #475569); border-radius: var(--atlas-radius-md, 0.5rem); background: transparent; color: var(--atlas-color-text, #0f172a); font-size: 1.125rem; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-icon-btn:hover { background: var(--atlas-color-surface, #fff); } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     },
     {
       "name": "Toggle Row",
@@ -441,7 +442,7 @@
       "refersTo": "button-secondary",
       "description": "A feature flag row: monospace key over a muted description, against an aria-pressed toggle that fills with Control Indigo when on. Separated by a hairline, not boxed in a card.",
       "html": "<li class=\"ds-row\"><div><code class=\"ds-row-key\">new-dashboard</code><p class=\"ds-row-desc\">Rolls the rebuilt dashboard out per environment.</p></div><button class=\"ds-toggle\" type=\"button\" aria-pressed=\"true\" aria-label=\"Toggle new-dashboard\">On</button></li>",
-      "css": ".ds-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; list-style: none; border-bottom: 1px solid var(--atlas-color-border, #e2e8f0); padding-bottom: 0.75rem; } .ds-row-key { font: 400 0.875rem/1.25rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--atlas-color-text, #0f172a); } .ds-row-desc { margin: 0; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text-muted, #475569); } .ds-toggle { border: 1px solid var(--atlas-color-border-strong, #475569); border-radius: var(--atlas-radius-md, 0.5rem); padding: 0.25rem 0.75rem; font: 500 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; background: transparent; color: var(--atlas-color-text, #0f172a); cursor: pointer; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-toggle:hover { border-color: var(--atlas-color-brand-primary, #4f46e5); } .ds-toggle[aria-pressed=\"true\"] { background: var(--atlas-color-brand-primary, #4f46e5); border-color: var(--atlas-color-brand-primary, #4f46e5); color: #fff; }"
+      "css": ".ds-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; list-style: none; border-bottom: 1px solid var(--atlas-color-border, #e2e8f0); padding-bottom: 0.75rem; } .ds-row-key { font: 400 0.875rem/1.25rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--atlas-color-text, #0f172a); } .ds-row-desc { margin: 0; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text-muted, #475569); } .ds-toggle { border: 1px solid var(--atlas-color-border-strong, #475569); border-radius: var(--atlas-radius-md, 0.5rem); padding: 0.25rem 0.75rem; font: 500 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; background: transparent; color: var(--atlas-color-text, #0f172a); cursor: pointer; transition: color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), border-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-toggle:hover { border-color: var(--atlas-color-brand-primary, #4f46e5); } .ds-toggle[aria-pressed=\"true\"] { background: var(--atlas-color-brand-primary, #4f46e5); border-color: var(--atlas-color-brand-primary, #4f46e5); color: #fff; } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     },
     {
       "name": "Inline Error Panel",
@@ -449,7 +450,7 @@
       "refersTo": "button-secondary",
       "description": "The only panel-like surface in the system. Surface fill, 40% Fault Red border, role=\"alert\", message paired against a secondary Retry. No shadow, no icon, no apology.",
       "html": "<div class=\"ds-error\" role=\"alert\"><p class=\"ds-error-msg\">Could not load feature flags.</p><button class=\"ds-btn ds-btn-secondary\" type=\"button\">Retry</button></div>",
-      "css": ".ds-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; background: var(--atlas-color-surface, #fff); border: 1px solid color-mix(in srgb, var(--atlas-color-status-danger, #dc2626) 40%, transparent); border-radius: var(--atlas-radius-md, 0.5rem); padding: 1rem; } .ds-error-msg { margin: 0; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-on-danger, #b91c1c); }"
+      "css": ".ds-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; background: var(--atlas-color-surface, #fff); border: 1px solid color-mix(in srgb, var(--atlas-color-status-danger, #dc2626) 40%, transparent); border-radius: var(--atlas-radius-md, 0.5rem); padding: 1rem; } .ds-error-msg { margin: 0; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-on-danger, #b91c1c); } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     },
     {
       "name": "Data Table",
@@ -457,7 +458,7 @@
       "refersTo": "input-search",
       "description": "Audit rows at the working size. The header hairline is full strength and row hairlines are 60%, so the header reads as structure and the rows as content.",
       "html": "<table class=\"ds-table\"><thead><tr><th scope=\"col\">When</th><th scope=\"col\">Actor</th><th scope=\"col\">Action</th><th scope=\"col\">Target</th></tr></thead><tbody><tr><td class=\"ds-nowrap\">2026-10-22 14:41</td><td>ada@atlas.dev</td><td>flag.toggled <span class=\"ds-muted\">(on)</span></td><td>new-dashboard</td></tr><tr><td class=\"ds-nowrap\">2026-10-22 14:38</td><td>system</td><td>role.granted</td><td>viewer</td></tr></tbody></table>",
-      "css": ".ds-table { width: 100%; text-align: left; border-collapse: collapse; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text, #0f172a); } .ds-table thead tr { border-bottom: 1px solid var(--atlas-color-border, #e2e8f0); color: var(--atlas-color-text-muted, #475569); } .ds-table th { font-weight: 500; padding: 0.5rem 1rem 0.5rem 0; } .ds-table td { padding: 0.5rem 1rem 0.5rem 0; } .ds-table tbody tr { border-bottom: 1px solid color-mix(in srgb, var(--atlas-color-border, #e2e8f0) 60%, transparent); } .ds-nowrap { white-space: nowrap; } .ds-muted { color: var(--atlas-color-text-muted, #475569); }"
+      "css": ".ds-table { width: 100%; text-align: left; border-collapse: collapse; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text, #0f172a); } .ds-table thead tr { border-bottom: 1px solid var(--atlas-color-border, #e2e8f0); color: var(--atlas-color-text-muted, #475569); } .ds-table th { font-weight: 500; padding: 0.5rem 1rem 0.5rem 0; } .ds-table td { padding: 0.5rem 1rem 0.5rem 0; } .ds-table tbody tr { border-bottom: 1px solid color-mix(in srgb, var(--atlas-color-border, #e2e8f0) 60%, transparent); } .ds-nowrap { white-space: nowrap; } .ds-muted { color: var(--atlas-color-text-muted, #475569); } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
     }
   ],
   "narrative": {
@@ -469,7 +470,8 @@
       "Neutral slate ground; colour is reserved for state and action.",
       "Dense vertical rhythm — 0.5rem/0.75rem control padding, 1.5rem page padding.",
       "Native system type, no webfont, no font loading cost.",
-      "Every semantic colour is defined twice, light and dark, and components read only the semantic name."
+      "Every semantic colour is defined twice, light and dark, and components read only the semantic name.",
+      "One focus ring for the whole system, in the text colour, offset so it never sits on a control own fill."
     ],
     "rules": [
       {
@@ -528,8 +530,8 @@
         "section": "components"
       },
       {
-        "name": "The Focus Debt Rule",
-        "body": "No focus style exists in this system, and the product is committed to WCAG 2.2 AA. Every control is currently at the mercy of the user agent’s default ring, which is not verified against either theme — and on dark-surface there is no evidence it clears 3:1. A single focus treatment belongs in libs/shared/ui, defined once against both themes. Do not solve this per component; nine local answers is a worse outcome than the current one.",
+        "name": "The Focus Ring Rule",
+        "body": "One ring, declared once, for everything: a 2px solid outline in the semantic text colour at outline-offset 2px, from libs/shared/ui/src/focus-visible.css, imported by all four apps and by Storybook. text rather than a focus token because text is by definition legible against anything the system paints, so the ring clears 3:1 against every surface that exists and any added later. The 2px offset is load-bearing: backgrounds paint only inside the border box, so the gap shows the parent background and never the control fill — without it the ring sits on the indigo and red fills at 2.84:1 and 3.70:1. And it must not animate: transition-colors includes outline-color, so the ring would otherwise fade in from each control currentColor. Never write outline: none.",
         "section": "components"
       }
     ],
@@ -542,7 +544,8 @@
       "Do default to the 0.875rem working size and 0.5rem radius.",
       "Do prefer aria-busy to disabled for an action just triggered.",
       "Do put anything a second surface needs into libs/shared/ui. Drift between independently deployed remotes is this architecture’s defining failure mode.",
-      "Do verify both themes for every change. A component that passes light and fails dark fails."
+      "Do verify both themes for every change. A component that passes light and fails dark fails.",
+      "Do leave focus to the shared ring. It already covers <button>, <a>, <input>, [tabindex] holders and anything added later."
     ],
     "donts": [
       "Don’t add a box-shadow to a single component. The system has no elevation vocabulary; an improvised value becomes the de facto system without anyone choosing it. Design it deliberately, once.",
@@ -551,11 +554,13 @@
       "Don’t spend Control Indigo on anything that is not the primary action or the active route. Its rarity is what makes it readable.",
       "Don’t use a status hue as text on its own tint, or a status colour to set a mood.",
       "Don’t animate geometry. Colour transitions only — no transform, lift or scale.",
-      "Don’t solve focus per component. One treatment, in the shared library, verified against both themes.",
       "Don’t make a badge interactive, or give a button a pill radius. The shapes are how an operator tells a report from a control.",
       "Don’t remove or disable the navigation item for a failed remote. It is the route back in.",
       "Don’t treat the emoji domain icons as settled. They are placeholders.",
-      "Don’t adopt brand-accent, rounded-sm, rounded-lg or the spacing scale by accident. They are declared but unconsumed; adopting one is a system decision, and the honest alternatives are adopt deliberately or delete."
+      "Don’t adopt brand-accent, rounded-sm, rounded-lg or the spacing scale by accident. They are declared but unconsumed; adopting one is a system decision, and the honest alternatives are adopt deliberately or delete.",
+      "Don't write outline: none, anywhere, for any reason. It is the single edit that can remove focus indication outright.",
+      "Don't add a focus utility to a component. The shared ring covers it; a local one would fragment the only indicator a keyboard user has.",
+      "Don't let outline-color transition. transition-colors includes it, and an indicator that fades in is not an indicator on the frame it is needed."
     ]
   }
 }
