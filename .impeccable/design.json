@@ -636,7 +636,8 @@
       "Don't give an icon its own colour. currentColor is what keeps it inside the colour ration.",
       "Don't add a second breakpoint. md is the whole vocabulary: the console is either at a desk or in a hand.",
       "Don't add a confirmation dialog to a reversible action.",
-      "Don't let a write complete silently, or signal it only by a control changing."
+      "Don't let a write complete silently, or signal it only by a control changing.",
+      "Don't truncate a navigation label to make room for a badge. A nav item nobody can read is not a nav item — use a mark and give the words to assistive tech."
     ]
   }
 }

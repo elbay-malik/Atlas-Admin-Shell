@@ -79,15 +79,24 @@ interface NavEntry extends RemoteDefinition {
               [attr.data-testid]="'nav-' + entry.name"
               [attr.data-health]="entry.status"
               [attr.data-allowed]="entry.allowed"
+              [attr.title]="entry.allowed ? null : 'Requires the ' + entry.requiredRole + ' role'"
             >
               <ui-nav-item
                 [link]="'/' + entry.route"
                 [icon]="entry.icon"
                 [disabled]="!entry.allowed"
               >
-                {{ entry.displayName }}
+                <span class="truncate">{{ entry.displayName }}</span>
                 @if (!entry.allowed) {
-                  <ui-badge>{{ entry.requiredRole }}</ui-badge>
+                  <!--
+                    A lock, plus the reason in text only a screen reader hears.
+                    The word "admin" as a visible badge pushed long labels onto
+                    a second line; truncating them to fit was worse still. The
+                    mark costs 16px, the sr-only text costs nothing, and the
+                    Overview spells the requirement out in full.
+                  -->
+                  <ui-icon name="lock" [size]="16" />
+                  <span class="sr-only">Requires the {{ entry.requiredRole }} role</span>
                 } @else if (entry.status === 'down') {
                   <ui-badge tone="danger">offline</ui-badge>
                 }

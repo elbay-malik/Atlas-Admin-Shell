@@ -10,6 +10,7 @@ target_fingerprint: "sha256:8c994822eba3396044933ed1c6606f5a2ac4cd3b80bb637ab9cc
 target_path: /Users/elbaymalik/dev/eleo/atlas_admin_shell/apps/shell/src/app/layout/shell-layout.ts
 timestamp: 2026-10-22T14-12-18Z
 slug: apps-shell-src-app-layout-shell-layout-ts
+closed: true
 ---
 Method: dual-agent (A: design review · B: detector + browser evidence), isolated and parallel.
 Target: apps/shell/src/app/layout/shell-layout.ts — scope the composed console. Mode: Operate.

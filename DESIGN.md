@@ -452,7 +452,12 @@ route, or a reported state.
 - **Hover:** lifts to `surface` fill with full-strength `text` ink.
 - **Active:** 10% Control Indigo tint with `on-brand` ink at weight 500 — the tint,
   not a fill, and the only place in the sidebar colour appears unaided.
-- **Disabled:** `pointer-events-none` at 40% opacity, with `aria-disabled` set.
+- **Disabled:** `pointer-events-none` at 40% opacity, with `aria-disabled` set. A
+  domain the current role may not open carries a **lock mark**, not a word. A role
+  badge pushed long labels onto a second line, and truncating the label to fit was
+  worse than either — a nav item nobody can read is not a nav item. The requirement is
+  spoken via `sr-only` text, shown on hover via `title`, and spelled out in full on the
+  Overview.
 - **A down remote keeps its href.** The nav item for a failed module stays clickable
   and gains a danger badge, because that row *is* the way back in (ADR-0007). Removing
   or disabling it strands the operator.
@@ -503,7 +508,8 @@ against a secondary **Retry**.
 
 ### Action Status
 
-The acknowledgement line every domain screen carries, directly under its header.
+The acknowledgement line every domain screen carries, **inside** its header block,
+under the subtitle.
 
 - **Always in the DOM, even when silent.** It is a `role="status"` / `aria-live="polite"`
   region, and a region inserted at the same moment its text appears is frequently never
@@ -511,6 +517,10 @@ The acknowledgement line every domain screen carries, directly under its header.
   unconditionally and only its contents change.
 - **`polite`, never `assertive`.** The operator did this on purpose; it can wait for a
   pause rather than interrupt them.
+- **It reserves its height, inside the header.** Reserving space stops an arriving
+  message shifting the rows beneath it — but reserved space floating *between* two
+  blocks reads as a hole, while the same space inside a block reads as rhythm. It
+  belongs to the header.
 - **It carries Undo, not a confirmation.** A confirm dialog interrupts every action to
   guard against the rare one, and an operator working down a list learns to dismiss it
   unread. Undo keeps the common path at one click and makes the rare mistake cheap.

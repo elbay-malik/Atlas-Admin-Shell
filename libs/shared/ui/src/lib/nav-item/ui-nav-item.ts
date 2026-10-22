@@ -19,7 +19,9 @@ import { UiIcon } from '../icon/ui-icon';
       @if (icon()) {
         <ui-icon [name]="icon()" />
       }
-      <span><ng-content /></span>
+      <!-- min-w-0 lets the label shrink instead of pushing a trailing badge
+           onto its own line, which made that item taller than every other -->
+      <span class="flex min-w-0 flex-1 items-center gap-2"><ng-content /></span>
     </a>
   `,
 })

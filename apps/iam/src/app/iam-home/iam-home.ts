@@ -15,6 +15,10 @@ import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-u
         <div>
           <h1 class="mb-1 text-2xl font-semibold">Identity &amp; Access</h1>
           <p class="text-text-muted">Users, roles and access management.</p>
+          <ui-action-status
+            [message]="store.lastChange()?.message ?? null"
+            (undo)="store.undoLastChange()"
+          />
         </div>
         <div class="flex items-center gap-2">
           <ui-badge tone="success" data-testid="admin-count">
@@ -49,11 +53,6 @@ import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-u
       @if (store.isPending() && store.entities().length === 0) {
         <p data-testid="users-loading" class="text-sm text-text-muted">Loading users…</p>
       }
-
-      <ui-action-status
-        [message]="store.lastChange()?.message ?? null"
-        (undo)="store.undoLastChange()"
-      />
 
       <!--
         A dense record table is the one thing that legitimately scrolls

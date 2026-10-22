@@ -25,7 +25,8 @@ export type UiIconName =
   | 'sun'
   | 'moon'
   | 'menu'
-  | 'close';
+  | 'close'
+  | 'lock';
 
 const PATHS: Record<UiIconName, readonly string[]> = {
   // a roof over an open body: "the top level", not a house
@@ -46,6 +47,11 @@ const PATHS: Record<UiIconName, readonly string[]> = {
     'M7.75 9.25h4.5',
     'M7.75 12h2.75',
   ],
+  // marks a domain the current role may not open. A mark rather than a word:
+  // a role badge on the nav item pushed the label onto a second line, and
+  // truncating the label to fit was worse than either — a nav item nobody can
+  // read is not a nav item.
+  lock: ['M6 9V6.5a4 4 0 0 1 8 0V9', 'M4.75 9h10.5v8.25H4.75z'],
   // the drawer control, below md only
   menu: ['M3.25 6h13.5', 'M3.25 10h13.5', 'M3.25 14h13.5'],
   close: ['M5.25 5.25l9.5 9.5', 'M14.75 5.25l-9.5 9.5'],

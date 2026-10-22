@@ -19,6 +19,16 @@ import { FlagsStore } from '../data/flags.store';
             pick here.
           -->
           <p class="text-text-muted">Toggle features for this deployment.</p>
+          <!--
+            Inside the header, not floating between the header and the list.
+            The region reserves its height so an arriving message cannot shift
+            the rows under it, and reserved space that belongs to a block reads
+            as rhythm; the same space between two blocks reads as a hole.
+          -->
+          <ui-action-status
+            [message]="store.lastToggle()?.message ?? null"
+            (undo)="store.undoLastToggle()"
+          />
         </div>
         <div class="flex items-center gap-2">
           @if (!canEdit()) {
@@ -50,15 +60,6 @@ import { FlagsStore } from '../data/flags.store';
       } @else if (total() === 0) {
         <p class="text-sm text-text-muted">No feature flags are defined for this environment.</p>
       }
-
-      <!--
-        Always rendered, never wrapped in @if: a live region inserted at the
-        same moment its text appears is frequently not announced at all.
-      -->
-      <ui-action-status
-        [message]="store.lastToggle()?.message ?? null"
-        (undo)="store.undoLastToggle()"
-      />
 
       <ul class="space-y-3">
         @for (flag of store.entities(); track flag.key) {
