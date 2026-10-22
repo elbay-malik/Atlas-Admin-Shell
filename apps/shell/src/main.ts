@@ -42,7 +42,10 @@ async function fetchManifest(url: string): Promise<unknown> {
 
   // Keep the WHOLE result: initRemoteEntry() and adapters.remoteInfoRepo are
   // what make an in-page retry possible (ADR-0007).
-  const federation = await initFederation(remotes, { sse: dev });
+  // `logging` defaults to 'debug', which printed every bundle list and the
+  // whole import map to the console on every navigation — in production. Kept
+  // in dev, where it is genuinely useful for diagnosing a federation problem.
+  const federation = await initFederation(remotes, { sse: dev, logging: dev ? 'debug' : 'warn' });
 
   const { bootstrap } = await import('./bootstrap');
   // Environment configuration lives in the manifest (ADR-0010), so which

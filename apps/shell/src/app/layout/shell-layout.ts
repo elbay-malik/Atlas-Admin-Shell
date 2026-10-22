@@ -16,6 +16,19 @@ interface NavEntry extends RemoteDefinition {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, UiBadge, UiButton, UiNavItem, UiThemeToggle],
   template: `
+    <!--
+      First focusable element in the document. Without it the tab order walks
+      the whole sidebar — six stops — before reaching content, on every route,
+      and a keyboard user pays that toll on every navigation.
+    -->
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50
+             focus:rounded-md focus:border focus:border-border-strong focus:bg-surface
+             focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-text"
+    >
+      Skip to content
+    </a>
     <div class="flex min-h-screen">
       <aside class="flex w-60 flex-col border-r border-border bg-surface">
         <div class="flex h-14 items-center gap-2 border-b border-border px-4">
@@ -54,7 +67,8 @@ interface NavEntry extends RemoteDefinition {
           }
           <ui-theme-toggle />
         </header>
-        <main class="flex-1">
+        <!-- tabindex="-1" so the skip link can move focus here, not just scroll -->
+        <main id="main-content" tabindex="-1" class="flex-1">
           <router-outlet />
         </main>
       </div>

@@ -56,7 +56,8 @@ import { IamUsersStore } from '../data/iam-users.store';
             <th scope="col" class="py-2 pr-4 font-medium">Name</th>
             <th scope="col" class="py-2 pr-4 font-medium">Email</th>
             <th scope="col" class="py-2 pr-4 font-medium">Role</th>
-            <th scope="col" class="py-2 font-medium">Status</th>
+            <th scope="col" class="py-2 pr-4 font-medium">Status</th>
+            <th scope="col" class="py-2 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -78,8 +79,8 @@ import { IamUsersStore } from '../data/iam-users.store';
               <td class="py-2 pr-4">
                 <select
                   data-testid="role-select"
-                  class="rounded border border-border-strong bg-surface px-2 py-1 text-sm
-                         disabled:cursor-not-allowed disabled:opacity-50"
+                  class="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm
+                         text-text disabled:cursor-not-allowed disabled:opacity-50"
                   [value]="user.role"
                   [attr.aria-busy]="isPending(user.id)"
                   [attr.aria-label]="'Role for ' + user.name"
@@ -88,6 +89,20 @@ import { IamUsersStore } from '../data/iam-users.store';
                   <option value="admin">admin</option>
                   <option value="viewer">viewer</option>
                 </select>
+              </td>
+              <!--
+                Status and action used to share one cell, which grouped a report
+                and a command as if they were one thing. The badge component is
+                already used for status in this page's header; the row now uses
+                the same vocabulary.
+              -->
+              <td class="py-2 pr-4">
+                <ui-badge
+                  data-testid="user-status"
+                  [tone]="user.active ? 'success' : 'neutral'"
+                >
+                  {{ user.active ? 'active' : 'disabled' }}
+                </ui-badge>
               </td>
               <td class="py-2">
                 <ui-button
@@ -99,7 +114,6 @@ import { IamUsersStore } from '../data/iam-users.store';
                 >
                   {{ user.active ? 'Deactivate' : 'Activate' }}
                 </ui-button>
-                <span class="ml-2 text-text-muted">{{ user.active ? 'active' : 'disabled' }}</span>
               </td>
             </tr>
           }

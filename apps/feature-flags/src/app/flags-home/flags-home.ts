@@ -12,7 +12,13 @@ import { FlagsStore } from '../data/flags.store';
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 class="mb-1 text-2xl font-semibold">Feature Flags</h1>
-          <p class="text-text-muted">Toggle features per environment.</p>
+          <!--
+            Was "Toggle features per environment", which promised a control
+            this screen does not have. The environment is chosen at deploy time
+            by which manifest ships (ADR-0010), so it is not the operator's to
+            pick here.
+          -->
+          <p class="text-text-muted">Toggle features for this deployment.</p>
         </div>
         <div class="flex items-center gap-2">
           @if (!canEdit()) {
@@ -71,7 +77,7 @@ import { FlagsStore } from '../data/flags.store';
                      aria-pressed:border-brand-primary aria-pressed:bg-brand-primary
                      aria-pressed:text-white"
               [attr.aria-pressed]="flag.enabled"
-              [attr.aria-label]="'Toggle ' + flag.key"
+              [attr.aria-label]="(flag.enabled ? 'On' : 'Off') + ', toggle ' + flag.key"
               [attr.data-pending]="isPending(flag.key)"
               [attr.aria-busy]="isPending(flag.key)"
               (click)="store.toggle(flag.key)"

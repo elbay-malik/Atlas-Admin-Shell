@@ -9,9 +9,11 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     <a
       class="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface hover:text-text aria-disabled:pointer-events-none aria-disabled:opacity-40"
       routerLinkActive="!bg-brand-primary/10 !text-on-brand font-medium"
+      #active="routerLinkActive"
       [routerLink]="disabled() ? null : link()"
       [routerLinkActiveOptions]="{ exact: exact() }"
       [attr.aria-disabled]="disabled()"
+      [attr.aria-current]="active.isActive ? 'page' : null"
     >
       @if (icon()) {
         <span aria-hidden="true" class="w-5 text-center">{{ icon() }}</span>
@@ -21,6 +23,13 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
   `,
 })
 export class UiNavItem {
+  /*
+   * `aria-current="page"` rather than the active tint alone. The tint is the
+   * only signal a sighted user needs, but it is colour, and colour does not
+   * reach a screen reader — without this a non-visual user has no location
+   * indication anywhere in the console (WCAG 1.3.1 / 4.1.2). It is bound to
+   * RouterLinkActive's own `isActive` so it can never disagree with the styling.
+   */
   readonly link = input.required<string>();
   readonly icon = input<string>('');
   readonly exact = input(false);

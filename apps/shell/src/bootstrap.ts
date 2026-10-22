@@ -5,6 +5,7 @@ import {
   RedirectCommand,
   Route,
   Router,
+  TitleStrategy,
   provideRouter,
   withNavigationErrorHandler,
 } from '@angular/router';
@@ -15,6 +16,7 @@ import { ATLAS_MANIFEST_VERSION, AtlasManifest, isAtlasManifest } from '@atlas/s
 import { provideSupabaseAtlasAuth } from './app/auth/provide-supabase-auth';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { App } from './app/app';
+import { AtlasTitleStrategy } from './app/atlas-title.strategy';
 import { FEDERATION } from './app/federation.token';
 import { ATLAS_MANIFEST } from './app/manifest.token';
 import { ModuleUnavailable } from './app/module-unavailable/module-unavailable';
@@ -38,6 +40,9 @@ export function buildRoutes(manifest: AtlasManifest): Route[] {
   const remoteRoutes = Object.entries(manifest.remotes).flatMap(([name, def]): Route[] => [
     {
       path: def.route,
+      // The tab title comes from the manifest too, so renaming a domain there
+      // renames its tab with no shell rebuild (ADR-0004).
+      title: def.displayName,
       canMatch: [() => inject(AtlasAuth).hasRole(def.requiredRole)],
       loadChildren: () => inject(RemoteLoader).load(name),
     },
@@ -61,10 +66,10 @@ export function buildRoutes(manifest: AtlasManifest): Route[] {
   ]);
 
   return [
-    { path: '', pathMatch: 'full', component: Overview },
+    { path: '', pathMatch: 'full', title: 'Overview', component: Overview },
     ...remoteRoutes,
-    { path: 'unavailable/:remote', component: ModuleUnavailable },
-    { path: '**', component: ModuleUnavailable },
+    { path: 'unavailable/:remote', title: 'Unavailable', component: ModuleUnavailable },
+    { path: '**', title: 'Page not found', component: ModuleUnavailable },
   ];
 }
 
@@ -108,6 +113,7 @@ export function bootstrap(rawManifest: unknown, federation: NativeFederationResu
     providers: [
       provideBrowserGlobalErrorListeners(),
       provideRouter(buildRoutes(manifest), withNavigationErrorHandler(remoteUnavailableRedirect)),
+      { provide: TitleStrategy, useClass: AtlasTitleStrategy },
       // WHICH identity provider is a deployment decision, exactly like apiMode
       // (ADR-0010): an environment that configures `auth` gets the real one,
       // and everything else — a fresh checkout, CI, a reviewer with no account

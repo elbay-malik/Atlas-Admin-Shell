@@ -16,8 +16,13 @@ import { AuditStore } from '../data/audit.store';
             Searchable trail of platform events, live from every domain.
           </p>
         </div>
+        <!--
+          The count used to read "0 live" above four seeded rows, which parses
+          as "there are no events". Naming the total first makes the second
+          number obviously a subset rather than a contradiction.
+        -->
         <ui-badge data-testid="audit-live-count" [tone]="liveCount() > 0 ? 'success' : 'neutral'">
-          {{ liveCount() }} live
+          {{ store.entities().length }} events · {{ liveCount() }} live
         </ui-badge>
       </header>
 
