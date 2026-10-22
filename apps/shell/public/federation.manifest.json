@@ -5,7 +5,7 @@
       "url": "http://localhost:4201/remoteEntry.json",
       "displayName": "Identity & Access",
       "route": "iam",
-      "icon": "👥",
+      "icon": "users",
       "exposedModule": "./Routes",
       "requiredRole": "admin"
     },
@@ -13,7 +13,7 @@
       "url": "http://localhost:4202/remoteEntry.json",
       "displayName": "Feature Flags",
       "route": "flags",
-      "icon": "🚩",
+      "icon": "flag",
       "exposedModule": "./Routes",
       "requiredRole": "viewer"
     },
@@ -21,7 +21,7 @@
       "url": "http://localhost:4203/remoteEntry.json",
       "displayName": "Audit Logs",
       "route": "audit",
-      "icon": "🧾",
+      "icon": "ledger",
       "exposedModule": "./Routes",
       "requiredRole": "viewer"
     }

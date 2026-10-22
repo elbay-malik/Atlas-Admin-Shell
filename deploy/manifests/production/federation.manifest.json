@@ -11,7 +11,7 @@
       "url": "https://atlas-iam.eleo-666.workers.dev/remoteEntry.json",
       "displayName": "Identity & Access",
       "route": "iam",
-      "icon": "👥",
+      "icon": "users",
       "exposedModule": "./Routes",
       "requiredRole": "admin"
     },
@@ -19,7 +19,7 @@
       "url": "https://atlas-feature-flags.eleo-666.workers.dev/remoteEntry.json",
       "displayName": "Feature Flags",
       "route": "flags",
-      "icon": "🚩",
+      "icon": "flag",
       "exposedModule": "./Routes",
       "requiredRole": "viewer"
     },
@@ -27,7 +27,7 @@
       "url": "https://atlas-audit-logs.eleo-666.workers.dev/remoteEntry.json",
       "displayName": "Audit Logs",
       "route": "audit",
-      "icon": "🧾",
+      "icon": "ledger",
       "exposedModule": "./Routes",
       "requiredRole": "viewer"
     }

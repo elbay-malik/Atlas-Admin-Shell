@@ -372,10 +372,6 @@
       {
         "area": "unconsumed-tokens",
         "note": "brand-accent, rounded-sm, rounded-lg and the entire spacing scale are generated but referenced by no component. Adopt deliberately or delete."
-      },
-      {
-        "area": "icons",
-        "note": "Domain icons are emoji glyphs from the manifest. They render differently per OS and are placeholders, not a settled visual decision."
       }
     ]
   },
@@ -459,6 +455,14 @@
       "description": "Audit rows at the working size. The header hairline is full strength and row hairlines are 60%, so the header reads as structure and the rows as content.",
       "html": "<table class=\"ds-table\"><thead><tr><th scope=\"col\">When</th><th scope=\"col\">Actor</th><th scope=\"col\">Action</th><th scope=\"col\">Target</th></tr></thead><tbody><tr><td class=\"ds-nowrap\">2026-10-22 14:41</td><td>ada@atlas.dev</td><td>flag.toggled <span class=\"ds-muted\">(on)</span></td><td>new-dashboard</td></tr><tr><td class=\"ds-nowrap\">2026-10-22 14:38</td><td>system</td><td>role.granted</td><td>viewer</td></tr></tbody></table>",
       "css": ".ds-table { width: 100%; text-align: left; border-collapse: collapse; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text, #0f172a); } .ds-table thead tr { border-bottom: 1px solid var(--atlas-color-border, #e2e8f0); color: var(--atlas-color-text-muted, #475569); } .ds-table th { font-weight: 500; padding: 0.5rem 1rem 0.5rem 0; } .ds-table td { padding: 0.5rem 1rem 0.5rem 0; } .ds-table tbody tr { border-bottom: 1px solid color-mix(in srgb, var(--atlas-color-border, #e2e8f0) 60%, transparent); } .ds-nowrap { white-space: nowrap; } .ds-muted { color: var(--atlas-color-text-muted, #475569); } .ds-focus:focus-visible, .ds-btn:focus-visible, .ds-badge:focus-visible, .ds-nav-item:focus-visible, .ds-input-search:focus-visible, .ds-icon-btn:focus-visible, .ds-toggle:focus-visible { outline-color: var(--atlas-color-text, #0f172a); outline-style: solid; outline-width: 2px; outline-offset: 2px; transition-property: none; }"
+    },
+    {
+      "name": "Icon",
+      "kind": "custom",
+      "refersTo": "nav-item",
+      "description": "The drawn set. Stroke-only, single 1.5 weight on a 20px grid, always currentColor so it takes the ink of whatever it sits in.",
+      "html": "<span class=\"ds-icon-row\"><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2.75 8.5 10 2.75l7.25 5.75\"/><path d=\"M4.5 7.9v8.35h11V7.9\"/></svg>overview</span><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M7.5 9.75a2.875 2.875 0 1 0 0-5.75 2.875 2.875 0 0 0 0 5.75Z\"/><path d=\"M2.5 16.75c0-2.625 2.239-4.75 5-4.75s5 2.125 5 4.75\"/><path d=\"M13.25 4.6a2.625 2.625 0 0 1 0 5.05\"/><path d=\"M15 12.4c1.625.65 2.5 2.2 2.5 4.35\"/></svg>users</span><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5.5 2.75v14.5\"/><path d=\"M5.5 4h8.75l-1.75 3.125L14.25 10.25H5.5z\"/></svg>flag</span><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5.25 2.75h9.5v14.5l-2.375-1.5L10 17.25l-2.375-1.5L5.25 17.25z\"/><path d=\"M7.75 6.5h4.5\"/><path d=\"M7.75 9.25h4.5\"/><path d=\"M7.75 12h2.75\"/></svg>ledger</span><span class=\"ds-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 17.25a7.25 7.25 0 1 0 0-14.5 7.25 7.25 0 0 0 0 14.5Z\"/><path d=\"M12.9 7.1l-1.45 4.35-4.35 1.45 1.45-4.35z\"/></svg>compass</span></span>",
+      "css": ".ds-icon-row { display: flex; flex-wrap: wrap; gap: 1.5rem; font: 400 0.875rem/1.25rem ui-sans-serif, system-ui, sans-serif; color: var(--atlas-color-text-muted, #475569); } .ds-icon { display: inline-flex; align-items: center; gap: 0.5rem; }"
     }
   ],
   "narrative": {
@@ -471,7 +475,8 @@
       "Dense vertical rhythm — 0.5rem/0.75rem control padding, 1.5rem page padding.",
       "Native system type, no webfont, no font loading cost.",
       "Every semantic colour is defined twice, light and dark, and components read only the semantic name.",
-      "One focus ring for the whole system, in the text colour, offset so it never sits on a control own fill."
+      "One focus ring for the whole system, in the text colour, offset so it never sits on a control own fill.",
+      "One drawn icon set, stroke-only at a single weight, always currentColor."
     ],
     "rules": [
       {
@@ -533,6 +538,11 @@
         "name": "The Focus Ring Rule",
         "body": "One ring, declared once, for everything: a 2px solid outline in the semantic text colour at outline-offset 2px, from libs/shared/ui/src/focus-visible.css, imported by all four apps and by Storybook. text rather than a focus token because text is by definition legible against anything the system paints, so the ring clears 3:1 against every surface that exists and any added later. The 2px offset is load-bearing: backgrounds paint only inside the border box, so the gap shows the parent background and never the control fill — without it the ring sits on the indigo and red fills at 2.84:1 and 3.70:1. And it must not animate: transition-colors includes outline-color, so the ring would otherwise fade in from each control currentColor. Never write outline: none.",
         "section": "components"
+      },
+      {
+        "name": "The Drawn Icon Rule",
+        "body": "Icons come from the shared set in libs/shared/ui/src/lib/icon: stroke-only on a 20px grid at a single 1.5 weight, round caps and joins, no fills, always currentColor. The manifest carries an icon NAME, not a glyph, so a domain icon is a registry edit like everything else about it (ADR-0004); an unrecognised name renders verbatim, because the manifest ships independently of the bundle and a deploy must never empty the nav. currentColor is what keeps an icon inside the Rationed Colour Rule rather than exempt from it — which is exactly what the emoji it replaced were not.",
+        "section": "components"
       }
     ],
     "dos": [
@@ -545,7 +555,8 @@
       "Do prefer aria-busy to disabled for an action just triggered.",
       "Do put anything a second surface needs into libs/shared/ui. Drift between independently deployed remotes is this architecture’s defining failure mode.",
       "Do verify both themes for every change. A component that passes light and fails dark fails.",
-      "Do leave focus to the shared ring. It already covers <button>, <a>, <input>, [tabindex] holders and anything added later."
+      "Do leave focus to the shared ring. It already covers <button>, <a>, <input>, [tabindex] holders and anything added later.",
+      "Do draw a new icon into the shared set at the same 1.5 stroke weight on the 20px grid, in currentColor, and give the manifest its name."
     ],
     "donts": [
       "Don’t add a box-shadow to a single component. The system has no elevation vocabulary; an improvised value becomes the de facto system without anyone choosing it. Design it deliberately, once.",
@@ -556,11 +567,12 @@
       "Don’t animate geometry. Colour transitions only — no transform, lift or scale.",
       "Don’t make a badge interactive, or give a button a pill radius. The shapes are how an operator tells a report from a control.",
       "Don’t remove or disable the navigation item for a failed remote. It is the route back in.",
-      "Don’t treat the emoji domain icons as settled. They are placeholders.",
       "Don’t adopt brand-accent, rounded-sm, rounded-lg or the spacing scale by accident. They are declared but unconsumed; adopting one is a system decision, and the honest alternatives are adopt deliberately or delete.",
       "Don't write outline: none, anywhere, for any reason. It is the single edit that can remove focus indication outright.",
       "Don't add a focus utility to a component. The shared ring covers it; a local one would fragment the only indicator a keyboard user has.",
-      "Don't let outline-color transition. transition-colors includes it, and an indicator that fades in is not an indicator on the frame it is needed."
+      "Don't let outline-color transition. transition-colors includes it, and an indicator that fades in is not an indicator on the frame it is needed.",
+      "Don't reach for an emoji, a Unicode glyph, or an icon font. The set is drawn; a glyph is a different weight, a different colour, and a different shape on every operating system.",
+      "Don't give an icon its own colour. currentColor is what keeps it inside the colour ration."
     ]
   }
 }

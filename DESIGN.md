@@ -158,9 +158,10 @@ condition the system is reporting. Because colour is rationed this way, a single
 red badge in a sidebar is impossible to miss. That rationing is the design.
 
 What this is not: a marketing surface. There is no hero, no gradient, no
-illustration, and no moment that exists to impress. The one concession to personality
-is a small set of emoji glyphs standing in as domain icons, which read as
-placeholders and are treated as such below.
+illustration, and no moment that exists to impress. The personality lives in two
+places only: the drawn icon set, which is stroke-only and inherits its ink so it can
+never spend colour; and the Overview, which renders the federation registry itself
+rather than describing it.
 
 **Key Characteristics:**
 
@@ -174,6 +175,7 @@ placeholders and are treated as such below.
   the semantic name.
 - One focus ring for the whole system, in the text colour, offset so it never sits
   on a control's own fill.
+- One drawn icon set, stroke-only at a single weight, always `currentColor`.
 
 ## Colors
 
@@ -235,6 +237,10 @@ that `surface` can lift above `bg` without either becoming grey mush.
 Control Indigo marks the action to take or the route you are on; a status hue marks a
 condition the system is reporting. If a colour is doing neither, it does not belong on
 the screen.
+
+Icons are inside this rule, not exempt from it. They are drawn in `currentColor`
+precisely so they cannot carry a hue of their own — which is exactly what the emoji
+they replaced did, in the most visible component in the product.
 
 **The Two Borders Rule.** `border` separates content; `border-strong` bounds a
 control. They are not interchangeable and the distinction is load-bearing: a control
@@ -418,9 +424,23 @@ route, or a reported state.
 - **A down remote keeps its href.** The nav item for a failed module stays clickable
   and gains a danger badge, because that row *is* the way back in (ADR-0007). Removing
   or disabling it strands the operator.
-- **Icons** are emoji glyphs supplied by the manifest, always `aria-hidden` with the
-  label carrying the accessible name. Treat them as placeholders: they are the one
-  unresolved visual element in the system, and they render differently per OS.
+- **Icons** come from the drawn set (see Icons below). The manifest supplies the
+  *name*; the drawing lives in the design system. Always `aria-hidden`, with the
+  label carrying the accessible name.
+
+### Icons
+
+- **The set:** `overview`, `users`, `flag`, `ledger`, `compass`, `sun`, `moon`, in
+  `libs/shared/ui/src/lib/icon/`. Stroke-only on a 20px grid at a single `1.5`
+  weight, round caps and joins, no fills, no second colour.
+- **Colour:** always `currentColor`. An icon takes the ink of whatever it sits in —
+  Muted Ink in a resting nav item, `on-brand` in the active one — which is what keeps
+  it inside the colour ration rather than exempt from it.
+- **Naming:** the manifest carries an icon *name*, not a glyph, so a domain's icon is
+  a registry edit like everything else about it (ADR-0004). An unrecognised name
+  renders verbatim, because the manifest ships independently of this bundle and a
+  deploy must never empty the nav.
+- **Size:** 20px in the nav and in tables; 22px for the wordmark. Nothing else.
 
 ### Inputs
 
@@ -448,6 +468,26 @@ against a secondary **Retry**.
 - An empty result renders a full-width Muted Ink row inside the table, never a bare
   page message — the column headers stay on screen so the operator can see what they
   filtered.
+
+### Signature Component — the Overview Registry
+
+The landing screen is a table of `federation.manifest.json`: one row per remote, with
+its route, the **origin it is actually served from**, the role it requires, and
+whether its module resolved at boot. Header badges carry the manifest version and the
+active `apiMode`.
+
+It is a table, not a grid of cards, for two reasons: it is tabular data, and the
+console already taught the operator this table language on `/audit` and `/iam`.
+
+Its design thesis: **the claim and its receipt in the same frame.** The product's one
+uncopyable property is that domains are composed at runtime from separate origins;
+every other screen can only assert that. The `resolved` state is the detail that earns
+it — it means the entry was fetched at boot but the code has not loaded yet, so lazy
+federation is legible at rest instead of only when something fails.
+
+Every remote is listed before sign-in, including ones the visitor may not open. That
+is not a leak: the registry is fetched before authentication and publishes every
+`requiredRole`, because the shell builds its router from it.
 
 ### Signature Component — the Unavailable Boundary
 
@@ -525,6 +565,8 @@ outright — including the ring forced-colors mode synthesises.
   independently deployed remotes is this architecture's defining failure mode.
 - **Do** verify both themes for every change. A component that passes light and fails
   dark fails.
+- **Do** draw a new icon into the shared set at the same 1.5 stroke weight on the
+  20px grid, in `currentColor`, and give the manifest its name.
 - **Do** leave focus to the shared ring. It already covers `<button>`, `<a>`,
   `<input>`, `[tabindex]` holders and anything added later.
 
@@ -549,7 +591,11 @@ outright — including the ring forced-colors mode synthesises.
   how an operator tells a report from a control.
 - **Don't** remove or disable the navigation item for a failed remote. It is the route
   back in.
-- **Don't** treat the emoji domain icons as settled. They are placeholders.
+- **Don't** reach for an emoji, a Unicode glyph, or an icon font. The set is drawn;
+  a glyph is a different weight, a different colour, and a different shape on every
+  operating system.
+- **Don't** give an icon its own colour. `currentColor` is what keeps it inside the
+  colour ration.
 - **Don't** adopt `brand-accent`, `rounded-sm`, `rounded-lg` or the `spacing` scale by
   accident. They are declared but unconsumed; adopting one is a system decision, and
   the honest alternatives are adopt deliberately or delete.

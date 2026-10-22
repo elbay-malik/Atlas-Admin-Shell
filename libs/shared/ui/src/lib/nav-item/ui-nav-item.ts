@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { UiIcon } from '../icon/ui-icon';
 
 @Component({
   selector: 'ui-nav-item',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, UiIcon],
   template: `
     <a
       class="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface hover:text-text aria-disabled:pointer-events-none aria-disabled:opacity-40"
@@ -16,7 +17,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       [attr.aria-current]="active.isActive ? 'page' : null"
     >
       @if (icon()) {
-        <span aria-hidden="true" class="w-5 text-center">{{ icon() }}</span>
+        <ui-icon [name]="icon()" />
       }
       <span><ng-content /></span>
     </a>
@@ -31,6 +32,7 @@ export class UiNavItem {
    * RouterLinkActive's own `isActive` so it can never disagree with the styling.
    */
   readonly link = input.required<string>();
+  /** A name from the shared icon set; any other string renders verbatim. */
   readonly icon = input<string>('');
   readonly exact = input(false);
   readonly disabled = input(false);
