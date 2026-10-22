@@ -19,11 +19,13 @@
     // deliberately do NOT enable it.
     "not_found_handling": "single-page-application"
   },
-  // Not secrets: a JWKS endpoint and the issuer/audience it mints for are
-  // public. The service-role key never appears here and never reaches the edge.
+  // Not secrets: a JWKS endpoint and the issuer it mints for are public. No
+  // admin secret appears here and none ever reaches the edge.
+  //
+  // There is no ATLAS_JWT_AUDIENCE: this provider mints no `aud` claim, and
+  // passing one to jose would reject every token. See verify.ts.
   "vars": {
-    "ATLAS_JWKS_URL": "https://pgrngevieiupeokdxwpa.supabase.co/auth/v1/.well-known/jwks.json",
-    "ATLAS_JWT_ISSUER": "https://pgrngevieiupeokdxwpa.supabase.co/auth/v1",
-    "ATLAS_JWT_AUDIENCE": "authenticated"
+    "ATLAS_JWKS_URL": "https://znphjikmxtijqhgsbkon.auth.eu-central-1.nhost.run/v1/.well-known/jwks.json",
+    "ATLAS_JWT_ISSUER": "https://znphjikmxtijqhgsbkon.auth.eu-central-1.nhost.run/v1"
   }
 }

@@ -18,8 +18,7 @@
     "not_found_handling": "single-page-application"
   },
   "vars": {
-    "ATLAS_JWKS_URL": "https://dev.invalid/auth/v1/.well-known/jwks.json",
-    "ATLAS_JWT_ISSUER": "https://dev.invalid/auth/v1",
-    "ATLAS_JWT_AUDIENCE": "authenticated"
+    "ATLAS_JWKS_URL": "https://dev.invalid/v1/.well-known/jwks.json",
+    "ATLAS_JWT_ISSUER": "https://dev.invalid/v1"
   }
 }

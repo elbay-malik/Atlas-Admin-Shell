@@ -16,7 +16,6 @@ export interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
   ATLAS_JWKS_URL: string;
   ATLAS_JWT_ISSUER: string;
-  ATLAS_JWT_AUDIENCE: string;
 }
 
 /**
@@ -121,7 +120,6 @@ function defaultVerifier(env: Env) {
   return createVerifier({
     jwks: resolveJwks(env.ATLAS_JWKS_URL),
     issuer: env.ATLAS_JWT_ISSUER,
-    audience: env.ATLAS_JWT_AUDIENCE,
   });
 }
 

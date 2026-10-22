@@ -79,12 +79,18 @@ describe('the test config mirrors what actually deploys', () => {
    * removed from BOTH configs leaves them equal, so the test above stays green.
    *
    * That matters more than a missing value usually would. jose only validates
-   * `issuer` and `audience` when those options are DEFINED — pass undefined and
-   * it skips the check silently rather than failing. So dropping these two vars
-   * would not break the verifier loudly; it would quietly stop verifying who
-   * issued the token and who it was minted for, while every test still passed.
+   * `issuer` when the option is DEFINED — pass undefined and it skips the check
+   * silently rather than failing. So dropping this var would not break the
+   * verifier loudly; it would quietly stop verifying who issued the token,
+   * while every test still passed.
+   *
+   * ATLAS_JWT_AUDIENCE is deliberately absent from this list and from both
+   * configs. The provider mints no `aud` claim, so passing one to jose would
+   * reject every token — see verify.ts. It is listed here only so that its
+   * absence reads as a decision rather than as the very omission this test
+   * exists to catch.
    */
-  it.each(['ATLAS_JWKS_URL', 'ATLAS_JWT_ISSUER', 'ATLAS_JWT_AUDIENCE'])(
+  it.each(['ATLAS_JWKS_URL', 'ATLAS_JWT_ISSUER'])(
     'declares %s absolutely, not merely identically in both configs',
     (name) => {
       expect(Object.keys((shell['vars'] ?? {}) as object)).toContain(name);

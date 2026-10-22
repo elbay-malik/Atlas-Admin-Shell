@@ -4,43 +4,48 @@ import { createVerifier } from './verify';
 
 /**
  * The security-critical path, exercised for real with no identity provider:
- * the test generates its own ES256 key pair, signs tokens with it, and serves
+ * the test generates its own RS256 key pair, signs tokens with it, and serves
  * the public half through a local JWKS. That proves the crypto, the algorithm
  * pinning and the claim validation byte for byte. What it cannot prove is the
  * configured JWKS URL, the real issuer string, or that the provider ever mints
- * an atlas_role claim.
+ * the role claim.
+ *
+ * RS256 rather than ES256 because the identity provider signs with RSA and
+ * supports no EC algorithm at all. The ES256 key below is now the
+ * algorithm-confusion probe: a key the JWKS genuinely publishes, which the
+ * verifier must still refuse to accept for a token that names it.
  */
-const ISSUER = 'https://atlas.test/auth/v1';
-const AUDIENCE = 'authenticated';
+const ISSUER = 'https://atlas.test/v1';
 
 let signingKey: CryptoKey;
 let jwks: ReturnType<typeof createLocalJWKSet>;
 let attackerKey: CryptoKey;
-/** An RSA key the JWKS DOES publish — the algorithm-confusion probe. */
-let rsaKey: CryptoKey;
+/** An EC key the JWKS DOES publish — the algorithm-confusion probe. */
+let ecKey: CryptoKey;
 
 beforeAll(async () => {
-  const pair = await generateKeyPair('ES256', { extractable: true });
+  const pair = await generateKeyPair('RS256', { extractable: true });
   signingKey = pair.privateKey;
 
-  const rsaPair = await generateKeyPair('RS256', { extractable: true });
-  rsaKey = rsaPair.privateKey;
+  const ecPair = await generateKeyPair('ES256', { extractable: true });
+  ecKey = ecPair.privateKey;
 
   jwks = createLocalJWKSet({
     keys: [
-      { ...(await exportJWK(pair.publicKey)), alg: 'ES256' },
-      { ...(await exportJWK(rsaPair.publicKey)), alg: 'RS256' },
+      { ...(await exportJWK(pair.publicKey)), alg: 'RS256' },
+      { ...(await exportJWK(ecPair.publicKey)), alg: 'ES256' },
     ],
   });
 
   // A different, valid key that the JWKS does not publish.
-  attackerKey = (await generateKeyPair('ES256', { extractable: true })).privateKey;
+  attackerKey = (await generateKeyPair('RS256', { extractable: true })).privateKey;
 });
 
 interface TokenOptions {
   key?: CryptoKey;
   alg?: string;
   issuer?: string;
+  /** Pass a value to mint a token that carries an `aud`; omitted by default. */
   audience?: string;
   /** Pass `false` to mint a token with no `exp` at all. */
   expiresIn?: string | false;
@@ -51,10 +56,12 @@ interface TokenOptions {
 
 async function token(options: TokenOptions = {}): Promise<string> {
   const builder = new SignJWT({ email: 'ada@atlas.dev', ...(options.claims ?? {}) })
-    .setProtectedHeader({ alg: options.alg ?? 'ES256' })
+    .setProtectedHeader({ alg: options.alg ?? 'RS256' })
     .setIssuedAt()
-    .setIssuer(options.issuer ?? ISSUER)
-    .setAudience(options.audience ?? AUDIENCE);
+    .setIssuer(options.issuer ?? ISSUER);
+  // No audience by default — the real provider mints none, so the default
+  // token here is shaped like the one production actually receives.
+  if (options.audience !== undefined) builder.setAudience(options.audience);
   if (options.expiresIn !== false) builder.setExpirationTime(options.expiresIn ?? '5m');
   if (options.subject !== false) builder.setSubject(options.subject ?? 'u-1');
   return builder.sign(options.key ?? signingKey);
@@ -66,7 +73,7 @@ const request = (bearer?: string) =>
   });
 
 function verifier() {
-  return createVerifier({ jwks, issuer: ISSUER, audience: AUDIENCE });
+  return createVerifier({ jwks, issuer: ISSUER });
 }
 
 describe('token verification', () => {
@@ -142,8 +149,31 @@ describe('token verification', () => {
     expect(result).toMatchObject({ ok: false, status: 401 });
   });
 
-  it('rejects a token minted for another audience', async () => {
+  /**
+   * The audience check was REMOVED, not forgotten, and this pins the removal.
+   *
+   * The provider mints no `aud` claim, and jose rejects a token that lacks one
+   * whenever an `audience` option is passed — so restoring the check would 401
+   * every request in production with a perfectly valid signature. Accepting a
+   * token that carries an unexpected audience is the observable consequence of
+   * that decision, and asserting it here means re-adding the check breaks a
+   * test instead of breaking production.
+   *
+   * What the check would have constrained is covered by `issuer`, which is
+   * still pinned: this provider serves one project and one consumer.
+   */
+  it('accepts a token whatever audience it names, because audience is not checked', async () => {
     const result = await verifier()(request(await token({ audience: 'someone-else' })));
+    expect(result).toMatchObject({ ok: true });
+  });
+
+  it('accepts a token carrying no audience at all, which is what production sends', async () => {
+    const result = await verifier()(request(await token()));
+    expect(result).toMatchObject({ ok: true });
+  });
+
+  it('still rejects a token minted by another issuer', async () => {
+    const result = await verifier()(request(await token({ issuer: 'https://evil.test/v1' })));
     expect(result).toMatchObject({ ok: false, status: 401 });
   });
 
@@ -176,14 +206,20 @@ describe('token verification', () => {
   });
 
   /**
-   * Algorithm confusion is the attack the pinned `algorithms: ['ES256']` exists
+   * Algorithm confusion is the attack the pinned `algorithms: ['RS256']` exists
    * to stop, and it was the one protection with no regression coverage — the
    * suite stayed green with the pin deleted. This token is signed with a key the
    * JWKS genuinely publishes, so ONLY the algorithm pin can refuse it.
+   *
+   * The probe swapped direction with the migration: RS256 is now the accepted
+   * algorithm and ES256 is the one that must be refused. Keeping a published-
+   * but-unaccepted key in the JWKS is what gives this test its teeth — a probe
+   * signed with an unpublished key would be rejected by the signature check and
+   * prove nothing about the pin.
    */
   it('rejects a validly signed token that uses an algorithm we do not accept', async () => {
-    const rsaToken = await token({ key: rsaKey, alg: 'RS256' });
-    expect(await verifier()(request(rsaToken))).toMatchObject({ ok: false, status: 401 });
+    const ecToken = await token({ key: ecKey, alg: 'ES256' });
+    expect(await verifier()(request(ecToken))).toMatchObject({ ok: false, status: 401 });
   });
 
   /** The guard that keeps an identity-less principal out of the handlers. */
