@@ -124,6 +124,29 @@ describe('apply-manifest', () => {
     expect(applied()).toBe(readFileSync(SOURCE, 'utf8'));
   });
 
+  /**
+   * Found by running the deploy, not by running the suite. The fix above
+   * excluded "the argument after --out" by index — but with --out absent that
+   * index is 0, which excluded the first positional, i.e. the environment.
+   *
+   * Every test in this file passes --out, because they all need a temp
+   * directory. So the one invocation the deploy target actually makes,
+   * `apply-manifest.mjs production`, was the one shape nothing exercised: a
+   * suite written around a bug fix inherited the fix's blind spot.
+   *
+   * This asserts on the REJECTION, not on a successful copy: without --out the
+   * script writes into dist/apps/shell/browser, so a passing test would depend
+   * on the shell having been built and would clobber a real build output.
+   * Getting as far as "the build output does not exist" already proves the
+   * environment was parsed — the failure under test could not reach that line.
+   */
+  it('reads the environment when --out is absent, as the deploy target invokes it', () => {
+    const result = run(['production']);
+
+    expect(result.stderr).not.toMatch(/an environment is required/);
+    expect(result.stderr).not.toMatch(/no manifest for/);
+  });
+
   it('refuses --out with no directory after it', () => {
     const result = run(['production', '--out']);
 

@@ -26,7 +26,14 @@ const out = outIndex === -1 ? DEFAULT_OUT : args[outIndex + 1];
 // does not start with --" used to swallow that value as the environment name,
 // so `apply-manifest --out dist production` deployed an environment called
 // "dist" — argument ORDER silently decided what shipped.
-const env = args.find((a, i) => !a.startsWith('--') && i !== outIndex + 1);
+//
+// `outIndex === -1` has to be handled explicitly: without it, the "value after
+// --out" is index 0, which excludes the FIRST positional whenever --out is
+// absent. That is the form the deploy target itself uses, so the plain
+// `apply-manifest.mjs production` broke while every test — all of which pass
+// --out — stayed green.
+const valueOfOut = outIndex === -1 ? -1 : outIndex + 1;
+const env = args.find((a, i) => !a.startsWith('--') && i !== valueOfOut);
 
 function fail(message) {
   console.error(`apply-manifest: ${message}`);
