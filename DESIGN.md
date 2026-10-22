@@ -1,0 +1,521 @@
+---
+name: Atlas Admin Shell
+description: A flat, dense control plane where colour only ever carries state.
+colors:
+  brand-primary: "#4f46e5"
+  brand-primary-strong: "#4338ca"
+  brand-accent: "#0ea5e9"
+  status-success: "#16a34a"
+  status-warning: "#d97706"
+  status-danger: "#dc2626"
+  status-danger-strong: "#b91c1c"
+  light-bg: "#f8fafc"
+  light-surface: "#ffffff"
+  light-text: "#0f172a"
+  light-text-muted: "#475569"
+  light-border: "#e2e8f0"
+  light-border-strong: "#475569"
+  light-on-brand: "#4338ca"
+  light-on-success: "#166534"
+  light-on-warning: "#92400e"
+  light-on-danger: "#b91c1c"
+  dark-bg: "#0b1120"
+  dark-surface: "#111a2e"
+  dark-text: "#e2e8f0"
+  dark-text-muted: "#94a3b8"
+  dark-border: "#1e293b"
+  dark-border-strong: "#64748b"
+  dark-on-brand: "#a5b4fc"
+  dark-on-success: "#86efac"
+  dark-on-warning: "#fcd34d"
+  dark-on-danger: "#fca5a5"
+typography:
+  headline:
+    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.5rem"
+    fontWeight: 600
+    lineHeight: "2rem"
+    letterSpacing: "normal"
+  title:
+    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.125rem"
+    fontWeight: 600
+    lineHeight: "1.75rem"
+    letterSpacing: "-0.015em"
+  body:
+    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1rem"
+    fontWeight: 400
+    lineHeight: "1.5rem"
+  body-sm:
+    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: "1.25rem"
+  label:
+    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 500
+    lineHeight: "1rem"
+  mono:
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    fontSize: "0.75rem"
+    fontWeight: 400
+    lineHeight: "1rem"
+rounded:
+  sm: "0.25rem"
+  md: "0.5rem"
+  lg: "0.75rem"
+  full: "9999px"
+spacing:
+  xs: "0.25rem"
+  sm: "0.5rem"
+  md: "1rem"
+  lg: "1.5rem"
+  xl: "2.5rem"
+components:
+  button-primary:
+    backgroundColor: "{colors.brand-primary}"
+    textColor: "#ffffff"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.md}"
+    padding: "0.375rem 0.75rem"
+  button-primary-hover:
+    backgroundColor: "{colors.brand-primary-strong}"
+    textColor: "#ffffff"
+  button-secondary:
+    backgroundColor: "{colors.light-surface}"
+    textColor: "{colors.light-text}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.md}"
+    padding: "0.375rem 0.75rem"
+  button-danger:
+    backgroundColor: "{colors.status-danger}"
+    textColor: "#ffffff"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.md}"
+    padding: "0.375rem 0.75rem"
+  button-danger-hover:
+    backgroundColor: "{colors.status-danger-strong}"
+    textColor: "#ffffff"
+  badge-neutral:
+    textColor: "{colors.light-text-muted}"
+    typography: "{typography.label}"
+    rounded: "{rounded.full}"
+    padding: "0.125rem 0.5rem"
+  badge-success:
+    textColor: "{colors.light-on-success}"
+    typography: "{typography.label}"
+    rounded: "{rounded.full}"
+    padding: "0.125rem 0.5rem"
+  badge-danger:
+    textColor: "{colors.light-on-danger}"
+    typography: "{typography.label}"
+    rounded: "{rounded.full}"
+    padding: "0.125rem 0.5rem"
+  nav-item:
+    textColor: "{colors.light-text-muted}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.md}"
+    padding: "0.5rem 0.75rem"
+  nav-item-active:
+    textColor: "{colors.light-on-brand}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.md}"
+    padding: "0.5rem 0.75rem"
+  input-search:
+    backgroundColor: "{colors.light-surface}"
+    textColor: "{colors.light-text}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.sm}"
+    padding: "0.5rem 0.75rem"
+  icon-button:
+    backgroundColor: "{colors.light-surface}"
+    textColor: "{colors.light-text}"
+    rounded: "{rounded.md}"
+    height: "2.25rem"
+    width: "2.25rem"
+---
+
+# Design System: Atlas Admin Shell
+
+## Overview
+
+**Creative North Star: "The Operations Console"**
+
+Atlas is built for someone who lives in it all day. Nothing here is composed to be
+admired; it is composed to be scanned. Rows are tight, separators are hairlines, and
+the eye travels down a list of fifty audit events without a single ornament to step
+over. The register is workmanlike on purpose — an administrator revoking access or
+flipping a rollout is mid-task, and the interface's job is to get out of the way
+while staying unambiguous about what is on, who did it, and what is broken.
+
+The system earns its character from restraint rather than expression. Surfaces are
+flat. Type is the operating system's own. The entire palette is neutral slate until
+something has *state* — and then, and only then, colour arrives: indigo for the
+action you are meant to take or the route you are on, green/amber/red for a
+condition the system is reporting. Because colour is rationed this way, a single
+red badge in a sidebar is impossible to miss. That rationing is the design.
+
+What this is not: a marketing surface. There is no hero, no gradient, no
+illustration, and no moment that exists to impress. The one concession to personality
+is a small set of emoji glyphs standing in as domain icons, which read as
+placeholders and are treated as such below.
+
+**Key Characteristics:**
+
+- Flat by construction — no shadow exists anywhere in the system.
+- Hairline 1px borders and a single surface-over-background tonal step carry all
+  structure.
+- Neutral slate ground; colour is reserved for state and action.
+- Dense vertical rhythm — `0.5rem`/`0.75rem` control padding, `1.5rem` page padding.
+- Native system type, no webfont, no font loading cost.
+- Every semantic colour is defined twice, light and dark, and components read only
+  the semantic name.
+
+## Colors
+
+A neutral slate ground with one interactive voice and three status hues, drawn from
+the Tailwind ramp. The palette's defining property is that it is almost entirely
+colourless until the system has something to report.
+
+### Primary
+
+- **Control Indigo** (`brand-primary`): the single interactive voice. Primary button
+  fills, the active navigation route, the pressed state of a flag toggle, and the
+  hover border on secondary controls. Nothing decorative ever wears it.
+- **Control Indigo Deep** (`brand-primary-strong`): the hover and active step beneath
+  Control Indigo. It is also the *light-mode* `on-brand` ink — the colour of text and
+  icons sitting on a 10% indigo tint — because the fill itself is too light to carry
+  AA-sized text.
+
+### Secondary
+
+- **Signal Sky** (`brand-accent`): **declared but unconsumed.** Defined in
+  `tokens/color.json` and generated into CSS, referenced by no component. It is a
+  reserved second voice, not part of the live system. Either adopt it deliberately or
+  delete it; leaving it is how a palette quietly becomes two palettes.
+
+### Tertiary
+
+Status, not decoration. Each hue appears only as a 15% tint behind a dedicated
+foreground ink — never as a solid fill behind body text, and never to set a mood.
+
+- **Operational Green** (`status-success`): a healthy remote, an enabled flag, a live
+  event, an admin role.
+- **Attention Amber** (`status-warning`): a remote mid-load — transitional states
+  only.
+- **Fault Red** (`status-danger`): an offline remote, a failed request, a destructive
+  action. **Fault Red Deep** (`status-danger-strong`) is its hover step and doubles as
+  the light-mode danger ink.
+
+### Neutral
+
+Light mode reads as paper; dark mode as a deep navy-slate rather than true black, so
+that `surface` can lift above `bg` without either becoming grey mush.
+
+- **Page Ground** (`light-bg` / `dark-bg`): the application canvas behind everything.
+- **Panel White / Panel Slate** (`light-surface` / `dark-surface`): the sidebar,
+  header, inputs, and error panels. Always one step *lighter* than the ground, in both
+  themes — that is what makes the tonal step legible without a shadow.
+- **Ink** (`light-text` / `dark-text`) and **Muted Ink** (`light-text-muted` /
+  `dark-text-muted`): primary and secondary text. Muted Ink carries table headers,
+  descriptions, timestamps, and definition labels.
+- **Hairline** (`light-border` / `dark-border`): separation between content — panel
+  edges, table rows, list items. It is deliberately low-contrast and must never be
+  used on a control.
+- **Control Edge** (`light-border-strong` / `dark-border-strong`): the boundary of an
+  interactive control. Measurably distinct from Hairline and the reason both exist.
+
+### Named Rules
+
+**The Rationed Colour Rule.** The interface is neutral until something has state.
+Control Indigo marks the action to take or the route you are on; a status hue marks a
+condition the system is reporting. If a colour is doing neither, it does not belong on
+the screen.
+
+**The Two Borders Rule.** `border` separates content; `border-strong` bounds a
+control. They are not interchangeable and the distinction is load-bearing: a control
+outlined only in `border` fails WCAG 1.4.11, and an e2e suite measures exactly this.
+When a control's resting outline is its only affordance, it uses `border-strong`.
+
+**The Paired Ink Rule.** Every status tint has a dedicated `on-*` ink that inverts
+between themes — dark on the tint in light mode, light in dark mode. The status hue
+itself does not clear AA at label size on its own 15% tint (measured 3.65:1), so a
+tinted surface is never allowed to borrow the hue as its own text colour.
+
+**The Semantic-Only Rule.** Components read `bg`, `surface`, `text`, `text-muted`,
+`border`, `border-strong`, `on-*`. They never read a `light-*` or `dark-*` token
+directly. The semantic alias is what makes one component correct in both themes, and
+reaching past it is how a dark-mode bug ships.
+
+## Typography
+
+**Body Font:** the native system UI stack (`ui-sans-serif, system-ui, sans-serif`),
+inherited from Tailwind's preflight. **This is deliberate, not an oversight:** no
+webfont is loaded, so type costs zero requests and zero layout shift, and the console
+looks native to the operator's own OS. Future work may not introduce a webfont.
+
+**Mono Font:** the native monospace stack. It currently arrives via Tailwind's
+`font-mono` default and **should become a real token** — it is already carrying
+meaning rather than decoration (literal flag keys, raw error strings), which makes it
+a semantic choice that deserves to be declared rather than inherited.
+
+**Character:** invisible by design. System type on a flat slate ground reads as
+instrumentation rather than authorship; hierarchy comes from weight and scale, never
+from a second family.
+
+### Hierarchy
+
+- **Headline** (600, `1.5rem`/`2rem`): the page title, one per screen — "Feature
+  Flags", "Audit Logs", "<Module> is unavailable".
+- **Title** (600, `1.125rem`, tight tracking): the product wordmark in the sidebar
+  head. Nothing else uses it.
+- **Body** (400, `1rem`): page-level descriptive prose, constrained to `max-w-prose`.
+- **Body Small** (400, `0.875rem`): the working size of the system — table cells,
+  list rows, button labels, inputs, descriptions, help text. Most of the interface is
+  this size.
+- **Label** (500, `0.75rem`): badge text only.
+- **Mono** (400, `0.75rem`–`0.875rem`): literal values the user may need to copy or
+  read exactly — flag keys, raw error details.
+
+### Named Rules
+
+**The Working Size Rule.** The console's default is `0.875rem`, not `1rem`. Density is
+the point: a size bump reads as a demotion of everything around it, so a new
+component matches the working size unless it is a page title.
+
+**The Literal Value Rule.** Monospace means "this string is exact" — a key, an
+identifier, an error as the system emitted it. It is never used for emphasis or
+flavour.
+
+## Layout
+
+A fixed two-column application frame: a `15rem` (240px) sidebar holding the wordmark,
+primary navigation and per-remote health, beside a fluid content column with a
+`3.5rem` (56px) header. Both the sidebar edge and the header underside are single
+hairlines; the frame fills the viewport (`min-h-screen`) and content scrolls inside it.
+
+Every routed screen is a `section` with uniform `1.5rem` (p-6) padding, opening with a
+header row that pairs a title block against right-aligned status badges and wraps
+(`flex-wrap`) when crowded. Vertical rhythm runs on a small set of steps —
+`0.25rem` within a control, `0.5rem`–`0.75rem` between related controls, `1rem`
+between row groups, `1.5rem` between a screen's major blocks. Reading measure is
+capped with `max-w-prose` on every paragraph and `max-w-md` on the filter input;
+tables and lists run the full column.
+
+**Responsive behaviour: there is none.** The workspace contains no breakpoint variant
+— not one `sm:`, `md:` or `lg:` utility — and the sidebar width is fixed. Below roughly
+768px the frame does not reflow: the sidebar keeps its full width and the content
+column is squeezed. This is recorded as the current truth, not as an intent. It is the
+system's largest open gap and the right scope for a dedicated adaptation pass.
+
+### Named Rules
+
+**The Uniform Page Padding Rule.** Every routed screen opens with `p-6`. The frame
+owns the chrome; the screen owns its content and nothing in between. A screen that
+sets its own outer padding breaks alignment with the module beside it in the nav,
+which is the one visual promise federation has to keep.
+
+**The Header Row Rule.** A screen title and its status badges live on one wrapping
+flex row, title block left, badges right. It is how an operator finds "what is the
+state of this domain" in the same place on every screen, including screens owned by
+different teams in different repositories.
+
+## Elevation & Depth
+
+**There is no elevation system, and that is a gap rather than a decision.** No
+`box-shadow` exists anywhere in the workspace. Depth today is conveyed by exactly two
+devices: a 1px hairline border, and a single tonal step where `surface` sits one value
+lighter than `bg` in both themes (white on near-white in light; `#111a2e` on `#0b1120`
+in dark).
+
+For the surfaces that currently exist — a sidebar, a header, inline error panels, an
+input — flat is genuinely sufficient, and the tonal step is doing real work. But the
+system has no answer for a surface that must float above the page, and the moment one
+appears (a dialog, a popover, a dropdown, a toast) the two devices available will not
+be enough: a hairline cannot say "this is on top of that".
+
+**Future work is expected to design an elevation vocabulary, deliberately, before the
+first floating surface ships.** Until then, do not improvise a one-off shadow on a
+single component — an ad-hoc value becomes the de facto system without anyone choosing
+it.
+
+### Named Rules
+
+**The Tonal Step Rule.** A raised surface is lighter than its ground in *both* themes.
+Dark mode does not invert the relationship — `dark-surface` is lighter than
+`dark-bg` for the same reason `light-surface` is lighter than `light-bg`. Any new
+surface token keeps that direction or the structure stops being readable.
+
+## Shapes
+
+One radius does nearly all the work: `0.5rem` (`rounded-md`) on buttons, nav items,
+error panels and the icon button — enough to read as a control, not enough to read as
+soft. Badges are fully round (`rounded-full`, 9999px), which is the only strong form
+contrast in the system and the reason a badge never reads as pressable. The search
+input is the single outlier at `0.25rem`.
+
+Form language is otherwise rectilinear and unclipped: no masks, no angles, no circles
+beyond the badge, and no decorative geometry anywhere. Borders are uniformly 1px.
+
+`rounded-sm` and `rounded-lg` are **declared but unconsumed** — generated into CSS and
+referenced by nothing. The live form language is two radii, not four.
+
+### Named Rules
+
+**The One Radius Rule.** Interactive and container surfaces are `0.5rem`. Deviating
+needs a reason the shape itself communicates — as `rounded-full` does on a badge,
+where the pill form is what distinguishes a status from a button.
+
+## Components
+
+Dense and workmanlike. Tight padding, hairline separators, high information per pixel —
+built for someone scanning fifty rows, not admiring one. Controls sit flat and
+bordered at rest and only take colour when they are the primary action, the active
+route, or a reported state.
+
+### Buttons
+
+- **Shape:** gently rounded (`0.5rem`), 1px border where bordered, no shadow in any
+  state.
+- **Padding and type:** `0.375rem 0.75rem`, working size (`0.875rem`), weight 500,
+  with a `0.5rem` gap for an optional leading glyph.
+- **Primary:** Control Indigo fill, white text; hover steps to Control Indigo Deep.
+- **Secondary:** `surface` fill with a **Control Edge** border and `text` ink; hover
+  shifts the *border* to Control Indigo rather than filling. This is the system's most
+  used control.
+- **Danger:** Fault Red fill, white text; hover steps to Fault Red Deep.
+- **Transition:** `transition-colors` only — colour moves, geometry never does. No
+  transform, no lift.
+- **Disabled:** `cursor-not-allowed` with 50% opacity.
+- **Busy over disabled:** for an action the user just triggered, the component takes
+  `aria-busy` rather than `disabled`, because disabling the focused control moves
+  focus to `<body>` and loses the operator's place. Guarding against the duplicate
+  activation is the caller's job.
+- **Repeated labels:** when a label repeats down a table ("Deactivate" × 40), the
+  control carries an `aria-label` whose text begins with the visible label (WCAG
+  2.5.3).
+
+### Badges
+
+- **Style:** fully round pill (9999px), `0.125rem 0.5rem`, label type (`0.75rem`/500).
+- **Tone:** a 15% status tint behind the matching `on-*` ink — success, warning,
+  danger — or, for neutral, a 10% ink tint with Muted Ink text.
+- **No border, no shadow.** The pill shape and the tint are the entire treatment.
+- **Role:** badges report; they are never interactive and never a target.
+
+### Navigation
+
+- **Style:** full-width row, `0.5rem 0.75rem`, `0.5rem` radius, `0.75rem` gap between
+  glyph and label, working size, Muted Ink at rest.
+- **Hover:** lifts to `surface` fill with full-strength `text` ink.
+- **Active:** 10% Control Indigo tint with `on-brand` ink at weight 500 — the tint,
+  not a fill, and the only place in the sidebar colour appears unaided.
+- **Disabled:** `pointer-events-none` at 40% opacity, with `aria-disabled` set.
+- **A down remote keeps its href.** The nav item for a failed module stays clickable
+  and gains a danger badge, because that row *is* the way back in (ADR-0007). Removing
+  or disabling it strands the operator.
+- **Icons** are emoji glyphs supplied by the manifest, always `aria-hidden` with the
+  label carrying the accessible name. Treat them as placeholders: they are the one
+  unresolved visual element in the system, and they render differently per OS.
+
+### Inputs
+
+- **Style:** `surface` fill, **Control Edge** 1px border, `0.25rem` radius,
+  `0.5rem 0.75rem` padding, working size, Muted Ink placeholder.
+- **Label:** visually hidden (`sr-only`) where the placeholder carries the visible
+  affordance — the accessible name is never dropped, only hidden.
+- **Focus:** **nothing is defined.** No `focus-visible` rule exists anywhere in the
+  workspace; every control relies on the user agent's default ring. See the rule below.
+
+### Cards / Containers
+
+There are no cards. Grouping is done by hairline-separated rows and the sidebar/header
+panels. The only panel-like surface is the inline error block: `surface` fill, a 40%
+Fault Red border, `0.5rem` radius, `1rem` padding, `role="alert"`, pairing the message
+against a secondary **Retry**.
+
+### Tables
+
+- Full-width, left-aligned, working size, `<caption>`-less with `scope="col"` headers.
+- Header row: Muted Ink, weight 500, `0.5rem` vertical padding, closed by a hairline.
+- Body rows: separated by a 60%-opacity hairline — lighter than the header's, so the
+  header reads as structure and the rows as content.
+- Timestamps are `whitespace-nowrap` with the full ISO value on `title`.
+- An empty result renders a full-width Muted Ink row inside the table, never a bare
+  page message — the column headers stay on screen so the operator can see what they
+  filtered.
+
+### Signature Component — the Unavailable Boundary
+
+The shell-owned screen for a remote that would not load, and the component where this
+system's point of view is clearest. It is a full screen, not a toast: headline plus a
+status badge, a `max-w-prose` explanation, then a `8rem 1fr` definition grid of exactly
+what is known — attempts, failure class, and the raw error in mono. Below that, a
+`role="status"` line counting down an automatic retry (3 attempts at 1s/2s/4s), then
+**Retry** as primary with **Reload page** offered only when the failure class actually
+requires it, and a quiet underlined link back to the overview.
+
+Its design thesis: **show the operator what you know.** No apologetic illustration, no
+"something went wrong" — the attempt count, the failure class and the literal error,
+because the audience for a failure is someone who has to decide what to do next.
+
+### Named Rules
+
+**The Colour on Movement Rule.** Hover and active states change colour. They do not
+move, scale, lift or shadow. `transition-colors` is the system's entire motion
+vocabulary and there is no duration or easing token — adding one is a deliberate
+decision, not a component-level convenience.
+
+**The Focus Debt Rule.** No focus style exists in this system, and the product is
+committed to WCAG 2.2 AA. Every control is currently at the mercy of the user agent's
+default ring, which is not verified against either theme — and on `dark-surface` there
+is no evidence it clears 3:1. **A single focus treatment belongs in `libs/shared/ui`,
+defined once against both themes.** Do not solve this per component; nine local
+answers is a worse outcome than the current one.
+
+## Do's and Don'ts
+
+### Do
+
+- **Do** read semantic colour tokens only — `bg`, `surface`, `text`, `text-muted`,
+  `border`, `border-strong`, `on-*`. They are what make a component correct in both
+  themes.
+- **Do** use `border-strong` for a control's boundary and `border` for content
+  separation. A control outlined only in `border` fails WCAG 1.4.11 and an e2e suite
+  measures it.
+- **Do** pair every status tint with its `on-*` ink.
+- **Do** edit `libs/shared/design-tokens/tokens/*.json` to change a token, then
+  regenerate. The committed CSS is generated and `tokens:check` fails on drift —
+  hand-editing it is a gate failure, not a shortcut.
+- **Do** keep `p-6` on every routed screen and the title-left / badges-right header
+  row. Cross-remote alignment is federation's one visual promise.
+- **Do** default to the `0.875rem` working size and `0.5rem` radius.
+- **Do** prefer `aria-busy` to `disabled` for an action just triggered.
+- **Do** put anything a second surface needs into `libs/shared/ui`. Drift between
+  independently deployed remotes is this architecture's defining failure mode.
+- **Do** verify both themes for every change. A component that passes light and fails
+  dark fails.
+
+### Don't
+
+- **Don't** add a `box-shadow` to a single component. The system has no elevation
+  vocabulary; an improvised value becomes the de facto system without anyone choosing
+  it. Design it deliberately, once.
+- **Don't** introduce a webfont. Native system type is a committed decision.
+- **Don't** reach past a semantic token to a `light-*` or `dark-*` value.
+- **Don't** spend Control Indigo on anything that is not the primary action or the
+  active route. Its rarity is what makes it readable.
+- **Don't** use a status hue as text on its own tint, or a status colour to set a mood.
+- **Don't** animate geometry. Colour transitions only — no transform, lift or scale.
+- **Don't** solve focus per component. One treatment, in the shared library, verified
+  against both themes.
+- **Don't** make a badge interactive, or give a button a pill radius. The shapes are
+  how an operator tells a report from a control.
+- **Don't** remove or disable the navigation item for a failed remote. It is the route
+  back in.
+- **Don't** treat the emoji domain icons as settled. They are placeholders.
+- **Don't** adopt `brand-accent`, `rounded-sm`, `rounded-lg` or the `spacing` scale by
+  accident. They are declared but unconsumed; adopting one is a system decision, and
+  the honest alternatives are adopt deliberately or delete.
