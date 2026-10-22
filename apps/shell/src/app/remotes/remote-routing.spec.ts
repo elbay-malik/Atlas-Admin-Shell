@@ -139,4 +139,26 @@ describe('manifest-derived routing and the remote error boundary', () => {
     const unrelated = { error: new Error('something else'), url: '/iam' } as never;
     expect(remoteUnavailableRedirect(unrelated)).toBeUndefined();
   });
+
+  /**
+   * Pins the distinction as DELIBERATE rather than accidental.
+   *
+   * A forbidden route and an unknown one resolve differently. That is fine: the
+   * manifest is fetched before authentication and lists every remote with its
+   * `requiredRole`, so there is no existence to conceal — an earlier comment in
+   * buildRoutes claimed the redirect hid it, which it never did and never
+   * could. This test exists so that if someone later decides the two SHOULD
+   * look alike, they change it on purpose and fix that comment, rather than
+   * finding the difference by accident.
+   */
+  it('sends a forbidden route to the overview and an unknown one to the boundary', async () => {
+    const router = setup(fakeLoader(async () => [{ path: '', component: RemoteHome }]));
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('viewer');
+
+    await router.navigateByUrl('/iam'); // admin-only: forbidden
+    expect(router.url, 'forbidden lands on the overview').toBe('/');
+
+    await router.navigateByUrl('/definitely-not-a-remote'); // no such route
+    expect(router.url, 'unknown keeps its own URL').toContain('/definitely-not-a-remote');
+  });
 });

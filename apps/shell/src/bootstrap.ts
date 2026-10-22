@@ -42,10 +42,21 @@ export function buildRoutes(manifest: AtlasManifest): Route[] {
       loadChildren: () => inject(RemoteLoader).load(name),
     },
     // Same path, no guard: reached only when canMatch above declined, i.e. the
-    // user may not enter this domain. Sending them to the overview (rather than
-    // letting the catch-all render "not found" at the domain's own URL) keeps a
-    // deep link to a forbidden remote indistinguishable from one that does not
-    // exist — the remote was never fetched either way.
+    // user may not enter this domain. It sends them to the overview, which is
+    // somewhere useful, instead of letting the catch-all render "not found" at
+    // a URL that does exist.
+    //
+    // This does NOT hide whether the remote exists, and an earlier version of
+    // this comment claimed it did. A forbidden route redirects to '/' while an
+    // unknown one renders the boundary at its own URL, so the two are plainly
+    // distinguishable. More to the point, there is nothing to hide:
+    // federation.manifest.json is fetched before authentication and lists every
+    // remote with its `requiredRole` — it has to, because the shell builds its
+    // router and its nav from it (ADR-0004). Existence is public by design.
+    //
+    // What actually protects the domain is elsewhere and unaffected: `canMatch`
+    // means the remote is never downloaded, and the edge BFF refuses the data
+    // regardless of what the browser believes (ADR-0011).
     { path: def.route, redirectTo: '' },
   ]);
 
