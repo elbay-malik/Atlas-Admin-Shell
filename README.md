@@ -148,6 +148,12 @@ docs/
 
 ## Quality gates
 
+> **Run them with `pnpm run ci:local`.** GitHub Actions is metered on private repositories and this
+> one has exhausted its monthly allowance, so the `CI` and `Deploy` workflows are disabled and the
+> pipeline runs locally instead (ADR-0013). The local runner is *stricter* than the workflow was —
+> it uses `run-many` rather than `affected`, so no gate can be skipped for want of a project-graph
+> edge. `ci:local:quick` skips the four browser-driven gates; do not merge on that alone.
+
 | Gate | What it runs | Where |
 | --- | --- | --- |
 | Unit + contract tests | Every project, incl. a frozen event-catalogue snapshot | `nx affected -t test` |
@@ -162,7 +168,8 @@ docs/
 | Design tokens | the committed CSS still matches `tokens/*.json` | `pnpm run tokens:check` |
 | Deploy artifacts | every environment manifest satisfies the contract | `pnpm run manifest:check` |
 | Boundaries | `@nx/enforce-module-boundaries` tag rules | `nx affected -t lint` |
-| Zoneless | fails if `zone.js` ever resolves into the tree (ADR-0003) | CI guard step |
+| Zoneless | fails if `zone.js` ever resolves into the tree (ADR-0003) | `pnpm run ci:local` |
+| All of the above | fourteen gates, one command, continues past the first failure | `pnpm run ci:local` |
 
 ## Deploying
 
