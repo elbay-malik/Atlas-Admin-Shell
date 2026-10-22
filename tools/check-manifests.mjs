@@ -26,6 +26,45 @@ function safePath(url) {
   }
 }
 
+
+/**
+ * The browser and the edge must be pointed at the SAME identity project, and
+ * nothing checked that they were.
+ *
+ * The two halves live in different files by design: the browser's config is in
+ * the manifest, which is a deployment artifact that ships without a rebuild
+ * (ADR-0010), while the Worker's verifier reads ATLAS_JWT_ISSUER from
+ * wrangler.jsonc, which only changes when the Worker is redeployed. So they can
+ * be updated independently — and when they disagree the failure is total and
+ * mute: every token the browser obtains carries an issuer the edge refuses, so
+ * every API call 401s with a signature that is perfectly valid.
+ *
+ * Read by regex rather than parsed: wrangler.jsonc permits comments, and naive
+ * comment-stripping corrupts the `https://` in the very values being compared.
+ */
+const WRANGLER = join(ROOT, 'apps/shell/wrangler.jsonc');
+
+function issuerMismatch(manifest) {
+  const url = manifest?.auth?.url;
+  if (typeof url !== 'string' || !existsSync(WRANGLER)) return null;
+
+  const issuer = /"ATLAS_JWT_ISSUER"\s*:\s*"([^"]+)"/.exec(readFileSync(WRANGLER, 'utf8'))?.[1];
+  if (!issuer) {
+    return 'auth is configured but apps/shell/wrangler.jsonc sets no ATLAS_JWT_ISSUER — the edge would reject every token';
+  }
+
+  let origin;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    return null; // the url rule above already reports an unparseable value
+  }
+  return issuer.startsWith(origin)
+    ? null
+    : `auth.url (${origin}) and the Worker's ATLAS_JWT_ISSUER (${issuer}) name different projects — ` +
+        'the browser would sign in and the edge would refuse every resulting token';
+}
+
 // Mirrors isAtlasManifest from @atlas/shared-contracts, plus deployment-only
 // rules the runtime guard has no reason to enforce. Duplicated deliberately:
 // this script must run before, and without, a TypeScript build.
@@ -56,6 +95,13 @@ const SHELL_RESERVED_ROUTES = ['unavailable'];
  * `sb_publishable_`). Legacy keys are both JWTs and look identical from the
  * outside — the role sits in the payload — so telling them apart means
  * decoding and looking.
+ */
+const AUTH_KINDS = ['supabase', 'nhost'];
+
+/**
+ * Only meaningful for Supabase. Nhost's admin secret has no prefix and no
+ * structure, which is precisely why the nhost branch forbids the field outright
+ * instead of trying to recognise one.
  */
 function looksLikeSecretKey(key) {
   if (key.startsWith('sb_secret_')) return true;
@@ -106,10 +152,25 @@ export function problems(manifest) {
     if (typeof auth !== 'object' || auth === null) {
       found.push('auth must be an object');
     } else {
+      const kind = auth.kind ?? 'supabase';
+      if (!AUTH_KINDS.includes(kind)) {
+        found.push(`auth.kind must be one of ${AUTH_KINDS.join(', ')}, got ${JSON.stringify(auth.kind)}`);
+      }
       if (typeof auth.url !== 'string' || !auth.url.startsWith('https://')) {
         found.push(`auth.url must be an https:// URL, got ${JSON.stringify(auth.url)}`);
       }
-      if (typeof auth.publishableKey !== 'string' || auth.publishableKey.length === 0) {
+      if (kind === 'nhost') {
+        // Nhost needs no browser key, and its admin secret is an unprefixed
+        // random string that no shape check could tell from a legitimate value.
+        // So the rule is categorical rather than heuristic: the field must be
+        // absent, and anything in it is a mistake regardless of what it is.
+        if (auth.publishableKey !== undefined) {
+          found.push(
+            'auth.publishableKey must be absent for kind "nhost" — Nhost needs no browser key, ' +
+              'and a value here cannot be distinguished from its admin secret'
+          );
+        }
+      } else if (typeof auth.publishableKey !== 'string' || auth.publishableKey.length === 0) {
         found.push('auth.publishableKey must be a non-empty string');
       } else if (looksLikeSecretKey(auth.publishableKey)) {
         // The one mistake here is unrecoverable. A service-role key grants full
@@ -234,6 +295,10 @@ function main() {
       continue;
     }
     const found = problems(parsed);
+    // Cross-file, so it is applied here rather than inside problems(), which
+    // must stay a pure function of the manifest for the parity suite.
+    const mismatch = issuerMismatch(parsed);
+    if (mismatch) found.push(mismatch);
     if (found.length) {
       console.error(`✖ ${env}:`);
       for (const p of found) console.error(`    ${p}`);

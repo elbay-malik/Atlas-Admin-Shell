@@ -67,6 +67,10 @@ if (LIST) {
   process.exit(0);
 }
 
+/** Caps, not budgets. Anything near these is hung, not slow. */
+const FAST_GATE_TIMEOUT_MS = 5 * 60_000;
+const SLOW_GATE_TIMEOUT_MS = 12 * 60_000;
+
 const seconds = (ms) => `${(ms / 1000).toFixed(0)}s`;
 const results = [];
 
@@ -78,11 +82,26 @@ for (const gate of selected) {
   let failure = null;
   try {
     if (gate.run) gate.run();
-    else execSync(gate.cmd, { stdio: 'pipe', env: { ...process.env, ...(gate.env ?? {}) } });
+    else
+      execSync(gate.cmd, {
+        stdio: 'pipe',
+        env: { ...process.env, ...(gate.env ?? {}) },
+        // A hung gate is worse than a failing one: it reports nothing, and the
+        // failure it is hiding stays hidden. The browser gates boot servers and
+        // drive Chrome, so the cap is generous — it exists to turn "forever"
+        // into a result, not to police how long a gate may legitimately take.
+        timeout: gate.slow ? SLOW_GATE_TIMEOUT_MS : FAST_GATE_TIMEOUT_MS,
+        killSignal: 'SIGKILL',
+      });
   } catch (error) {
     // keep the tail: nx and playwright put the actionable part at the end
     const output = [error.stdout, error.stderr].filter(Boolean).map(String).join('\n');
-    failure = output.split('\n').filter((l) => l.trim()).slice(-25).join('\n') || String(error.message);
+    const tail = output.split('\n').filter((l) => l.trim()).slice(-25).join('\n');
+    failure =
+      error.signal === 'SIGKILL'
+        ? `TIMED OUT — killed after the cap. This gate hung rather than failed, so the output ` +
+          `below is where it stopped, not why:\n${tail}`
+        : tail || String(error.message);
   }
   const took = seconds(Number(process.hrtime.bigint() - started) / 1e6);
   console.log(failure ? `FAIL  ${took}` : `ok    ${took}`);

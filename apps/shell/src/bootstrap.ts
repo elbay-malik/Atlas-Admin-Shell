@@ -12,7 +12,12 @@ import {
 import type { NativeFederationResult } from '@angular-architects/native-federation-v4';
 import { AtlasAuth, provideAtlasAuth, provideAtlasHttp } from '@atlas/shared-auth';
 import { ATLAS_API_MODE, AtlasApiMode } from '@atlas/shared-util';
-import { ATLAS_MANIFEST_VERSION, AtlasManifest, isAtlasManifest } from '@atlas/shared-contracts';
+import {
+  ATLAS_MANIFEST_VERSION,
+  AtlasAuthConfig,
+  AtlasManifest,
+  isAtlasManifest,
+} from '@atlas/shared-contracts';
 import { provideSupabaseAtlasAuth } from './app/auth/provide-supabase-auth';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { App } from './app/app';
@@ -102,6 +107,47 @@ export function resolveManifest(rawManifest: unknown): AtlasManifest {
   return { version: ATLAS_MANIFEST_VERSION, remotes: {} };
 }
 
+/**
+ * Chooses the identity provider for the configured `auth.kind`.
+ *
+ * The switch is exhaustive on purpose: when the Nhost provider lands, removing
+ * its `throw` without adding a branch will not compile. That is the point —
+ * the alternative is a `kind` the shell quietly does not recognise.
+ *
+ * It throws rather than degrading because of what the degradation would be. A
+ * manifest that FAILS the contract already falls back to zero remotes, which
+ * makes the mock provider harmless: mock auth with nothing to reach cannot
+ * grant access to anything. But a manifest that PASSES the contract keeps its
+ * remotes — so falling back here would pair real domains with a provider where
+ * any visitor picks their own role. Refusing to boot is the safe failure; a
+ * console that comes up with mock auth over real remotes is not.
+ */
+export function provideIdentity(auth: AtlasAuthConfig | undefined) {
+  if (!auth) return provideAtlasAuth();
+
+  const kind = auth.kind ?? 'supabase';
+  switch (kind) {
+    case 'supabase':
+      if (typeof auth.publishableKey !== 'string' || auth.publishableKey.length === 0) {
+        // isAtlasAuthConfig already rejects this, so reaching it means the
+        // guard and this switch have drifted — say which, rather than throwing
+        // an undefined into the Supabase client.
+        throw new Error('auth.kind "supabase" requires a publishableKey');
+      }
+      return provideSupabaseAtlasAuth({ ...auth, publishableKey: auth.publishableKey });
+    case 'nhost':
+      throw new Error(
+        'auth.kind "nhost" is configured but this build has no Nhost provider yet. ' +
+          'Refusing to boot rather than falling back to the mock, where any visitor ' +
+          'could choose the admin role.'
+      );
+    default: {
+      const unreachable: never = kind;
+      throw new Error(`unknown auth.kind ${JSON.stringify(unreachable)}`);
+    }
+  }
+}
+
 export function bootstrap(rawManifest: unknown, federation: NativeFederationResult) {
   const manifest = resolveManifest(rawManifest);
   // Read from the VALIDATED manifest, never from the raw one. Reading it before
@@ -119,7 +165,7 @@ export function bootstrap(rawManifest: unknown, federation: NativeFederationResu
       // and everything else — a fresh checkout, CI, a reviewer with no account
       // — keeps the mock. That is what lets this repo run with no Supabase
       // project at all while production runs with one, from the same bundle.
-      manifest.auth ? provideSupabaseAtlasAuth(manifest.auth) : provideAtlasAuth(),
+      provideIdentity(manifest.auth),
       provideAtlasHttp(),
       // The mock auth cannot produce a token the edge would accept, so the data
       // source follows the auth provider (see api-mode.token.ts).

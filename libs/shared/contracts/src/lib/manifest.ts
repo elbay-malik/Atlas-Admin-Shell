@@ -44,11 +44,31 @@ export type AtlasApiMode = 'mock' | 'http';
  * build one. Absent means the mock provider, so a fresh checkout still signs in
  * with no account anywhere.
  */
+/**
+ * Which identity provider an environment is configured for.
+ *
+ * It exists because the two providers do not take the same browser config, and
+ * the difference is security-relevant rather than cosmetic: Supabase requires a
+ * publishable key in this file, and Nhost has no equivalent — so for Nhost ANY
+ * value in that field is a mistake, and the deploy gate can say so categorically
+ * instead of trying to recognise a secret by its shape.
+ */
+export type AtlasAuthKind = 'supabase' | 'nhost';
+
 export interface AtlasAuthConfig {
-  /** Project URL, e.g. https://<ref>.supabase.co — no trailing path. */
+  /** Defaults to 'supabase' when absent, so manifests written before this stay valid. */
+  kind?: AtlasAuthKind;
+  /** Project URL — no trailing path. */
   url: string;
-  /** The browser-safe publishable (anon) key, never the service-role secret. */
-  publishableKey: string;
+  /**
+   * The browser-safe publishable (anon) key, never a service-role secret.
+   *
+   * REQUIRED for Supabase and FORBIDDEN for Nhost. Nhost's public endpoints
+   * need no key at all, and its admin secret is an unprefixed random string
+   * that no shape check could distinguish from a legitimate value — so the only
+   * reliable rule is that the field must be absent.
+   */
+  publishableKey?: string;
   /** OIDC provider the sign-in button uses. Defaults to 'github'. */
   provider?: string;
 }
@@ -88,16 +108,27 @@ export interface AtlasManifest {
  * useless rather than wrong. The edge BFF is unaffected either way: it verifies
  * tokens against its own JWKS and never consults this file.
  */
+const AUTH_KINDS: readonly AtlasAuthKind[] = ['supabase', 'nhost'];
+
 function isAtlasAuthConfig(value: unknown): value is AtlasAuthConfig {
   if (typeof value !== 'object' || value === null) return false;
   const auth = value as Partial<AtlasAuthConfig>;
-  return (
-    typeof auth.url === 'string' &&
-    auth.url.length > 0 &&
-    typeof auth.publishableKey === 'string' &&
-    auth.publishableKey.length > 0 &&
-    (auth.provider === undefined || (typeof auth.provider === 'string' && auth.provider.length > 0))
-  );
+
+  if (auth.kind !== undefined && !AUTH_KINDS.includes(auth.kind)) return false;
+  if (typeof auth.url !== 'string' || auth.url.length === 0) return false;
+  if (auth.provider !== undefined && (typeof auth.provider !== 'string' || auth.provider.length === 0)) {
+    return false;
+  }
+
+  // Absent kind means Supabase, which is what every manifest written before the
+  // discriminant existed meant.
+  const kind: AtlasAuthKind = auth.kind ?? 'supabase';
+  if (kind === 'nhost') {
+    // Not "may be empty" — absent. A present-but-empty key is still someone
+    // having put a value here, and the next edit fills it in.
+    return auth.publishableKey === undefined;
+  }
+  return typeof auth.publishableKey === 'string' && auth.publishableKey.length > 0;
 }
 
 /** Runtime guard used by the shell before trusting a fetched manifest. */

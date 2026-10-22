@@ -341,4 +341,71 @@ describe('check-manifests deployment rules (stricter than the contract, on purpo
       expect(found.join(' ')).toMatch(/https/);
     });
   });
+
+  /**
+   * The provider discriminant, where the two validators are most likely to
+   * drift — because the rule is CONDITIONAL, and the generated mutations above
+   * only vary one field at a time. `kind` itself is covered automatically (the
+   * recording Proxy sees the guard read it), but "publishableKey is required
+   * here and forbidden there" is a relationship between two fields, and nothing
+   * generates that.
+   *
+   * Both validators are asserted on every case, because a rule only one of them
+   * enforces is the exact failure ADR-0010's parity condition exists to stop:
+   * it passes CI and then fails the runtime guard, leaving the console with
+   * zero remotes.
+   */
+  describe('supabase and nhost need different browser config', () => {
+    const withAuth = (auth) => ({ version: 1, auth, remotes: { iam: validRemote } });
+    const agreeOn = (manifest, valid) => {
+      expect(isAtlasManifest(manifest), 'runtime guard').toBe(valid);
+      expect(problems(manifest).length === 0, 'deploy validator').toBe(valid);
+    };
+
+    it('accepts nhost with no publishable key, because it has no equivalent', () => {
+      agreeOn(withAuth({ kind: 'nhost', url: 'https://p.auth.eu-central-1.nhost.run' }), true);
+    });
+
+    it('rejects nhost carrying a key at all, whatever that key is', () => {
+      // Nhost's admin secret is an unprefixed random string, so no shape check
+      // could tell it from a legitimate value — the field must simply be empty.
+      // This string is innocuous and still refused, which is the point.
+      const manifest = withAuth({
+        kind: 'nhost',
+        url: 'https://p.auth.eu-central-1.nhost.run',
+        publishableKey: 'looks-harmless',
+      });
+      agreeOn(manifest, false);
+      expect(problems(manifest).join(' ')).toMatch(/must be absent/);
+    });
+
+    it('rejects an empty string as hard as a value, since the next edit fills it in', () => {
+      agreeOn(
+        withAuth({ kind: 'nhost', url: 'https://p.auth.eu-central-1.nhost.run', publishableKey: '' }),
+        false
+      );
+    });
+
+    it('still requires a key for supabase, named explicitly', () => {
+      agreeOn(withAuth({ kind: 'supabase', url: 'https://p.supabase.co' }), false);
+      agreeOn(
+        withAuth({ kind: 'supabase', url: 'https://p.supabase.co', publishableKey: 'sb_publishable_x' }),
+        true
+      );
+    });
+
+    it('treats an absent kind as supabase, so manifests written before this stay valid', () => {
+      // The compatibility promise: every manifest already deployed means what
+      // it meant yesterday.
+      agreeOn(withAuth({ url: 'https://p.supabase.co', publishableKey: 'sb_publishable_x' }), true);
+      agreeOn(withAuth({ url: 'https://p.supabase.co' }), false);
+    });
+
+    it('rejects a kind neither validator knows', () => {
+      agreeOn(
+        withAuth({ kind: 'firebase', url: 'https://p.example.com', publishableKey: 'x' }),
+        false
+      );
+    });
+  });
 });

@@ -14,7 +14,20 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REMOTES = ['iam', 'feature-flags', 'audit-logs'];
-const NEEDLES = ['GoTrueClient', '@supabase/'];
+/**
+ * Keyed by vendor so adding one is an obvious edit rather than an easy omission.
+ *
+ * This list is the whole gate. It was ['GoTrueClient', '@supabase/'] — which
+ * protected ADR-0006's boundary exactly as long as Supabase was the provider,
+ * and would have gone on passing green the moment a remote bundled a different
+ * identity client. A gate that only recognises the vendor you are leaving is
+ * not a gate.
+ */
+const NEEDLES_BY_VENDOR = {
+  supabase: ['GoTrueClient', '@supabase/'],
+  nhost: ['@nhost/', 'nhost-js', 'hasura-auth'],
+};
+const NEEDLES = Object.values(NEEDLES_BY_VENDOR).flat();
 
 function jsFiles(dir) {
   if (!existsSync(dir)) return [];

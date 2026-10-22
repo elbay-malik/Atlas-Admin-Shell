@@ -177,8 +177,9 @@
     "lighthouse": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm exec concurrently -k -s first -n SERVE,LH -c magenta,blue \"pnpm exec nx run-many -t serve-static -p shell,iam,feature-flags,audit-logs\" \"pnpm exec wait-on http://localhost:4200 http://localhost:4201/remoteEntry.json http://localhost:4202/remoteEntry.json http://localhost:4203/remoteEntry.json && node tools/lighthouse/run.mjs --runs 3\""
-      }
+        "command": "pnpm exec concurrently -k -s first -n SERVE,LH -c magenta,blue \"pnpm exec nx run-many -t serve-static -p shell,iam,feature-flags,audit-logs\" \"pnpm exec wait-on --timeout 120000 http://localhost:4200 http://localhost:4201/remoteEntry.json http://localhost:4202/remoteEntry.json http://localhost:4203/remoteEntry.json && node tools/lighthouse/run.mjs --runs 3\""
+      },
+      "// command": "wait-on carries an explicit --timeout because its default is infinite. When shell:build fails, serve-static has nothing to serve, 4200 never binds, and run-many keeps the other three continuous servers alive \u2014 so concurrently never sees anything exit either. The gate could not fail, only hang, and it hid a real build failure for nine minutes twice."
     }
   },
   "// implicitDependencies": "Nx cannot see a CSS @import, so the dependency on the design tokens is invisible to the project graph. Without this edge a colour change is 'affected: nothing' and skips every axe, contrast and build gate that exists to judge it.",
