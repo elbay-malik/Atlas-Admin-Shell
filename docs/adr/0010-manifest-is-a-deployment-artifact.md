@@ -83,6 +83,47 @@ later is a one-function change.
   `apply-manifest` reads the file back afterwards so a future re-introduction fails loudly instead of
   shipping.
 
+## Correction, 2026-10-22: the read-back cannot catch what this ADR credits it with
+
+The paragraph above ends: *"`apply-manifest` reads the file back afterwards so a future
+re-introduction fails loudly instead of shipping."* It does read the file back. It cannot do that
+job.
+
+The failure being guarded is a rebuild clobbering the manifest **between the copy and the upload**.
+The read-back runs microseconds after the copy and compares the target to the source — it cannot
+observe an event that has not happened yet. What it genuinely catches is a copy that did not land
+intact: a truncated write, a full disk, a target that is not writable the way we assumed. Worth
+keeping, but a different and much smaller guarantee.
+
+The thing that actually prevents the original failure is **structural**, and this ADR already
+describes it one sentence earlier: the copy happens inside the deploy target, after
+`dependsOn: ["build"]` has run, so nothing rebuilds between it and `wrangler deploy`. The protection
+is the ordering, not the assertion.
+
+Keeping the two straight is the point. A check credited with a guarantee it cannot provide is how
+the real guarantee stops being maintained — someone reorders the pipeline, trusts the read-back to
+notice, and it does not.
+
+### The same review found a live bug in the script
+
+`apply-manifest.mjs` had **no test of any kind**, and CI never executed it either: `deploy -c check`
+overrides the command list, so the `check` configuration runs wrangler alone and never reaches this
+script. The one step that decides which environment ships was unexercised by every gate.
+
+Writing tests for it immediately surfaced an argument-parsing defect. The environment was
+*"the first argument that does not start with `--`"*, which swallows the value belonging to `--out`:
+
+```
+apply-manifest --out dist production   ->  deployed an environment named "dist"
+```
+
+Argument **order** silently decided what shipped. Now fixed, with cases pinning both orders and a
+`--out` with no directory after it. Verified by restoring the original parser and watching exactly
+those cases fail.
+
+The tests live in `libs/shared/contracts` because `tools/` is not an Nx project and has no test
+target; `sharedGlobals` (ADR-0009) makes them run whenever the script changes.
+
 ## Verification
 
 Checked 2026-09-05 against the installed tooling:
@@ -106,8 +147,10 @@ Checked 2026-09-05 against the installed tooling:
   documented as explicitness rather than a fix.
 - `wrangler` 4.129.0 validates all four configs with `deploy --dry-run` and no credentials, reading
   42 assets for the shell and 48 for a remote.
-- Both committed environment manifests pass `tools/check-manifests.mjs`, and the validator was itself
+- The committed environment manifest passes `tools/check-manifests.mjs`, and the validator was itself
   tested against an origin-only URL and an invalid role, failing each with a specific message.
+  (This line originally said "both committed environment manifests". There has only ever been one,
+  `production` — see "Why there is no preview environment yet" in `deploy/manifests/README.md`.)
 - The validator duplicates `isAtlasManifest` rather than importing it, because it must run before and
   without a TypeScript build. That duplication was checked case by case, and it is safe in one
   direction only: the validator is strictly **stricter** than the runtime guard, so a manifest that

@@ -20,9 +20,13 @@ const ENV_DIR = join(ROOT, 'deploy/manifests');
 const DEFAULT_OUT = join(ROOT, 'dist/apps/shell/browser');
 
 const args = process.argv.slice(2);
-const env = args.find((a) => !a.startsWith('--'));
 const outIndex = args.indexOf('--out');
 const out = outIndex === -1 ? DEFAULT_OUT : args[outIndex + 1];
+// The value after `--out` belongs to it. Scanning for "the first argument that
+// does not start with --" used to swallow that value as the environment name,
+// so `apply-manifest --out dist production` deployed an environment called
+// "dist" — argument ORDER silently decided what shipped.
+const env = args.find((a, i) => !a.startsWith('--') && i !== outIndex + 1);
 
 function fail(message) {
   console.error(`apply-manifest: ${message}`);
@@ -40,6 +44,7 @@ const source = join(ENV_DIR, env, MANIFEST);
 if (!existsSync(source)) {
   fail(`no manifest for "${env}" at ${source}. Available: ${available.join(', ') || '(none)'}`);
 }
+if (outIndex !== -1 && !out) fail('--out needs a directory');
 if (!existsSync(out)) fail(`build output ${out} does not exist — build the shell first`);
 
 // Parse before copying: shipping a manifest the shell cannot read degrades the
@@ -53,9 +58,17 @@ try {
 const target = join(out, MANIFEST);
 copyFileSync(source, target);
 
-// Verify rather than assume. A rebuild between build and upload would silently
-// restore the committed localhost manifest, and the deploy would still look
-// green while shipping a console whose remotes all point at localhost.
+// Reads the file back to catch a copy that did not land intact — a truncated
+// write, a full disk, a target that is not writable the way we assumed.
+//
+// What it does NOT catch, despite how it was once described: a rebuild that
+// clobbers the manifest LATER, between here and the upload. This runs
+// microseconds after the copy and cannot observe a future event. The thing that
+// actually prevents that failure is structural — the copy happens INSIDE the
+// deploy target, after `dependsOn: ["build"]` has already run, so nothing
+// rebuilds between this line and `wrangler deploy`. Keeping the two straight
+// matters: a check credited with a guarantee it cannot provide is how the
+// guarantee stops being maintained.
 if (readFileSync(target, 'utf8') !== readFileSync(source, 'utf8')) {
   fail(`${target} does not match ${source} after the copy`);
 }
