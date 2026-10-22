@@ -128,6 +128,25 @@ Checked 2026-09-05:
   originally had **no coverage at all**: the whole suite stayed green with the pin deleted. It is now
   probed with a token signed by an RSA key the JWKS genuinely publishes, so only the pin can refuse
   it. Verified by deleting the pin and watching that test, and only that test, fail.
+
+## Correction, 2026-10-21: an expiry was never required, only checked when present
+
+Found by an adversarial audit. The list above says rejection is asserted for "an expired token",
+and it is — but `jwtVerify` only validates an `exp` that is **present**. A token minted without one
+is not expired, and never becomes expired, so it verified **forever**.
+
+The suite could not notice. Its token factory always called `.setExpirationTime(...)`, so every
+token it had ever produced carried an expiry; the one shape that mattered was unreachable from the
+tests. That is the same shape as the ES256 pin above — a protection nothing probed — except here the
+protection did not exist at all rather than merely being untested.
+
+`requiredClaims: ['exp']` now makes the claim mandatory. Two cases pin it: a token minted with
+`expiresIn: false` is refused, and an otherwise identical token that does carry an expiry is still
+accepted, so the refusal is demonstrably about the missing claim and not about something incidental.
+Verified by deleting `requiredClaims` and watching exactly one test fail.
+
+The distinction worth keeping: *"this token is still valid"* and *"this token was never given a
+lifetime"* are different statements, and only the first is what an expiry check answers.
 - 49 BFF tests pass; 12 projects and 22 federation e2e specs remain green.
 
 ### What the browser-to-BFF coverage does and does not include

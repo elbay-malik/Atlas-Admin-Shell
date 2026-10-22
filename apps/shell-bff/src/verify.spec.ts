@@ -42,7 +42,8 @@ interface TokenOptions {
   alg?: string;
   issuer?: string;
   audience?: string;
-  expiresIn?: string;
+  /** Pass `false` to mint a token with no `exp` at all. */
+  expiresIn?: string | false;
   claims?: Record<string, unknown>;
   /** Pass `false` to mint a token with no `sub` at all. */
   subject?: string | false;
@@ -53,8 +54,8 @@ async function token(options: TokenOptions = {}): Promise<string> {
     .setProtectedHeader({ alg: options.alg ?? 'ES256' })
     .setIssuedAt()
     .setIssuer(options.issuer ?? ISSUER)
-    .setAudience(options.audience ?? AUDIENCE)
-    .setExpirationTime(options.expiresIn ?? '5m');
+    .setAudience(options.audience ?? AUDIENCE);
+  if (options.expiresIn !== false) builder.setExpirationTime(options.expiresIn ?? '5m');
   if (options.subject !== false) builder.setSubject(options.subject ?? 'u-1');
   return builder.sign(options.key ?? signingKey);
 }
@@ -110,6 +111,30 @@ describe('token verification', () => {
   it('rejects an expired token', async () => {
     const result = await verifier()(request(await token({ expiresIn: '-1m' })));
     expect(result).toMatchObject({ ok: false, status: 401 });
+  });
+
+  /**
+   * jose only checks an expiry that is PRESENT, so a token minted without `exp`
+   * is not expired and never becomes expired — it verifies forever. The suite
+   * could not see this: the factory above always set an expiry, so every token
+   * it ever produced had one. `requiredClaims: ['exp']` is the only thing that
+   * refuses this, which makes it the kind of protection that must be pinned by
+   * a test that fails when only that protection is removed.
+   */
+  it('REJECTS a token with no exp, which would otherwise be valid forever', async () => {
+    const immortal = await token({ expiresIn: false });
+
+    const result = await verifier()(request(immortal));
+
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ status: 401 });
+  });
+
+  it('still accepts an otherwise identical token that does carry an exp', async () => {
+    // proves the case above fails on the missing claim, not on something else
+    const result = await verifier()(request(await token({ expiresIn: '5m' })));
+
+    expect(result.ok).toBe(true);
   });
 
   it('rejects a token from another issuer', async () => {

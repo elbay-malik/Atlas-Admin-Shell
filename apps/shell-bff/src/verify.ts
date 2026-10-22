@@ -27,6 +27,13 @@ const BEARER = /^Bearer (.+)$/;
  * "whatever suits the key": an unpinned verifier is how algorithm-confusion
  * attacks get in. Issuer and audience are checked for the same reason — a
  * valid signature from the wrong issuer is still not a valid caller.
+ *
+ * `requiredClaims: ['exp']` is load-bearing and easy to miss: jose only checks
+ * an expiry that is PRESENT. A token minted without `exp` is not expired and
+ * never becomes expired, so without this it verifies forever — a credential
+ * that cannot be outlived, issued by anyone who can mint one. Demanding the
+ * claim is the difference between "this token is still valid" and "this token
+ * was never given a lifetime".
  */
 export function createVerifier(options: VerifierOptions) {
   return async function verify(request: Request): Promise<VerifyResult> {
@@ -40,6 +47,7 @@ export function createVerifier(options: VerifierOptions) {
         audience: options.audience,
         algorithms: ['ES256'],
         clockTolerance: 5,
+        requiredClaims: ['exp'],
       });
 
       const sub = typeof payload.sub === 'string' ? payload.sub : '';
