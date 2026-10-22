@@ -49,6 +49,26 @@ function safePath(url) {
  */
 const SHELL_RESERVED_ROUTES = ['unavailable'];
 
+/**
+ * Recognises a Supabase service-role key in either format.
+ *
+ * New-style keys are distinguishable by prefix (`sb_secret_` vs
+ * `sb_publishable_`). Legacy keys are both JWTs and look identical from the
+ * outside — the role sits in the payload — so telling them apart means
+ * decoding and looking.
+ */
+function looksLikeSecretKey(key) {
+  if (key.startsWith('sb_secret_')) return true;
+  const parts = key.split('.');
+  if (parts.length !== 3) return false;
+  try {
+    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')).role === 'service_role';
+  } catch {
+    // not a JWT we can read; the prefix check above is all we have
+    return false;
+  }
+}
+
 /** Segments of a route path, ignoring incidental slashes. */
 const segments = (route) => route.split('/').filter(Boolean);
 
@@ -77,6 +97,28 @@ export function problems(manifest) {
     manifest.apiMode !== 'http'
   ) {
     found.push(`apiMode must be 'mock' or 'http' when present, got ${JSON.stringify(manifest.apiMode)}`);
+  }
+  // The auth block ships to the browser, so the deployment question is not "is
+  // it well-formed" — the contract guard answers that — but "is it safe to
+  // publish, and will it work over the wire".
+  if (manifest.auth !== undefined) {
+    const auth = manifest.auth;
+    if (typeof auth !== 'object' || auth === null) {
+      found.push('auth must be an object');
+    } else {
+      if (typeof auth.url !== 'string' || !auth.url.startsWith('https://')) {
+        found.push(`auth.url must be an https:// URL, got ${JSON.stringify(auth.url)}`);
+      }
+      if (typeof auth.publishableKey !== 'string' || auth.publishableKey.length === 0) {
+        found.push('auth.publishableKey must be a non-empty string');
+      } else if (looksLikeSecretKey(auth.publishableKey)) {
+        // The one mistake here is unrecoverable. A service-role key grants full
+        // database access and bypasses row-level security, and this file is
+        // served to every visitor — rotation is the only remedy afterwards, so
+        // the gate refuses rather than warns.
+        found.push('auth.publishableKey looks like a SERVICE-ROLE secret — it would be published to every visitor');
+      }
+    }
   }
   if (typeof manifest.remotes !== 'object' || manifest.remotes === null) {
     return [...found, 'remotes must be an object'];

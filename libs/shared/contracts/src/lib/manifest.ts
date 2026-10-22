@@ -34,6 +34,25 @@ export interface RemoteDefinition {
 /** Where the domains get their data. Optional; absent means 'mock'. */
 export type AtlasApiMode = 'mock' | 'http';
 
+/**
+ * Identity provider configuration. Both fields are browser-safe by design: the
+ * URL is public and the publishable key is meant to ship in the bundle. The
+ * service-role secret has no representation here and must never acquire one.
+ *
+ * It lives in the manifest for the same reason `apiMode` does (ADR-0010):
+ * WHICH identity provider an environment uses is a deployment decision, not a
+ * build one. Absent means the mock provider, so a fresh checkout still signs in
+ * with no account anywhere.
+ */
+export interface AtlasAuthConfig {
+  /** Project URL, e.g. https://<ref>.supabase.co — no trailing path. */
+  url: string;
+  /** The browser-safe publishable (anon) key, never the service-role secret. */
+  publishableKey: string;
+  /** OIDC provider the sign-in button uses. Defaults to 'github'. */
+  provider?: string;
+}
+
 export interface AtlasManifest {
   version: typeof ATLAS_MANIFEST_VERSION;
   /**
@@ -44,11 +63,41 @@ export interface AtlasManifest {
    */
   apiMode?: AtlasApiMode;
   /**
+   * The identity provider for this environment. Absent means the mock provider
+   * (ADR-0006), which is why the console runs with no Supabase project at all.
+   */
+  auth?: AtlasAuthConfig;
+  /**
    * Keyed by remote name. The key MUST equal the `name` in that remote's
    * federation.config.mjs — Native Federation verifies the fetched
    * remoteEntry's baked-in name and refuses aliases that don't match.
    */
   remotes: Record<string, RemoteDefinition>;
+}
+
+/**
+ * Guard for the optional auth block.
+ *
+ * A malformed block fails the WHOLE manifest rather than being dropped, which
+ * is deliberate and the safer direction: silently discarding a broken `auth`
+ * would fall back to the MOCK provider, whose personas let anyone pick
+ * 'admin'. An environment that meant to configure a real identity provider and
+ * got it wrong must end up visibly empty, not quietly permissive.
+ *
+ * The practical result is a console with no remotes and the mock — loud and
+ * useless rather than wrong. The edge BFF is unaffected either way: it verifies
+ * tokens against its own JWKS and never consults this file.
+ */
+function isAtlasAuthConfig(value: unknown): value is AtlasAuthConfig {
+  if (typeof value !== 'object' || value === null) return false;
+  const auth = value as Partial<AtlasAuthConfig>;
+  return (
+    typeof auth.url === 'string' &&
+    auth.url.length > 0 &&
+    typeof auth.publishableKey === 'string' &&
+    auth.publishableKey.length > 0 &&
+    (auth.provider === undefined || (typeof auth.provider === 'string' && auth.provider.length > 0))
+  );
 }
 
 /** Runtime guard used by the shell before trusting a fetched manifest. */
@@ -64,6 +113,7 @@ export function isAtlasManifest(value: unknown): value is AtlasManifest {
   ) {
     return false;
   }
+  if (manifest.auth !== undefined && !isAtlasAuthConfig(manifest.auth)) return false;
   return Object.values(manifest.remotes).every(
     (def) =>
       // a null/non-object entry is legal JSON; dereferencing it here would

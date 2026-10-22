@@ -54,7 +54,13 @@ const validRemote = {
  * guard — which is what makes "a new field is covered automatically" true
  * rather than merely claimed.
  */
-const base = { version: 1, apiMode: 'mock', remotes: { iam: validRemote } };
+const validAuth = {
+  url: 'https://project.supabase.co',
+  publishableKey: 'sb_publishable_example',
+  provider: 'github',
+};
+
+const base = { version: 1, apiMode: 'mock', auth: validAuth, remotes: { iam: validRemote } };
 
 /** Structured clone that is cheap and dependency-free for plain JSON. */
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -298,5 +304,41 @@ describe('check-manifests deployment rules (stricter than the contract, on purpo
     expect(isAtlasManifest(live)).toBe(true);
     expect(problems(live)).toEqual([]);
   });
-});
 
+  /**
+   * The auth block is SERVED TO EVERY VISITOR, so the deployment question is
+   * not whether it is well-formed but whether publishing it is safe. A
+   * service-role key grants full database access and bypasses row-level
+   * security; once shipped, rotation is the only remedy. The gate refuses.
+   */
+  describe('auth is safe to publish', () => {
+    const jwt = (role) =>
+      'h.' + Buffer.from(JSON.stringify({ role })).toString('base64url') + '.s';
+    const withAuth = (auth) => ({ version: 1, auth, remotes: { iam: validRemote } });
+
+    it('accepts a publishable key over https', () => {
+      expect(problems(withAuth({ url: 'https://p.supabase.co', publishableKey: 'sb_publishable_x' }))).toEqual([]);
+    });
+
+    it('rejects a new-style service-role secret', () => {
+      const found = problems(withAuth({ url: 'https://p.supabase.co', publishableKey: 'sb_secret_DANGER' }));
+      expect(found.join(' ')).toMatch(/SERVICE-ROLE/);
+    });
+
+    it('rejects a LEGACY service-role key, which is a JWT and looks like the anon key', () => {
+      // the only difference is the role claim inside the payload, so the rule
+      // has to decode rather than pattern-match the outside
+      const found = problems(withAuth({ url: 'https://p.supabase.co', publishableKey: jwt('service_role') }));
+      expect(found.join(' ')).toMatch(/SERVICE-ROLE/);
+    });
+
+    it('still accepts a legacy ANON key, which is the same shape', () => {
+      expect(problems(withAuth({ url: 'https://p.supabase.co', publishableKey: jwt('anon') }))).toEqual([]);
+    });
+
+    it('rejects a plaintext identity provider url', () => {
+      const found = problems(withAuth({ url: 'http://p.supabase.co', publishableKey: 'sb_publishable_x' }));
+      expect(found.join(' ')).toMatch(/https/);
+    });
+  });
+});

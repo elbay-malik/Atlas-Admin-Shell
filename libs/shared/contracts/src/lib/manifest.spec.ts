@@ -47,4 +47,41 @@ describe('isAtlasManifest (contract)', () => {
       isAtlasManifest({ version: 1, remotes: { iam: { ...validRemote, requiredRole: 'root' } } })
     ).toBe(false);
   });
+
+  /**
+   * `auth` decides WHICH identity provider an environment uses, so a malformed
+   * block must not be quietly dropped: falling back to the mock would let
+   * anyone pick the 'admin' persona. Failing the whole manifest degrades the
+   * console to zero remotes, which is visibly broken rather than permissive.
+   */
+  describe('the optional auth block', () => {
+    const auth = {
+      url: 'https://project.supabase.co',
+      publishableKey: 'sb_publishable_example',
+      provider: 'github',
+    };
+    const withAuth = (value: unknown) => ({ version: 1, auth: value, remotes: {} });
+
+    it('accepts a well-formed block, with and without the optional provider', () => {
+      expect(isAtlasManifest(withAuth(auth))).toBe(true);
+      expect(isAtlasManifest(withAuth({ url: auth.url, publishableKey: auth.publishableKey }))).toBe(true);
+    });
+
+    it('accepts a manifest with no auth at all — that is the mock provider', () => {
+      expect(isAtlasManifest({ version: 1, remotes: {} })).toBe(true);
+    });
+
+    it.each([
+      ['a missing url', { publishableKey: 'k' }],
+      ['an empty url', { url: '', publishableKey: 'k' }],
+      ['a missing key', { url: 'https://p.supabase.co' }],
+      ['an empty key', { url: 'https://p.supabase.co', publishableKey: '' }],
+      ['an empty provider', { url: 'https://p.supabase.co', publishableKey: 'k', provider: '' }],
+      ['a non-object', 'nope'],
+      ['null', null],
+      ['a number', 42],
+    ])('rejects the WHOLE manifest for %s', (_label, value) => {
+      expect(isAtlasManifest(withAuth(value))).toBe(false);
+    });
+  });
 });

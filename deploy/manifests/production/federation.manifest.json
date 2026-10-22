@@ -1,6 +1,11 @@
 {
   "version": 1,
   "apiMode": "mock",
+  "auth": {
+    "url": "https://pgrngevieiupeokdxwpa.supabase.co",
+    "publishableKey": "REDACTED_SUPABASE_PUBLISHABLE_KEY",
+    "provider": "github"
+  },
   "remotes": {
     "iam": {
       "url": "https://atlas-iam.eleo-666.workers.dev/remoteEntry.json",

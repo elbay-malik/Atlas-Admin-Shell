@@ -12,6 +12,7 @@ import type { NativeFederationResult } from '@angular-architects/native-federati
 import { AtlasAuth, provideAtlasAuth, provideAtlasHttp } from '@atlas/shared-auth';
 import { ATLAS_API_MODE, AtlasApiMode } from '@atlas/shared-util';
 import { ATLAS_MANIFEST_VERSION, AtlasManifest, isAtlasManifest } from '@atlas/shared-contracts';
+import { provideSupabaseAtlasAuth } from './app/auth/provide-supabase-auth';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { App } from './app/app';
 import { FEDERATION } from './app/federation.token';
@@ -96,7 +97,12 @@ export function bootstrap(rawManifest: unknown, federation: NativeFederationResu
     providers: [
       provideBrowserGlobalErrorListeners(),
       provideRouter(buildRoutes(manifest), withNavigationErrorHandler(remoteUnavailableRedirect)),
-      provideAtlasAuth(),
+      // WHICH identity provider is a deployment decision, exactly like apiMode
+      // (ADR-0010): an environment that configures `auth` gets the real one,
+      // and everything else — a fresh checkout, CI, a reviewer with no account
+      // — keeps the mock. That is what lets this repo run with no Supabase
+      // project at all while production runs with one, from the same bundle.
+      manifest.auth ? provideSupabaseAtlasAuth(manifest.auth) : provideAtlasAuth(),
       provideAtlasHttp(),
       // The mock auth cannot produce a token the edge would accept, so the data
       // source follows the auth provider (see api-mode.token.ts).

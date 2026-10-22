@@ -22,8 +22,8 @@
   // Not secrets: a JWKS endpoint and the issuer/audience it mints for are
   // public. The service-role key never appears here and never reaches the edge.
   "vars": {
-    "ATLAS_JWKS_URL": "https://project.supabase.co/auth/v1/.well-known/jwks.json",
-    "ATLAS_JWT_ISSUER": "https://project.supabase.co/auth/v1",
+    "ATLAS_JWKS_URL": "https://pgrngevieiupeokdxwpa.supabase.co/auth/v1/.well-known/jwks.json",
+    "ATLAS_JWT_ISSUER": "https://pgrngevieiupeokdxwpa.supabase.co/auth/v1",
     "ATLAS_JWT_AUDIENCE": "authenticated"
   }
 }
