@@ -85,6 +85,24 @@ describe('toAuthUser', () => {
     expect(user?.email).toBe('e@example.com');
   });
 
+  /**
+   * The key is configured in a dashboard outside this repository, and the
+   * provider derives it from whatever was typed there. A real token from this
+   * project arrived under the unhyphenated spelling; the hyphenated one is what
+   * the convention suggests. Both are read, so a dashboard edit cannot blank
+   * the header with nothing failing.
+   */
+  it('also accepts the unhyphenated spelling a real token arrived under', () => {
+    const user = toAuthUser(claims({ 'x-hasura-displayname': 'Elbay Malik' }));
+    expect(user?.name).toBe('Elbay Malik');
+  });
+
+  it('still refuses to take a role from either spelling', () => {
+    // Display name is user-editable; widening where it may come from must not
+    // widen what it can do.
+    expect(toAuthUser(claims({ 'x-hasura-displayname': 'admin' }))?.role).toBe('viewer');
+  });
+
   it('falls back to email, then to the subject, when no name is minted', () => {
     expect(toAuthUser(claims({ 'x-hasura-email': 'e@example.com' }))?.name).toBe('e@example.com');
     // What production looks like TODAY: no email claim and no display name, so

@@ -21,7 +21,21 @@ export const ALLOWED_ROLES_CLAIM = 'x-hasura-allowed-roles';
 export const DEFAULT_ROLE_CLAIM = 'x-hasura-default-role';
 /** Optional custom claims; absent unless configured on the identity project. */
 export const EMAIL_CLAIM = 'x-hasura-email';
-export const DISPLAY_NAME_CLAIM = 'x-hasura-display-name';
+
+/**
+ * Display name arrives under one of two keys, and both are read on purpose.
+ *
+ * The claim name is configured in the identity project's dashboard — outside
+ * this repository — and the provider derives the key from whatever was typed
+ * there. This project emits `x-hasura-displayname`, observed in a real token,
+ * while `x-hasura-display-name` is what the hyphenated convention suggests.
+ *
+ * Accepting both is not defensive mush: the alternative is that an edit to a
+ * dashboard field nobody here can see silently blanks the console's header,
+ * with nothing failing and nothing to grep for. A display name carries no
+ * authority (see below), so widening where it may come from costs nothing.
+ */
+export const DISPLAY_NAME_CLAIMS = ['x-hasura-display-name', 'x-hasura-displayname'] as const;
 
 /** The provider role that grants Atlas's admin role. */
 export const ADMIN_ROLE = 'admin';
@@ -81,8 +95,11 @@ export function toAtlasEmail(claims: Record<string, unknown>): string {
  * a person on screen and carries no authority. It must never reach toAtlasRole.
  */
 export function toAtlasDisplayName(claims: Record<string, unknown>): string {
-  const value = namespace(claims)[DISPLAY_NAME_CLAIM];
-  if (typeof value === 'string' && value.length > 0) return value;
+  const ns = namespace(claims);
+  for (const key of DISPLAY_NAME_CLAIMS) {
+    const value = ns[key];
+    if (typeof value === 'string' && value.length > 0) return value;
+  }
   const email = toAtlasEmail(claims);
   if (email.length > 0) return email;
   return typeof claims['sub'] === 'string' ? claims['sub'] : '';
