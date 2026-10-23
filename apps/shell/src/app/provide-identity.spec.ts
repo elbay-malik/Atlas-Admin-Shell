@@ -16,23 +16,30 @@ describe('provideIdentity', () => {
     expect(() => provideIdentity(undefined)).not.toThrow();
   });
 
-  it('refuses to boot for a provider this build cannot serve', () => {
+  it('installs the real provider for the configured identity project', () => {
     expect(() =>
-      provideIdentity({ kind: 'nhost', url: 'https://p.auth.eu-central-1.nhost.run' })
-    ).toThrow(/no Nhost provider yet/);
+      provideIdentity({ kind: 'nhost', url: 'https://p.auth.eu-central-1.nhost.run/v1' })
+    ).not.toThrow();
+  });
+
+  /**
+   * The retired provider must fail LOUDLY rather than degrade. A manifest is a
+   * deployment artifact that ships independently of this bundle (ADR-0010), so
+   * one naming the old provider can outlive its implementation — and the
+   * fallback would be the mock, paired with real remotes, where any visitor
+   * picks their own role.
+   */
+  it('refuses a provider this build no longer implements', () => {
+    expect(() => provideIdentity({ kind: 'supabase', url: 'https://p.supabase.co' })).toThrow(
+      /no longer supported/
+    );
   });
 
   it('names the mock explicitly when it refuses, so the reason is not guessed', () => {
     // If this message ever stops mentioning the fallback it is refusing, the
     // next person to read it will assume degrading was safe.
-    expect(() =>
-      provideIdentity({ kind: 'nhost', url: 'https://p.auth.eu-central-1.nhost.run' })
-    ).toThrow(/mock/);
-  });
-
-  it('refuses a supabase config with no key rather than passing undefined on', () => {
     expect(() => provideIdentity({ kind: 'supabase', url: 'https://p.supabase.co' })).toThrow(
-      /requires a publishableKey/
+      /mock/
     );
   });
 

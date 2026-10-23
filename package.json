@@ -88,7 +88,6 @@
     "@angular/router": "~21.2.0",
     "@ngrx/operators": "21.1.1",
     "@ngrx/signals": "21.1.1",
-    "@supabase/auth-js": "2.115.0",
     "es-module-shims": "^2.8.0",
     "jose": "6.2.12",
     "rxjs": "~7.8.0"

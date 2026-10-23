@@ -43,11 +43,16 @@ export default withNativeFederation({
     'rxjs/testing',
     'rxjs/webSocket',
     // Tripwire: the auth provider is shell-only, so a remote must never share
-    // the Supabase client. Note this only stops SHARING — a remote that really
-    // imported it would still bundle a private copy, which is why the eslint
+    // an identity client. Note this only stops SHARING — a remote that really
+    // imported one would still bundle a private copy, which is why the eslint
     // boundary rule and the CI bundle check exist too (ADR-0006).
+    //
+    // The current provider is a few hundred lines of fetch calls in this repo
+    // rather than an SDK, so there is no package to skip today. These names
+    // stay as a tripwire for the day someone reaches for one.
     '@supabase/auth-js',
     '@supabase/supabase-js',
+    '@nhost/nhost-js',
   ],
 
   // Please read our FAQ about sharing libs:

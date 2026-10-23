@@ -18,7 +18,7 @@ import {
   AtlasManifest,
   isAtlasManifest,
 } from '@atlas/shared-contracts';
-import { provideSupabaseAtlasAuth } from './app/auth/provide-supabase-auth';
+import { provideNhostAtlasAuth } from './app/auth/provide-nhost-auth';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { App } from './app/app';
 import { AtlasTitleStrategy } from './app/atlas-title.strategy';
@@ -127,19 +127,15 @@ export function provideIdentity(auth: AtlasAuthConfig | undefined) {
 
   const kind = auth.kind ?? 'supabase';
   switch (kind) {
-    case 'supabase':
-      if (typeof auth.publishableKey !== 'string' || auth.publishableKey.length === 0) {
-        // isAtlasAuthConfig already rejects this, so reaching it means the
-        // guard and this switch have drifted — say which, rather than throwing
-        // an undefined into the Supabase client.
-        throw new Error('auth.kind "supabase" requires a publishableKey');
-      }
-      return provideSupabaseAtlasAuth({ ...auth, publishableKey: auth.publishableKey });
     case 'nhost':
+      return provideNhostAtlasAuth({ url: auth.url, provider: auth.provider });
+    case 'supabase':
+      // The implementation is gone, and this branch is what stops that being a
+      // silent downgrade. A manifest still naming the old provider must fail
+      // loudly rather than boot on the mock, where any visitor picks their role.
       throw new Error(
-        'auth.kind "nhost" is configured but this build has no Nhost provider yet. ' +
-          'Refusing to boot rather than falling back to the mock, where any visitor ' +
-          'could choose the admin role.'
+        'auth.kind "supabase" is no longer supported — this build has no Supabase ' +
+          'provider. Refusing to boot rather than falling back to the mock.'
       );
     default: {
       const unreachable: never = kind;

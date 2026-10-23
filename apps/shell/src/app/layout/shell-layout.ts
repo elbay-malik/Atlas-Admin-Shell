@@ -141,7 +141,18 @@ interface NavEntry extends RemoteDefinition {
               {{ user.role }}
             </ui-badge>
             <ui-button variant="secondary" (pressed)="auth.logout()">Sign out</ui-button>
+          } @else if (identityProvider) {
+            <!--
+              Real identity: one button, and the hint is the PROVIDER name. The
+              persona buttons below are not a different label for the same
+              thing — they pass 'admin'/'viewer' as the login hint, which a real
+              provider would read as the name of an OAuth provider and fail on.
+            -->
+            <ui-button (pressed)="auth.login(identityProvider)">
+              Sign in with {{ providerLabel }}
+            </ui-button>
           } @else {
+            <!-- Mock only: the hint is a persona, and anyone may pick one. -->
             <ui-button (pressed)="auth.login('admin')">Sign in as admin</ui-button>
             <ui-button variant="secondary" (pressed)="auth.login('viewer')">as viewer</ui-button>
           }
@@ -161,6 +172,18 @@ export class ShellLayout {
   private readonly document = inject(DOCUMENT);
   private readonly health = inject(RemoteHealthStore);
   protected readonly auth = inject(AtlasAuth);
+
+  /**
+   * The configured OIDC provider, or null when this deployment runs the mock.
+   *
+   * Read from the manifest rather than from a build flag, because which
+   * identity provider is in use is a deployment decision (ADR-0010) — the same
+   * bundle serves a mock-auth preview and a real-auth production.
+   */
+  protected readonly identityProvider = this.manifest.auth?.provider ?? null;
+  protected readonly providerLabel = this.identityProvider
+    ? this.identityProvider.charAt(0).toUpperCase() + this.identityProvider.slice(1)
+    : '';
 
   /** Drawer state. Only meaningful below md, where the sidebar is off-canvas. */
   protected readonly menuOpen = signal(false);

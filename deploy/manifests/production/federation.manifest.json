@@ -1,6 +1,11 @@
 {
   "version": 1,
   "apiMode": "mock",
+  "auth": {
+    "kind": "nhost",
+    "url": "https://znphjikmxtijqhgsbkon.auth.eu-central-1.nhost.run/v1",
+    "provider": "github"
+  },
   "remotes": {
     "iam": {
       "url": "https://atlas-iam.eleo-666.workers.dev/remoteEntry.json",
