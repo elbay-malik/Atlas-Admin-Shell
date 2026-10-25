@@ -191,12 +191,23 @@ shell sets `not_found_handling: "single-page-application"` because it owns route
 deliberately do not, so a missing chunk 404s and the shell's error boundary can classify it rather
 than receiving HTML with a 200.
 
-The environment lives in the **manifest**, never in the build (ADR-0010):
+Deploys run from a developer machine: the `Deploy` workflow is disabled while the repository is
+private (ADR-0013), so nothing publishes on merge. The environment lives in the **manifest**, never
+in the build (ADR-0010). With `CLOUDFLARE_API_TOKEN` set in the shell:
 
 ```bash
 pnpm run manifest:check                       # validate every environment manifest
-ATLAS_ENV=production pnpm exec nx run shell:deploy   # needs Cloudflare credentials
+for app in iam feature-flags audit-logs shell; do
+  ATLAS_ENV=production pnpm exec nx run $app:deploy
+done
 ```
+
+Deploy all four from the same commit, remotes first and the shell last. Shell and remotes share
+singletons at runtime, so a new shell in front of old remotes risks a version mismatch; the shell
+goes last because it carries the manifest that points browsers at the remotes. A merge does not
+deploy anything: on 2026-10-25 production turned out to be missing #38–#44 and was still serving
+the mock personas. After deploying, check the live manifest rather than the deploy log:
+`curl -s https://atlas-shell.eleo-666.workers.dev/federation.manifest.json`.
 
 The deploy target builds, swaps in that environment's registry, and uploads — in
 that order, as one step. Applying the manifest separately would not work: the target
@@ -206,9 +217,9 @@ whose remotes all point at localhost. `apply-manifest` reads the file back after
 copying so that failure cannot pass unnoticed.
 
 `nx affected -t deploy -c check` type-checks every wrangler config against its asset directory and
-needs no account, so CI proves the deploy config on every pull request. Actual publishing is
-skipped until `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set as repository secrets —
-the deploy workflow reports that it skipped rather than failing.
+needs no account; `ci:local` runs it on every change. The `Deploy` workflow (`.github/workflows/
+deploy.yml`) is kept for when Actions is back: it publishes only when `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` are set as repository secrets, and reports that it skipped otherwise.
 
 Repointing a remote is editing one file in `deploy/manifests/<env>/` and re-uploading it. No
 rebuild, no shell redeploy.
@@ -233,8 +244,8 @@ rebuild, no shell redeploy.
 - [ ] **Slice 3 — BFF + Deploys**: Cloudflare Workers (static assets) per app, `nx affected`
   deploy pipelines, PR previews, edge BFF, real identity provider swap-in.
   - [x] Per-environment manifests as deploy artifacts, wrangler config per app, deploy targets and
-    a credential-gated deploy workflow. Validated end to end with `wrangler --dry-run`; **publishing
-    is blocked until Cloudflare credentials exist** (see Deploying).
+    a credential-gated deploy workflow. All four Workers are live; publishing runs locally while
+    the workflow is disabled (ADR-0013, see Deploying).
   - [x] A real identity provider behind the existing `AtlasAuth` interface. The first adapter was
     Supabase; ADR-0006 carries an honest amendment on where the "drop-in" claim did and did not
     hold. It was replaced by Nhost (ADR-0014): a hand-written REST client with no SDK, the edge
@@ -248,7 +259,7 @@ rebuild, no shell redeploy.
     Closed a real hole: a viewer could toggle a feature flag (ADR-0011).
   - [x] Remotes call the BFF over HTTP behind a contract, selected by the manifest's `apiMode`;
     the mock stays the default so the console runs with no backend.
-  - [ ] PR previews (needs Cloudflare credentials).
+  - [ ] PR previews. Not built; they need a workflow to run in, and Actions is disabled (ADR-0013).
 - [ ] **Slice 4 — Polish**: Lighthouse CI + Core Web Vitals, axe pass, whitepaper completion,
   demo video, Angular 22 migration (deferred on cost/benefit, see ADR-0002) as a showcase PR.
   - [x] Lighthouse in CI over the production build, measuring both the shell alone and a **federated**
