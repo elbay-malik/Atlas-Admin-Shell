@@ -34,7 +34,7 @@ flowchart TD
     subgraph Shell["shell — dynamic host, :4200"]
         Boot["main.ts<br/>fetch manifest, no-cache → initFederation()<br/>installs the import map"]
         Router["Router<br/>canMatch(AtlasAuth.hasRole) per remote — ADR-0007"]
-        Auth["AtlasAuth<br/>shared singleton — mock or Supabase OIDC, ADR-0006"]
+        Auth["AtlasAuth<br/>shared singleton — mock or Nhost, ADR-0006/0014"]
         Bus["AtlasEventBus<br/>shared singleton — bounded replay, ADR-0005"]
     end
 
@@ -45,7 +45,7 @@ flowchart TD
     end
 
     subgraph Edge["Edge BFF — /api/*, only if apiMode: 'http' — ADR-0011"]
-        BFF["authz table + JWT verify, ES256<br/>server-only invariants: last-admin,<br/>self-demotion, idempotency"]
+        BFF["authz table + JWT verify, RS256<br/>server-only invariants: last-admin,<br/>self-demotion, idempotency"]
         JWKS[("JWKS")]
     end
 
@@ -101,13 +101,15 @@ dated receipts (npm peer ranges, GitHub issue states) for its claims.
 | [0003](docs/adr/0003-zoneless-change-detection.md) | Zoneless change detection everywhere; zone.js never enters the dependency tree |
 | [0004](docs/adr/0004-manifest-driven-dynamic-host.md) | Remotes resolved at runtime from a manifest, not build-time imports |
 | [0005](docs/adr/0005-per-domain-signal-stores-and-typed-event-contracts.md) | Per-domain Signal Stores + typed, versioned cross-MFE event contracts |
-| [0006](docs/adr/0006-mock-first-auth-behind-interface.md) | Mock-first auth behind a DI interface; OIDC (Supabase) as a drop-in later |
+| [0006](docs/adr/0006-mock-first-auth-behind-interface.md) | Mock-first auth behind a DI interface; a real provider as a drop-in later (now Nhost, ADR-0014) |
 | [0007](docs/adr/0007-remote-error-boundaries.md) | Remote error boundaries: reject rather than cache a fallback; recover by re-initialising the remote |
 | [0008](docs/adr/0008-storybook-webpack-framework-with-a11y-gate.md) | Storybook on the webpack Angular framework, with accessibility as a CI gate |
 | [0009](docs/adr/0009-federation-e2e-on-production-builds-in-ci.md) | Federation e2e against production builds served statically in CI |
 | [0010](docs/adr/0010-manifest-is-a-deployment-artifact.md) | The federation manifest is a deployment artifact, not a build input |
 | [0011](docs/adr/0011-edge-bff-as-the-authorization-boundary.md) | The edge BFF is the authorization boundary; the client only hides things |
 | [0012](docs/adr/0012-lighthouse-without-lhci-and-an-honest-budget.md) | Drive Lighthouse directly rather than the dormant LHCI wrapper; budget for the architecture we chose |
+| [0013](docs/adr/0013-ci-runs-locally-while-the-repository-is-private.md) | Run the gates locally while the repository is private |
+| [0014](docs/adr/0014-nhost-replaces-supabase-as-identity-provider.md) | Nhost replaces Supabase as the identity provider |
 
 ## Quickstart
 
@@ -229,13 +231,17 @@ rebuild, no shell redeploy.
 - [x] **Slice 2 — Domains + State**: NgRx Signal Stores per remote, typed event bus + contract
   tests, error boundaries with retry/fallback, Storybook + a11y, federation E2E suite in CI.
 - [ ] **Slice 3 — BFF + Deploys**: Cloudflare Workers (static assets) per app, `nx affected`
-  deploy pipelines, PR previews, edge BFF, Supabase OIDC swap-in.
+  deploy pipelines, PR previews, edge BFF, real identity provider swap-in.
   - [x] Per-environment manifests as deploy artifacts, wrangler config per app, deploy targets and
     a credential-gated deploy workflow. Validated end to end with `wrangler --dry-run`; **publishing
     is blocked until Cloudflare credentials exist** (see Deploying).
-  - [x] Supabase OIDC provider behind the existing `AtlasAuth` interface, unit-tested against a fake
-    client. The mock remains the default; **a real sign-in needs a Supabase project**. ADR-0006
-    carries an honest amendment on where the "drop-in" claim did and did not hold.
+  - [x] A real identity provider behind the existing `AtlasAuth` interface. The first adapter was
+    Supabase; ADR-0006 carries an honest amendment on where the "drop-in" claim did and did not
+    hold. It was replaced by Nhost (ADR-0014): a hand-written REST client with no SDK, the edge
+    pinned to RS256 against the project's live JWKS, and the role read from
+    `x-hasura-allowed-roles`. The production manifest names the Nhost project; dev and e2e still
+    run on the mock. **Not yet shown:** a production sign-in end to end — the production redirect
+    URL was not allow-listed on the identity project as of #41, and no later change records it.
   - [x] Edge BFF on the shell's Worker (`/api/*`), verifying tokens and enforcing authorization
     server-side — including invariants the client cannot, such as refusing to demote the last admin.
     Closed a real hole: a viewer could toggle a feature flag (ADR-0011).

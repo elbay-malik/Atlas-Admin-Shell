@@ -110,9 +110,9 @@ export function resolveManifest(rawManifest: unknown): AtlasManifest {
 /**
  * Chooses the identity provider for the configured `auth.kind`.
  *
- * The switch is exhaustive on purpose: when the Nhost provider lands, removing
- * its `throw` without adding a branch will not compile. That is the point —
- * the alternative is a `kind` the shell quietly does not recognise.
+ * The switch is exhaustive on purpose: adding a kind to AtlasAuthKind without
+ * adding a branch here will not compile. That is the point — the alternative
+ * is a `kind` the shell quietly does not recognise.
  *
  * It throws rather than degrading because of what the degradation would be. A
  * manifest that FAILS the contract already falls back to zero remotes, which
@@ -159,8 +159,9 @@ export function bootstrap(rawManifest: unknown, federation: NativeFederationResu
       // WHICH identity provider is a deployment decision, exactly like apiMode
       // (ADR-0010): an environment that configures `auth` gets the real one,
       // and everything else — a fresh checkout, CI, a reviewer with no account
-      // — keeps the mock. That is what lets this repo run with no Supabase
-      // project at all while production runs with one, from the same bundle.
+      // — keeps the mock. That is what lets this repo run with no identity
+      // project at all while production's manifest names its Nhost project,
+      // from the same bundle.
       provideIdentity(manifest.auth),
       provideAtlasHttp(),
       // The mock auth cannot produce a token the edge would accept, so the data

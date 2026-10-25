@@ -1,6 +1,6 @@
 # ADR-0011: The edge BFF is the authorization boundary; the client only hides things
 
-- Status: accepted
+- Status: accepted; amended 2026-10-25 (verifier moved to Nhost, ADR-0014)
 - Date: 2026-09-05
 - Deciders: Elbay Malik
 
@@ -46,10 +46,12 @@ Option 1. The shell's existing Cloudflare Worker gains `main` and
   `env.ASSETS.fetch` would apply `not_found_handling`, returning `index.html` with a 200 — the same
   hazard the wrangler config already documents for chunks, and it would surface to a client as a
   confusing parse error rather than a 404.
-- Verification uses **`jose` against the project's JWKS**, with `algorithms` pinned to `ES256` and
-  issuer and audience checked. The signature check is the easy fifth of a correct verifier; the rest
-  is algorithm allowlisting, `kid` selection across a rotating key set, and claim validation. Hand
-  rolling that would be a worse artifact, not a leaner one.
+- Verification uses **`jose` against the project's JWKS**, with `algorithms` pinned to `RS256` and
+  the issuer checked. As first decided this read `ES256`, with issuer *and audience* checked; both
+  changed with the move to Nhost, and the amendment dated 2026-10-25 below says why. The signature
+  check is the easy fifth of a correct verifier; the rest is algorithm allowlisting, `kid` selection
+  across a rotating key set, and claim validation. Hand rolling that would be a worse artifact, not a
+  leaner one.
 - The role is **re-derived server-side** with `toAtlasRole`, moved into `@atlas/shared-contracts` so
   the browser and the edge consume one function. Two implementations of that rule would eventually
   disagree, and the disagreement would be a privilege bug.
@@ -100,7 +102,9 @@ Option 1. The shell's existing Cloudflare Worker gains `main` and
 
 ## Verification
 
-Checked 2026-09-05:
+Checked 2026-09-05. The last two bullets describe the **pre-migration** verifier, written for
+Supabase; they are kept as the receipt they were, and the amendment dated 2026-10-25 records what
+replaced them.
 
 - With `run_worker_first` set to an array, Cloudflare's own documentation states that non-matching
   requests "serve an asset that matches or serve the index.html fallback, without ever hitting this
@@ -188,15 +192,90 @@ Two more gaps from the same audit, both in this file's subject:
   jose validates `issuer` and `audience` only when those options are **defined**, and silently skips
   the check when they are not. Dropping those vars would not break the verifier loudly — it would
   quietly stop checking who issued the token. The three vars the Worker reads are now asserted
-  absolutely, not merely identically.
+  absolutely, not merely identically. *(Since PR #39 there are two, `ATLAS_JWKS_URL` and
+  `ATLAS_JWT_ISSUER`: the audience check and its var were removed on purpose, and
+  `config-parity.spec.ts` says so in place, so the absence reads as a decision rather than as the
+  omission that test exists to catch. See the amendment dated 2026-10-25.)*
 
-### Not demonstrated without a Supabase project
+### Not demonstrated without a Supabase project (pre-migration; superseded 2026-10-25)
 
-The configured JWKS URL, the real issuer string, that the provider ever mints `atlas_role`, and any
-real token refresh. The local-key tests prove the verifier is correct; they cannot prove it is
-pointed at the right place.
+As written before the move to Nhost: the configured JWKS URL, the real issuer string, that the
+provider ever mints `atlas_role`, and any real token refresh. The local-key tests prove the verifier
+is correct; they cannot prove it is pointed at the right place. The amendment below records which of
+these are now demonstrated against Nhost and which are not.
+
+## Amendment, 2026-10-25: Nhost replaces Supabase, so the verifier pins RS256 and drops the audience check
+
+Identity moved from Supabase to Nhost across PRs #38–#42; ADR-0014 records that decision. This ADR's
+decision — the edge is the authorization boundary, the role is re-derived server-side by one shared
+function — is unchanged. Three things the verifier does are not, and each is pinned by a test.
+
+**The pin is `RS256`, not `ES256`** (PR #39). Nhost's auth service supports only HS\* and RS\*
+algorithms, so the original pin could never have verified one of its tokens. RS256 keeps the
+asymmetric shape: `createRemoteJWKSet` stays, no shared secret enters the Worker, and the edge does
+not gain the ability to *mint* the tokens it verifies, which HS256 would have handed it. The
+algorithm-confusion probe reversed direction with it. It used to sign with an RSA key to prove
+`['ES256']` refused it; it now signs with an ES256 key the test JWKS genuinely publishes, alongside
+the RS256 signing key, to prove `['RS256']` refuses it. The EC key stays published on purpose — a
+probe signed with an unpublished key is stopped by the signature check and proves nothing about the
+pin.
+
+**The audience is deliberately not checked** (PR #39). A real Nhost access token's payload is exactly
+`exp, iat, iss, sub, "https://hasura.io/jwt/claims"`, with no `aud`, and jose rejects a token
+without one whenever an `audience` option is passed. Keeping the check would have returned 401 for
+every request in production, each with a valid signature. What it bought rests on the issuer
+instead: an audience distinguishes between several consumers of one issuer, and this issuer serves
+one project and one consumer. The cost is stated rather than hidden: if the issuer ever serves a
+second consumer, a token minted for it would verify here. Putting the `audience` option back does
+not close that gap on its own — while the provider mints no `aud`, it would 401 every token again.
+Closing it means configuring the provider to emit an audience first; `verify.ts` says to restore the
+check once one is emitted, and not to leave it configured-but-unenforced. Three tests pin the
+removal: a token naming an unexpected audience is accepted, a token with none is accepted, and a
+token from another issuer is still refused.
+
+**The role comes from `x-hasura-allowed-roles`** (PR #40), read inside the
+`https://hasura.io/jwt/claims` namespace by the same `toAtlasRole` in `@atlas/shared-contracts`:
+`admin` when that list contains `'admin'`, `viewer` otherwise. Not `x-hasura-default-role` — a real
+admin token reads `allowed-roles ["user","me","admin"]` with `default-role "user"`, so reading the
+default role would have made a genuine admin a viewer, and failing closed would have made that look
+like correct behaviour. The negative cases now refused admin are a `default-role: admin` without the
+allowed-roles entry, a role placed at the top level outside the namespace, and a display name of
+`"admin"`. These replace the pre-migration cases above, which asserted that `user_metadata` and the
+database `role` claim were ignored.
+
+Unchanged: `issuer` is pinned, `requiredClaims: ['exp']` still refuses a token with no lifetime, and
+`clockTolerance` is 5 seconds.
+
+### What is and is not demonstrated against Nhost
+
+Demonstrated, per PRs #39 and #40, against the live project rather than its documentation:
+
+- **The JWKS source.** `ATLAS_JWKS_URL` in `apps/shell/wrangler.jsonc` points at
+  `https://znphjikmxtijqhgsbkon.auth.eu-central-1.nhost.run/v1/.well-known/jwks.json`, loaded
+  through `createRemoteJWKSet` with a per-URL cache at module scope. Fetched live, it resolves to an
+  RSASSA-PKCS1-v1_5 key under `kid f6de00eb-…`, and an ES256 lookup for that kid is refused.
+- **The issuer string.** `ATLAS_JWT_ISSUER` is
+  `https://znphjikmxtijqhgsbkon.auth.eu-central-1.nhost.run/v1`. `tools/check-manifests.mjs` now
+  fails when it does not start with the origin of the manifest's `auth.url`, and caught a
+  Supabase/Nhost mismatch on its first run.
+- **The claim shape.** A real token's payload, its lack of `aud`, and a real admin token whose
+  allowed-roles include `admin`. Test fixtures are built from captured tokens.
+
+Still not demonstrated:
+
+- **A real token reaching the edge in production.** Production's `apiMode` is `mock`, so the
+  remotes serve fixtures and no browser in production sends a bearer to `/api/*`. The verifier is
+  correct and pointed at the right place; nothing yet shows it doing that job on real traffic.
+- **A real token refresh through the console.** The identity client's refresh path is unit-tested,
+  but the production redirect URL was not yet allow-listed on the identity project as of PR #41,
+  and no later PR records that it is.
+- **Revocation.** Deactivation still does not revoke a token (Consequences, above); nothing in the
+  migration changed that.
+- Whether the production shell is currently deployed with the Nhost manifest. Nothing in the
+  repository records a deploy.
 
 ## References
 
 - https://developers.cloudflare.com/workers/static-assets/routing/worker-script/
 - https://developers.cloudflare.com/workers/static-assets/binding/
+- ADR-0014: Nhost replaces Supabase as the identity provider

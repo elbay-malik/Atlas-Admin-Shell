@@ -11,5 +11,7 @@ same rule the browser uses (`toAtlasRole` in `@atlas/shared-contracts`).
 ## Running the tests
 
 `nx test shell-bff` runs the suite inside real workerd via `@cloudflare/vitest-plugin`, using
-`wrangler.test.jsonc` so it never depends on a built `dist/`. The JWT tests generate their own ES256
-key pair, so the crypto path is genuinely exercised with no identity provider.
+`wrangler.test.jsonc` so it never depends on a built `dist/`. The JWT tests generate their own RS256
+key pair, so the crypto path is genuinely exercised with no identity provider. The test JWKS also
+publishes an ES256 key on purpose: the algorithm-confusion test signs with it and expects the RS256
+pin to refuse the token, which a probe signed with an unpublished key could not prove.

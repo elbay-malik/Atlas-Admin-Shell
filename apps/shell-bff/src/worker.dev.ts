@@ -4,12 +4,13 @@ import { Principal } from './authz';
 /**
  * A DEV-ONLY Worker entry that trusts the mock auth's fake token.
  *
- * It exists so the browser-to-BFF path can be exercised end to end without a
- * Supabase project. It is a SEPARATE entry point, referenced only by
- * wrangler.dev.jsonc: the production config points `main` at worker.ts, so this
- * bypass is not merely disabled in the deployed artifact — it is not in it at
- * all. config-parity.spec.ts asserts that, because a flag someone could flip is
- * a much weaker guarantee than code that was never bundled.
+ * It exists so the browser-to-BFF path can be exercised end to end without an
+ * identity provider: no Nhost project, no sign-in, no JWKS fetch. It is a
+ * SEPARATE entry point, referenced only by wrangler.dev.jsonc: the production
+ * config points `main` at worker.ts, so this bypass is not merely disabled in
+ * the deployed artifact — it is not in it at all. config-parity.spec.ts
+ * asserts that, because a flag someone could flip is a much weaker guarantee
+ * than code that was never bundled.
  */
 const MOCK_TOKEN = /^mock\.([\w-]+)\.(admin|viewer)$/;
 

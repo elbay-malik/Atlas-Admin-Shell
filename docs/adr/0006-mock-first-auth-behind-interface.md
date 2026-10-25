@@ -10,12 +10,18 @@ Auth must exist from slice 1 (role-gated nav, cross-remote context propagation) 
 identity provider (Supabase OIDC is the planned one) needs account provisioning and keys, and the
 demo must keep working if that provider is down.
 
+**Update, 2026-10-25.** The provider is now Nhost, not Supabase (ADR-0014, PRs #38–#42). The
+decision itself stands: the mock still ships first behind `AtlasAuth`, and the real provider
+implements the same contract. Each Supabase passage below is kept as it was written and carries a
+dated note saying what is now true.
+
 ## Considered Options
 
 1. **Abstract `AtlasAuth` + mock provider first (chosen)** — signal-based interface
    (`user`, `isAuthenticated`, `hasRole`, `login`, `logout`, async `init()` seam) as the DI
    token; `MockAtlasAuth` ships two personas (admin/viewer). Supabase OIDC implements the same
-   interface in slice 3.
+   interface in slice 3. *(Update, 2026-10-25: Nhost does, through a hand-written REST client;
+   see ADR-0014.)*
 2. Supabase from day one — blocks slice 1 on external provisioning; no offline fallback.
 3. Hand-rolled JWT server — most effort, least credible.
 
@@ -35,12 +41,19 @@ persona-visible-inside-a-remote check doubles as the federation singleton integr
 
 ## Verification
 
+The receipts below are about Supabase and are kept as the record of what was checked at the time.
+None of them describes the current provider (ADR-0014).
+
 Checked 2026-07-08 (for the planned slice-3 provider): `@supabase/supabase-js` `latest=2.110.1`
 (v3 only as `3.0.0-next.*` prerelease — avoided); Supabase free plan includes 50,000 MAU;
 `auth.getClaims()` is current and recommended over `getUser()` for local JWT verification when
 asymmetric signing keys are enabled.
 
 ## Amendment, 2026-09-05: the swap was ~80% a drop-in, and the rest is recorded honestly
+
+*(Update, 2026-10-25: the Supabase provider this amendment describes was deleted in PR #41. Its
+replacement is in ADR-0014. The two contract changes below (the login hint and `getAccessToken`) are
+still in the contract, and the limitation in point 3 still applies to `TokenAtlasAuth`.)*
 
 The real provider now exists (`apps/shell/src/app/auth/`), written against the same `AtlasAuth`
 contract and fully unit-tested against a hand-written fake of the client. Implementing it tested the
@@ -107,6 +120,13 @@ never read from the `role` claim, which is the Postgres role and is `authenticat
 Anything unrecognised fails closed to `viewer`. This is the security-critical mapping in the change
 and is covered by dedicated tests, including the two negative cases.
 
+**Update, 2026-10-25.** That mapping is gone along with Supabase. The role now comes from one
+server-minted claim: `admin` when `x-hasura-allowed-roles` (inside the
+`https://hasura.io/jwt/claims` namespace) contains `'admin'`, `viewer` otherwise.
+`x-hasura-default-role` is deliberately not read: a real admin token carries `default-role "user"`.
+User-editable fields, the display name among them, still never grant a role, and the rule still
+fails closed. See ADR-0014 and `libs/shared/contracts/src/lib/claims.ts`.
+
 **Keeping the client out of the remotes.** `@atlas/shared-auth` deliberately does not import
 Supabase. Adding one such file to that barrel would put the client in every remote's shared set,
 because each remote's entry graph already reaches the lib. Four layers enforce it: the provider lives
@@ -115,6 +135,31 @@ in the shell; the three remotes list the packages in their federation `skip`; an
 temporarily adding an import and watching lint fail); and a CI step greps the built remote bundles,
 because only that can see a transitive path.
 
+**Update, 2026-10-25.** The boundary stands, but most of the paragraph above describes a vendor
+that is no longer here. What is true today:
+
+- **There is no identity package.** The provider is a REST client in the shell
+  (`nhost-identity.client.ts`), and `@supabase/auth-js` was removed from `package.json`. No identity
+  SDK has replaced it. The barrel risk described above remains possible in principle but has no
+  package to act on today.
+- **The `skip` entries are tripwires.** As merged, the three remotes list `@supabase/auth-js`,
+  `@supabase/supabase-js` and `@nhost/nhost-js`, with a comment noting there is no package to skip.
+  The docs/nhost-record branch keeps only `@nhost/nhost-js`.
+- **The lint rule banned only `@supabase/*` as merged** (80bd90f), so the verified-by-adding-an-import
+  receipt above covers the old vendor only. The docs/nhost-record branch adds `@nhost/*` to the same
+  four scopes. The client the shell actually uses lives in `apps/shell`, and the scope constraints
+  plus Nx's refusal to import an app project keep it out of the remotes and shared libs. No package
+  ban names it.
+- **The bundle grep is keyed by vendor.** It checks `GoTrueClient` and `@supabase/` as before, and
+  adds `@nhost/`, `nhost-js` and `hasura-auth` (PR #38). The old list would have kept passing green
+  if a remote had bundled a different vendor's client.
+
+Also worth recording against amendment point 1: widening `login()` to an opaque hint did not stop the
+header passing `'admin'` / `'viewer'` as that hint. A real provider reads the hint as an OAuth
+provider name, so both buttons would have failed against Supabase too, and no one noticed because
+that config was never deployed. PR #41 fixed it: the header shows one "Sign in with <provider>" button
+(rendered "Sign in with Github" for the production manifest) when the manifest names a provider, and the persona buttons only for the mock.
+
 ### Still blocked on provisioning
 
 Everything above is verified with no Supabase account. What cannot be demonstrated until one exists:
@@ -122,6 +167,23 @@ the OAuth round trip, a real `TOKEN_REFRESHED` from an expiring token, JWKS veri
 `getClaims()` falls back to a network call rather than local verification until asymmetric signing
 keys are enabled), and writing `app_metadata.atlas_role` onto a user, which needs the service role.
 
+**Update, 2026-10-25.** Against Supabase, the record shows one partial check: PR #22 confirmed the
+live project's JWKS published an EC P-256 key with `alg: ES256`, matching the pin. Nothing shows the
+OAuth round trip, a real refresh, a token verified against that JWKS, or the `app_metadata` write. A project ref and publishable key were later committed (#22), but PR #39 says production
+never served that manifest block. The provider in use now is Nhost (ADR-0014). Against its live
+project:
+
+- The OAuth redirect and the token, sign-out and user endpoints were exercised by hand.
+- The JWKS was checked: it returns an RSA (RS256) key, and an ES256 lookup for the same kid is refused.
+- A real admin token carries `admin` in `x-hasura-allowed-roles`. That replaces the
+  `app_metadata.atlas_role` model, so no service role is needed.
+
+Still not demonstrated: the production redirect URL is not known to be allow-listed (PR #41), and
+production runs `apiMode: "mock"`, so no real request has been verified at the edge there.
+ADR-0014's "Not demonstrated" section is the current list.
+
 ## References
 
-- https://supabase.com/docs/reference/javascript/auth-getclaims
+- https://supabase.com/docs/reference/javascript/auth-getclaims (historical: the provider this ADR
+  originally planned)
+- ADR-0014: Nhost replaces Supabase as the identity provider

@@ -96,8 +96,8 @@ Confirmed functionality:
 - Cross-remote communication is typed and versioned over a shared event bus with
   bounded replay (ADR-0005); auth context propagates by DI as a federation
   singleton, never by events.
-- Authentication is either the documented mock personas or Supabase OIDC with
-  GitHub as the provider, chosen by the manifest's `auth` block.
+- Authentication is either the documented mock personas or Nhost with GitHub as
+  the OAuth provider, chosen by the manifest's `auth` block (ADR-0014).
 
 Durable technical constraints future design work must respect:
 
@@ -122,8 +122,12 @@ Explicitly undecided / not yet true:
 - The repository is private and CI minutes are exhausted, so the gates run locally
   via `pnpm run ci:local` (ADR-0013). There is no green check on a pull request.
 - Going public has not been decided.
-- `apiMode` is `'mock'` in production today; authentication is real, flag data is
-  not.
+- `apiMode` is `'mock'` in production today, so flag data is not real and nothing
+  exercises the edge's real HTTP path in production. The identity project and its
+  tokens are real; a production sign-in end to end is not yet shown — the
+  production redirect URL was not allow-listed as of #41, and nothing since
+  records that it is. Whether the deployed shell carries the Nhost manifest is
+  not recorded either.
 
 ## Brand Commitments
 
@@ -144,14 +148,17 @@ Real and verifiable:
 
 - Four deployed Workers on `*.eleo-666.workers.dev`; the console composes live from
   real cross-origin remote entries.
-- Thirteen ADRs in `docs/adr/`, MADR-style, several carrying dated verification
+- Fourteen ADRs in `docs/adr/`, MADR-style, several carrying dated verification
   receipts — and some recording expired ones.
 - A 14-gate local pipeline (`tools/ci-local.mjs`): zoneless guard, manifest
   contract, token drift, lint, typecheck, unit and contract suites, four builds,
   Storybook build, wrangler dry-runs, bundle check, axe over Storybook, federation
   e2e against production builds, edge-BFF e2e over real HTTP, Lighthouse.
 - Storybook as a component workbench, with axe as a gate (ADR-0008).
-- Real Supabase GoTrue project serving an ES256 JWKS, GitHub OAuth enabled.
+- A real Nhost project (`eu-central-1`) whose JWKS serves an RSA key; the edge
+  pins RS256 and checks the issuer. GitHub OAuth was exercised by hand, and live
+  tokens were checked for an `admin` entry in `x-hasura-allowed-roles` and for the
+  email and display-name claims (#39–#42).
 
 Must not be fabricated — these do not exist:
 

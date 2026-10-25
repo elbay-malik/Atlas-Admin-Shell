@@ -34,30 +34,42 @@ export default [
               sourceTag: 'scope:iam',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:iam'],
               // the identity client is shell-only; a remote reaches auth through
-              // the shared AtlasAuth singleton, never the vendor SDK (ADR-0006)
-              bannedExternalImports: ['@supabase/*'],
+              // the shared AtlasAuth singleton, never an identity client of its
+              // own (ADR-0006). See scope:shared for what the ban list is for.
+              bannedExternalImports: ['@supabase/*', '@nhost/*'],
             },
             {
               sourceTag: 'scope:flags',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:flags'],
               // the identity client is shell-only; a remote reaches auth through
-              // the shared AtlasAuth singleton, never the vendor SDK (ADR-0006)
-              bannedExternalImports: ['@supabase/*'],
+              // the shared AtlasAuth singleton, never an identity client of its
+              // own (ADR-0006). See scope:shared for what the ban list is for.
+              bannedExternalImports: ['@supabase/*', '@nhost/*'],
             },
             {
               sourceTag: 'scope:audit',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:audit'],
               // the identity client is shell-only; a remote reaches auth through
-              // the shared AtlasAuth singleton, never the vendor SDK (ADR-0006)
-              bannedExternalImports: ['@supabase/*'],
+              // the shared AtlasAuth singleton, never an identity client of its
+              // own (ADR-0006). See scope:shared for what the ban list is for.
+              bannedExternalImports: ['@supabase/*', '@nhost/*'],
             },
             {
               sourceTag: 'scope:shared',
               onlyDependOnLibsWithTags: ['scope:shared'],
-              // keeping it out of the shared libs is the load-bearing rule: a
-              // Supabase import in @atlas/shared-auth's barrel would pull the
-              // client into every remote's shared set
-              bannedExternalImports: ['@supabase/*'],
+              // keeping it out of the shared libs is the load-bearing rule: an
+              // identity client exported from @atlas/shared-auth's barrel would
+              // land in every remote's shared set.
+              //
+              // Today the client is hand-written fetch calls in apps/shell
+              // (scope:shell, type:app), so no rule here names it: the
+              // depConstraints above already refuse scope:shell to every other
+              // scope, and Nx refuses any import of an app project outright.
+              // What this list adds is the SDK route. Neither package is a
+              // dependency; '@nhost/*' is the SDK someone would reach for next,
+              // and '@supabase/*' is kept because the ban costs nothing and
+              // matches the bundle check's needles (tools/check-remote-bundles.mjs).
+              bannedExternalImports: ['@supabase/*', '@nhost/*'],
             },
             // layering: apps sit on top; utils sit at the bottom
             {

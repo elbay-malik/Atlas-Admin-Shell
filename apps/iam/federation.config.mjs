@@ -48,10 +48,11 @@ export default withNativeFederation({
     // boundary rule and the CI bundle check exist too (ADR-0006).
     //
     // The current provider is a few hundred lines of fetch calls in this repo
-    // rather than an SDK, so there is no package to skip today. These names
-    // stay as a tripwire for the day someone reaches for one.
-    '@supabase/auth-js',
-    '@supabase/supabase-js',
+    // rather than an SDK, so there is no package to skip today. Nhost's SDK
+    // stays named as a tripwire for the day someone reaches for one. The
+    // Supabase entries were dropped once @supabase/auth-js left package.json
+    // and the lockfile: skip only matters for an installed dependency, and the
+    // bundle check still greps for '@supabase/' in case one comes back.
     '@nhost/nhost-js',
   ],
 

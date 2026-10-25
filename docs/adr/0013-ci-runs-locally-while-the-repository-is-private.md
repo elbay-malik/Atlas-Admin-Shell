@@ -31,6 +31,13 @@ engineering and then cannot verify itself has lost the argument, whatever its RE
    Cloudflare token appears in any commit, and the only key committed is the Supabase *publishable*
    key, which ships in the browser bundle by design. **Deferred, not rejected** — the owner is not
    ready to publish today. It remains the best answer and should be revisited.
+   *Update, 2026-10-25:* that key is no longer in the tree. It was added to the production manifest
+   in d5a4848 (#22) and removed in 47da3c6 (#39), which dropped the Supabase `auth` block entirely;
+   the Nhost block that replaced it in 7dc6bc0 (#41) carries no key at all (ADR-0014). It is still
+   in **history**, so the audit's conclusion for option 2 is unchanged: publishing the repository
+   publishes that key. It is browser-safe by design and belongs to the old Supabase project
+   (`pgrngevieiupeokdxwpa`). The only `sb_publishable_` strings left in the tree are test fixtures
+   and a comment in `tools/check-manifests.mjs`.
 3. **Weaken the gates to fit the budget.** Rejected outright. Dropping e2e or Lighthouse to save
    minutes would delete exactly the coverage that unit tests structurally cannot provide — the
    cross-origin federation path, axe on rendered output, the cost of runtime composition.
@@ -96,3 +103,4 @@ Checked 2026-10-22:
 
 - https://docs.github.com/billing/managing-billing-for-github-actions/about-billing-for-github-actions
 - ADR-0009 (what the e2e gate exists to cover), ADR-0012 (the Lighthouse gate and its budget)
+- ADR-0014: Nhost replaces Supabase as the identity provider

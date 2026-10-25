@@ -14,11 +14,17 @@ it went stale once already, and the failure mode is a console that boots with ze
 
 ## Why production says `apiMode: "mock"`
 
-The edge BFF is deployed (it shares the shell's Worker), but it verifies real OIDC tokens against a
-JWKS endpoint, and there is no identity provider yet (ADR-0006). Pointing production at it would
-mean every request answering 401. `mock` is therefore the correct value today, and it is written
-out rather than left to the `absent means mock` default so that it reads as a decision — with a
-single, reviewable place to change when a Supabase project exists.
+The edge BFF is deployed (it shares the shell's Worker) and verifies real tokens against a JWKS
+endpoint. The reason first recorded here — no identity provider, so every request would answer
+401 — no longer holds: the manifest's `auth` block now names a real Nhost project, and the
+Worker's `ATLAS_JWT_ISSUER` names the same one (ADR-0014; `manifest:check` fails if the two
+disagree). The value is still `mock`, and no change since records a decision on when it should
+become `http`; until it does, nothing exercises the edge's real HTTP path in production. It stays
+written out rather than left to the `absent means mock` default, so that it reads as a decision.
+
+Separately, and not a condition on `apiMode`: as of #41 the production redirect URL was not
+allow-listed on the identity project, which #41 lists as outstanding before a production deploy.
+No later change records it as done.
 
 ## The deploy pre-flight
 

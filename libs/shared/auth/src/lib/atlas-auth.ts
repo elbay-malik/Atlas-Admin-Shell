@@ -23,9 +23,11 @@ export type MockPersona = 'admin' | 'viewer';
 export type AtlasLoginHint = string;
 
 /**
- * The auth contract every provider implements — the mock today, Supabase OIDC
- * later. Shared as a federation singleton, so shell and remotes observe the
- * SAME reactive auth state; context propagates by DI, never by events.
+ * The auth contract every provider implements — the mock, and the shell's
+ * TokenAtlasAuth (backed by Nhost through ATLAS_IDENTITY) for a deployment
+ * whose manifest configures `auth`. Shared as a federation singleton, so shell
+ * and remotes observe the SAME reactive auth state; context propagates by DI,
+ * never by events.
  */
 export abstract class AtlasAuth {
   abstract readonly user: Signal<AuthUser | null>;
