@@ -142,17 +142,24 @@ that is no longer here. What is true today:
   (`nhost-identity.client.ts`), and `@supabase/auth-js` was removed from `package.json`. No identity
   SDK has replaced it. The barrel risk described above remains possible in principle but has no
   package to act on today.
-- **The `skip` entries are tripwires.** As merged, the three remotes list `@supabase/auth-js`,
-  `@supabase/supabase-js` and `@nhost/nhost-js`, with a comment noting there is no package to skip.
-  The docs/nhost-record branch keeps only `@nhost/nhost-js`.
-- **The lint rule banned only `@supabase/*` as merged** (80bd90f), so the verified-by-adding-an-import
-  receipt above covers the old vendor only. The docs/nhost-record branch adds `@nhost/*` to the same
-  four scopes. The client the shell actually uses lives in `apps/shell`, and the scope constraints
-  plus Nx's refusal to import an app project keep it out of the remotes and shared libs. No package
-  ban names it.
-- **The bundle grep is keyed by vendor.** It checks `GoTrueClient` and `@supabase/` as before, and
-  adds `@nhost/`, `nhost-js` and `hasura-auth` (PR #38). The old list would have kept passing green
-  if a remote had bundled a different vendor's client.
+- **The `skip` entries are tripwires.** As of 80bd90f, the three remotes listed `@supabase/auth-js`,
+  `@supabase/supabase-js` and `@nhost/nhost-js`, with a comment noting there was no package to skip;
+  #43 dropped the Supabase entries and kept only `@nhost/nhost-js`.
+- **As of 80bd90f, the lint rule banned only `@supabase/*`**, so the verified-by-adding-an-import
+  receipt above covers the old vendor only. #43 added `@nhost/*` to the same four scopes. The client
+  the shell actually uses lives in `apps/shell`, and the scope constraints plus Nx's refusal to
+  import an app project keep it out of the remotes and shared libs. No package ban names it, so this
+  holds only while the file stays where it is: moved into a shared lib and used by iam, the client
+  imported nothing banned, and lint passed (2026-10-25 probe).
+- **As of #43, the bundle grep was keyed by vendor.** It checked `GoTrueClient` and `@supabase/` as
+  before, and added `@nhost/`, `nhost-js` and `hasura-auth` (PR #38). The old list would have kept
+  passing green if a remote had bundled a different vendor's client, and no needle matched the
+  hand-written client either.
+- **Since this change (2026-10-25), the bundle grep also looks for the hand-written client.** It
+  greps every remote for two strings from `nhost-identity.client.ts`, and fails if either is missing
+  from the client source or the shell build. Exported from `@atlas/shared-auth`, the client failed the gate in iam and
+  feature-flags. It catches the current client by its strings only; ADR-0014 records the receipts and
+  the remaining limits.
 
 Also worth recording against amendment point 1: widening `login()` to an opaque hint did not stop the
 header passing `'admin'` / `'viewer'` as that hint. A real provider reads the hint as an OAuth

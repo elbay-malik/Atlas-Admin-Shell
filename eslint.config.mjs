@@ -65,10 +65,15 @@ export default [
               // (scope:shell, type:app), so no rule here names it: the
               // depConstraints above already refuse scope:shell to every other
               // scope, and Nx refuses any import of an app project outright.
+              // That holds only while the file stays in apps/shell: moved into
+              // a shared lib, the client imports nothing banned here and lint
+              // passes. tools/check-remote-bundles.mjs is meant to catch that,
+              // by strings from the client's own source, within ADR-0014's
+              // limits.
               // What this list adds is the SDK route. Neither package is a
               // dependency; '@nhost/*' is the SDK someone would reach for next,
               // and '@supabase/*' is kept because the ban costs nothing and
-              // matches the bundle check's needles (tools/check-remote-bundles.mjs).
+              // matches the bundle check's vendor needles.
               bannedExternalImports: ['@supabase/*', '@nhost/*'],
             },
             // layering: apps sit on top; utils sit at the bottom

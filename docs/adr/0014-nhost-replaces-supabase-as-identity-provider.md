@@ -149,23 +149,96 @@ edge verifies RS256 tokens against Nhost's JWKS.
 
 **The boundary gates** (ADR-0006)
 
-- `check-remote-bundles.mjs` is now keyed by vendor:
+- As of #43, `check-remote-bundles.mjs` was keyed by vendor:
   - `supabase: ['GoTrueClient','@supabase/']`
   - `nhost: ['@nhost/','nhost-js','hasura-auth']`
-- As merged, the three remotes' federation `skip` lists keep `@supabase/auth-js`,
-  `@supabase/supabase-js` and `@nhost/nhost-js` as tripwires. There is no package to skip today. The
-  follow-up docs branch drops the two Supabase entries, because `skip` only matters for an installed
-  dependency, and keeps `@nhost/nhost-js`.
-- **None of these needles can see the current client.** It is not an SDK, so a remote that bundled
-  the shell's own client would be caught only by the module-boundary rules, which refuse any import
-  of an app project. The bundle check guards against SDKs, and the current client is not one.
+- In 80bd90f the three remotes' federation `skip` lists kept `@supabase/auth-js`,
+  `@supabase/supabase-js` and `@nhost/nhost-js` as tripwires, with no package to skip. #43
+  dropped the two Supabase entries, because `skip` only matters for an installed dependency, and kept
+  `@nhost/nhost-js`.
+- **As of #43, none of those needles could see the current client.** It is not an SDK, so a remote
+  that bundled the shell's own client would have been caught only by the module-boundary rules, which
+  refuse any import of an app project. #43 named the consequence: moved into a shared lib, the client
+  would pass both the lint rule and `bundles:check`.
+
+**Update, 2026-10-25: `bundles:check` now looks for the hand-written client.** For the current
+client, and by its strings, the shared-lib gap is closed in `bundles:check`, within the limits below.
+Lint still cannot see it.
+
+- **Needles from the client's own source.** `NEEDLES_BY_CLIENT` (renamed from `NEEDLES_BY_VENDOR`)
+  gains `shell: ['/signin/provider/', '[atlas-auth]']`: the provider's sign-in path and the client's
+  log prefix, both taken from `nhost-identity.client.ts`. In a production shell build both survive
+  minification word for word (only identifiers are renamed), and the chunk that holds the client
+  (`chunk-W7PHX5D6.js` in the probe build) is the only file containing both. No remote's source or
+  dist contains either. The storage key is no usable needle: `'atlas.auth'` also prefixes the mock's
+  `'atlas.auth.persona'`, which every remote ships.
+- **Every `shell` needle must pass two controls, each on its own.** On every run the gate requires each
+  `shell` needle in the client source (`CLIENT_SOURCE`) and in some file under
+  `dist/apps/shell/browser`. The source check shows the needle still belongs to the client; the
+  bundle check shows it survives the build. One needle missing from either fails the gate as stale
+  ("the needles no longer recognise the identity client"). A missing shell build or client source
+  also fails. The source check runs inside the gate, as plain `node` and uncached, so it does not
+  depend on Nx choosing to run the spec.
+- **`[atlas-auth]` is reserved** by a comment in the client: no other code may log under that prefix,
+  or every remote that ships it fails as if it bundled the client. It is a convention, not a check.
+- **The gate runs only as the main module, and compares real paths.** It became importable for the
+  spec, so this change adds a main-module guard. A plain `process.argv[1]` comparison would skip the
+  scan when the gate is called through a symlink (macOS's `/tmp` and `/var` are both one) and exit 0;
+  the guard compares real paths instead, and the spec covers the symlinked call.
+- **`ci.yml` builds the shell too.** The step "Assert no remote bundles the identity client" now
+  builds `shell,iam,feature-flags,audit-logs` before `bundles:check`, because the positive control
+  needs `dist/apps/shell`. Before this change it built only the three remotes, which was enough for
+  the vendor-only gate.
+- **A spec.** `libs/shared/contracts/src/lib/remote-bundle-gate.spec.mjs` (21 tests) runs the gate
+  against fixture bundles: a clean set, a leak into each remote, each needle alone, the mock's persona
+  key, a missing build, a shell bundle that loses every needle or just one, a client source that
+  loses one or has moved, the real client source, and a symlinked invocation. Some cases spawn the
+  real CLI and assert its exit code (pass, leak, blind shell, stale source, symlink); the rest call
+  `problems()` in-process.
+
+Receipts. The first three are from a scratch-worktree probe against the first version of this
+change's gate (its positive control then accepted a match on any one needle, which does not change
+these results); the last was run against the final code:
+
+- **Baseline.** A clean build of shell, iam, feature-flags and audit-logs passes, with the positive
+  control included.
+- **Barrel export alone.** With `nhost-identity.client.ts` and `identity.port.ts` copied into
+  `libs/shared/auth` and exported from its barrel, and no remote referencing them, the gate exits 1:
+  `✖ iam bundles the identity client: iam/browser/_atlas_shared_auth-7S7NOF5V.js`, and the same for
+  feature-flags. The federation fallback chunk for `@atlas/shared-auth` carries the whole barrel, so
+  tree-shaking does not drop the client. That chunk holds `/signin/provider/` once and
+  `[atlas-auth]` three times. Exporting the client from the barrel is enough to break ADR-0006.
+- **A remote using it.** With `iam-home.ts` constructing a `NhostIdentityClient`, the result is the
+  same, naming the same chunk. **Lint passed with that variant:**
+  `nx run-many -t lint --projects=shared-auth,iam` reported all files passing.
+- **Mutations against the final code.** Reverting the bundle control to accept any one needle fails
+  exactly the two "when the shell bundle loses only …" tests. Reverting the guard to
+  `argv[1] === fileURLToPath(...)` fails exactly "still scans when invoked through a symlink". As it
+  stands: the spec's 21 tests pass, `shared-contracts` passes 186, and `bundles:check` passes on real
+  builds.
+
+What it still cannot do:
+
+- **The needles are strings.** A different client in a remote, one that ships other strings,
+  evades them until someone updates the list. The controls prove the listed needles still describe
+  this client; they cannot notice another one.
+- **A failure names the chunk, not the import.** It points at the shared fallback chunk, not at the
+  remote component that pulled the client in.
+- **Lint cannot see the shared-lib move** (the receipt above). The bundle gate is the only layer on
+  that route.
+- **The GitHub workflow is dormant** (ADR-0013). `ci:local` is what runs, and it builds every project
+  before `bundles:check`.
+- **No leak variant was run in audit-logs.** It does depend on `@atlas/shared-auth`, but in the barrel-only
+  probe its build inlined the lib into a regular chunk, where tree-shaking dropped the unused export.
+  No variant that uses the client from audit-logs was run.
 
 ### Consequences
 
 - Positive: **the shell has no identity dependency at all.** `@supabase/auth-js` is removed, nothing
   replaces it, and the only auth-related package is `jose`, which only the edge uses. ADR-0006's
   boundary is now easier to hold, because a dependency that does not exist cannot leak into a
-  remote. `bundles:check` still greps for both vendors in case one is ever added.
+  remote. `bundles:check` still greps for both vendors in case one is ever added. Since
+  2026-10-25 it also greps for the hand-written client's own strings (see the boundary gates).
 - Positive: every claim rule and fixture was built from real tokens captured during the migration,
   not from the provider's documentation. Two of those observations would each have broken production
   if the code had followed the docs or convention: the missing `aud`, and the admin whose default role
@@ -186,11 +259,14 @@ edge verifies RS256 tokens against Nhost's JWKS.
   service-role checks). So a supabase manifest passes `manifest:check` and is then refused at boot. It
   fails safe, but late: the deploy gate passes something the runtime rejects. This comes from reading
   the code; no PR states it.
-- Negative, until the follow-up lands: **as merged, eslint banned only `@supabase/*`.** In
-  80bd90f, the `bannedExternalImports` rules for the scope:iam, scope:flags, scope:audit and
+- Negative, closed by #43: **as of 80bd90f, eslint banned only `@supabase/*`.** There, the `bannedExternalImports` rules for the scope:iam, scope:flags, scope:audit and
   scope:shared tags had no `@nhost/*` entry. The bundle check and the federation `skip` list covered
-  the new vendor; the lint rule did not. The docs/nhost-record branch adds `@nhost/*` to all four.
-  Until that merges, the gap stands.
+  the new vendor; the lint rule did not. #43 added `@nhost/*` to all four.
+- Negative: **lint cannot keep the client out of a shared lib.** The client imports nothing a ban
+  list names. With it exported from `@atlas/shared-auth` and used by iam, lint passed for both
+  projects (2026-10-25 probe). #43 recorded this as an open gap, and until 2026-10-25 nothing caught
+  it. Since then `bundles:check` does, for the current client and by its strings, within the limits
+  listed under the boundary gates.
 - Negative: `provideNhostAtlasAuth` accepts a `provider` it never uses. Only `url` reaches
   `NhostIdentityClient`, and the header reads `manifest.auth.provider` directly. A manifest that sets
   `auth` without a `provider` therefore shows the mock persona buttons. Those call `login('admin')`,

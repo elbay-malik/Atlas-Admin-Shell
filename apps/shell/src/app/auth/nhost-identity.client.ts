@@ -14,6 +14,10 @@ const DEFAULT_STORAGE_KEY = 'atlas.auth';
 const REFRESH_SKEW_MS = 60_000;
 /** Never schedule a timer tighter than this, even for a very short-lived token. */
 const MIN_REFRESH_DELAY_MS = 5_000;
+// The '[atlas-auth]' log prefix and the '/signin/provider/' path are this
+// client's fingerprint: bundles:check greps every remote for them (ADR-0006).
+// Reserved — no other code may log under that prefix, or every remote that
+// ships it fails as if it bundled this client.
 
 interface Session {
   accessToken: string;
