@@ -266,13 +266,12 @@ Still not demonstrated:
 - **A real token reaching the edge in production.** Production's `apiMode` is `mock`, so the
   remotes serve fixtures and no browser in production sends a bearer to `/api/*`. The verifier is
   correct and pointed at the right place; nothing yet shows it doing that job on real traffic.
-- **A real token refresh through the console.** The identity client's refresh path is unit-tested,
-  but the production redirect URL was not yet allow-listed on the identity project as of PR #41,
-  and no later PR records that it is.
+- **A real token refresh through the console.** The identity client's refresh path is unit-tested.
+  Production sign-in completed by hand on 2026-10-25 (ADR-0014), but no refresh has been observed.
 - **Revocation.** Deactivation still does not revoke a token (Consequences, above); nothing in the
   migration changed that.
-- Whether the production shell is currently deployed with the Nhost manifest. Nothing in the
-  repository records a deploy.
+- Until 2026-10-25 this list also asked whether production ran the Nhost manifest. It did not; the
+  Workers had last deployed before #38. All four were redeployed that day (ADR-0014).
 
 ## References
 

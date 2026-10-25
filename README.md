@@ -240,8 +240,9 @@ rebuild, no shell redeploy.
     hold. It was replaced by Nhost (ADR-0014): a hand-written REST client with no SDK, the edge
     pinned to RS256 against the project's live JWKS, and the role read from
     `x-hasura-allowed-roles`. The production manifest names the Nhost project; dev and e2e still
-    run on the mock. **Not yet shown:** a production sign-in end to end — the production redirect
-    URL was not allow-listed on the identity project as of #41, and no later change records it.
+    run on the mock. **Production sign-in shown 2026-10-25**, after the redirect URL was
+    allow-listed and all four Workers were redeployed: a GitHub sign-in on the live console, done
+    by hand. No automated test drives it, and token refresh in production is not yet shown.
   - [x] Edge BFF on the shell's Worker (`/api/*`), verifying tokens and enforcing authorization
     server-side — including invariants the client cannot, such as refusing to demote the last admin.
     Closed a real hole: a viewer could toggle a feature flag (ADR-0011).

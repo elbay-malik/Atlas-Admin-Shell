@@ -322,14 +322,30 @@ Re-checked 2026-10-25 for this ADR:
 
 ### Not demonstrated
 
-- **The production redirect URL is not known to be allow-listed.** PR #41 listed it as required
-  before a production deploy, and no later PR says it was done.
 - **Nothing exercises the real HTTP path in production.** The production manifest's `apiMode` is
   `mock`, so the edge verifier has not judged a real request there.
 - **E2e runs on the mock.** The dev manifest has no `auth` block, so no browser test drives a real
   sign-in.
-- **Whether production is deployed with this manifest.** Nothing in the repository or the PRs shows a
-  deploy.
+- **A production token refresh, and sign-in under automation.** The sign-in below was done by hand,
+  once; the refresh path is unit-tested only.
+
+Until 2026-10-25 this list also held the production redirect URL, which #41 named as outstanding,
+and whether production ran this manifest at all. It did not: all four Workers had last deployed on
+2026-10-21, before #38, and the live manifest had no `auth` block — so production was serving the
+mock personas, tolerable only because `apiMode` is `mock`.
+
+### Production sign-in, 2026-10-25
+
+- The redirect URL was allow-listed in the identity project's dashboard. Probed without signing in:
+  `GET /v1/signin/provider/github` with `redirectTo=https://atlas-shell.eleo-666.workers.dev/` (with
+  and without the trailing slash) answers 302 to GitHub's authorize URL; with
+  `redirectTo=https://evil.example.com/` it answers 400 `redirectTo-not-allowed`.
+- All four Workers were deployed from 25c938c (`ATLAS_ENV=production nx run <app>:deploy`; shell
+  last). Afterwards the live `federation.manifest.json` carries the `nhost` block, each
+  `remoteEntry.json` answers 200 with CORS, the live shell bundle contains both client needles
+  (`bundles:check`), and `/api/flags` without a token answers 401.
+- A GitHub sign-in then completed on the live console. That was done by the owner in a browser and
+  reported; it is not automated and was not observed by any check in this repository.
 
 ## References
 

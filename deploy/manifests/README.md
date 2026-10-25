@@ -22,9 +22,9 @@ disagree). The value is still `mock`, and no change since records a decision on 
 become `http`; until it does, nothing exercises the edge's real HTTP path in production. It stays
 written out rather than left to the `absent means mock` default, so that it reads as a decision.
 
-Separately, and not a condition on `apiMode`: as of #41 the production redirect URL was not
-allow-listed on the identity project, which #41 lists as outstanding before a production deploy.
-No later change records it as done.
+Separately, and not a condition on `apiMode`: #41 listed the production redirect URL as
+outstanding before a production deploy. It was allow-listed on 2026-10-25, and a production
+sign-in completed by hand after all four Workers were redeployed (ADR-0014).
 
 ## The deploy pre-flight
 

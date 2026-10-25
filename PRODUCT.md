@@ -123,11 +123,9 @@ Explicitly undecided / not yet true:
   via `pnpm run ci:local` (ADR-0013). There is no green check on a pull request.
 - Going public has not been decided.
 - `apiMode` is `'mock'` in production today, so flag data is not real and nothing
-  exercises the edge's real HTTP path in production. The identity project and its
-  tokens are real; a production sign-in end to end is not yet shown — the
-  production redirect URL was not allow-listed as of #41, and nothing since
-  records that it is. Whether the deployed shell carries the Nhost manifest is
-  not recorded either.
+  exercises the edge's real HTTP path in production. Sign-in itself is real: on
+  2026-10-25 a GitHub sign-in completed on the live console, by hand (ADR-0014).
+  No automated test drives it, and a production token refresh is not yet shown.
 
 ## Brand Commitments
 
@@ -158,7 +156,8 @@ Real and verifiable:
 - A real Nhost project (`eu-central-1`) whose JWKS serves an RSA key; the edge
   pins RS256 and checks the issuer. GitHub OAuth was exercised by hand, and live
   tokens were checked for an `admin` entry in `x-hasura-allowed-roles` and for the
-  email and display-name claims (#39–#42).
+  email and display-name claims (#39–#42). On 2026-10-25 a production GitHub
+  sign-in completed on the live console, done by hand (ADR-0014).
 
 Must not be fabricated — these do not exist:
 

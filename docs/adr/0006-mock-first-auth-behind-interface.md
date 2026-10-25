@@ -185,8 +185,9 @@ project:
 - A real admin token carries `admin` in `x-hasura-allowed-roles`. That replaces the
   `app_metadata.atlas_role` model, so no service role is needed.
 
-Still not demonstrated: the production redirect URL is not known to be allow-listed (PR #41), and
-production runs `apiMode: "mock"`, so no real request has been verified at the edge there.
+Still not demonstrated: production runs `apiMode: "mock"`, so no real request has been verified at
+the edge there. (The production redirect URL listed here until 2026-10-25 is now allow-listed, and a
+production sign-in completed by hand; ADR-0014 has the receipts.)
 ADR-0014's "Not demonstrated" section is the current list.
 
 ## References
