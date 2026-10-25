@@ -167,10 +167,11 @@ Must not be fabricated — these do not exist:
   production system, and must never claim to be a deployed product.
 - Pricing, licensing tiers, SLAs, or compliance certifications.
 
-**One known inaccuracy, not yet fixed:** the README states axe runs on every story
-in light *and* dark. Most stories currently render in a single theme only. Future
-work either makes the claim true or corrects it; it must not be cited as evidence
-in the meantime.
+**A corrected inaccuracy:** until 2026-10-25 the README stated axe runs on every
+story in light *and* dark. Each story renders in one theme, light unless it opts
+into dark, and only the badge, button and nav-item dark variants do. The README
+now says so. Dark-mode contrast is evidenced only for those three stories, and
+must not be cited more broadly.
 
 ## Product Principles
 

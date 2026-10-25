@@ -159,7 +159,7 @@ docs/
 | Gate | What it runs | Where |
 | --- | --- | --- |
 | Unit + contract tests | Every project, incl. a frozen event-catalogue snapshot | `nx affected -t test` |
-| Accessibility (components) | axe on every Storybook story, light **and** dark, `a11y.test: 'error'` | `nx affected -t test-storybook` |
+| Accessibility (components) | axe on every Storybook story, `a11y.test: 'error'`. Each story renders in **one** theme — light unless it opts into dark (only the badge, button and nav-item dark variants do), so dark mode is not covered story by story | `nx affected -t test-storybook` |
 | Accessibility (application) | axe over the real federated console, every remote, both themes | `nx affected -t e2e` |
 | Control affordances | WCAG 1.4.11 boundary contrast, which axe does **not** automate | `nx affected -t e2e` |
 | Federation e2e | Playwright specs against production builds over real import maps | `nx affected -t e2e` |
