@@ -142,10 +142,10 @@ that is no longer here. What is true today:
   (`nhost-identity.client.ts`), and `@supabase/auth-js` was removed from `package.json`. No identity
   SDK has replaced it. The barrel risk described above remains possible in principle but has no
   package to act on today.
-- **The `skip` entries are tripwires.** As of 80bd90f, the three remotes listed `@supabase/auth-js`,
+- **The `skip` entries are tripwires.** As of 39ab442, the three remotes listed `@supabase/auth-js`,
   `@supabase/supabase-js` and `@nhost/nhost-js`, with a comment noting there was no package to skip;
   #43 dropped the Supabase entries and kept only `@nhost/nhost-js`.
-- **As of 80bd90f, the lint rule banned only `@supabase/*`**, so the verified-by-adding-an-import
+- **As of 39ab442, the lint rule banned only `@supabase/*`**, so the verified-by-adding-an-import
   receipt above covers the old vendor only. #43 added `@nhost/*` to the same four scopes. The client
   the shell actually uses lives in `apps/shell`, and the scope constraints plus Nx's refusal to
   import an app project keep it out of the remotes and shared libs. No package ban names it, so this
