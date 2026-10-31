@@ -18,7 +18,8 @@ the record shows a sign-in, a token or the role mapping exercised against a live
 ADR-0006's "Still blocked on provisioning" section listed what was missing, and PR #39 says
 production never served the Supabase manifest block.
 A Supabase project ref (`pgrngevieiupeokdxwpa`) and its publishable key were committed in #22 and
-removed from the tree in 47da3c6. They remain in git history.
+removed from the tree in 812a31e. The project ref remains in git history; the key does not, since
+the 2026-10-31 history rewrite replaced it with a placeholder (ADR-0013).
 
 Identity has now moved to Nhost. **Why Supabase was dropped is not recorded**: no PR body or commit
 message gives a reason, and this ADR will not supply one after the fact. The closest the record
@@ -152,7 +153,7 @@ edge verifies RS256 tokens against Nhost's JWKS.
 - As of #43, `check-remote-bundles.mjs` was keyed by vendor:
   - `supabase: ['GoTrueClient','@supabase/']`
   - `nhost: ['@nhost/','nhost-js','hasura-auth']`
-- In 80bd90f the three remotes' federation `skip` lists kept `@supabase/auth-js`,
+- In 39ab442 the three remotes' federation `skip` lists kept `@supabase/auth-js`,
   `@supabase/supabase-js` and `@nhost/nhost-js` as tripwires, with no package to skip. #43
   dropped the two Supabase entries, because `skip` only matters for an installed dependency, and kept
   `@nhost/nhost-js`.
@@ -259,7 +260,7 @@ What it still cannot do:
   service-role checks). So a supabase manifest passes `manifest:check` and is then refused at boot. It
   fails safe, but late: the deploy gate passes something the runtime rejects. This comes from reading
   the code; no PR states it.
-- Negative, closed by #43: **as of 80bd90f, eslint banned only `@supabase/*`.** There, the `bannedExternalImports` rules for the scope:iam, scope:flags, scope:audit and
+- Negative, closed by #43: **as of 39ab442, eslint banned only `@supabase/*`.** There, the `bannedExternalImports` rules for the scope:iam, scope:flags, scope:audit and
   scope:shared tags had no `@nhost/*` entry. The bundle check and the federation `skip` list covered
   the new vendor; the lint rule did not. #43 added `@nhost/*` to all four.
 - Negative: **lint cannot keep the client out of a shared lib.** The client imports nothing a ban
@@ -340,7 +341,7 @@ mock personas, tolerable only because `apiMode` is `mock`.
   `GET /v1/signin/provider/github` with `redirectTo=https://atlas-shell.eleo-666.workers.dev/` (with
   and without the trailing slash) answers 302 to GitHub's authorize URL; with
   `redirectTo=https://evil.example.com/` it answers 400 `redirectTo-not-allowed`.
-- All four Workers were deployed from 25c938c (`ATLAS_ENV=production nx run <app>:deploy`; shell
+- All four Workers were deployed from e10ef51 (`ATLAS_ENV=production nx run <app>:deploy`; shell
   last). Afterwards the live `federation.manifest.json` carries the `nhost` block, each
   `remoteEntry.json` answers 200 with CORS, the live shell bundle contains both client needles
   (`bundles:check`), and `/api/flags` without a token answers 401.

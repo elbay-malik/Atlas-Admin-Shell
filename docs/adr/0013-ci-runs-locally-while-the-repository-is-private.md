@@ -32,12 +32,21 @@ engineering and then cannot verify itself has lost the argument, whatever its RE
    key, which ships in the browser bundle by design. **Deferred, not rejected** — the owner is not
    ready to publish today. It remains the best answer and should be revisited.
    *Update, 2026-10-25:* that key is no longer in the tree. It was added to the production manifest
-   in d5a4848 (#22) and removed in 47da3c6 (#39), which dropped the Supabase `auth` block entirely;
-   the Nhost block that replaced it in 7dc6bc0 (#41) carries no key at all (ADR-0014). It is still
-   in **history**, so the audit's conclusion for option 2 is unchanged: publishing the repository
-   publishes that key. It is browser-safe by design and belongs to the old Supabase project
-   (`pgrngevieiupeokdxwpa`). The only `sb_publishable_` strings left in the tree are test fixtures
-   and a comment in `tools/check-manifests.mjs`.
+   in b2b5cde (#22) and removed in 812a31e (#39), which dropped the Supabase `auth` block entirely;
+   the Nhost block that replaced it in 60b1012 (#41) carries no key at all (ADR-0014). It was still
+   in **history** at that point, so publishing the repository would have published that key. It is
+   browser-safe by design and belongs to the old Supabase project (`pgrngevieiupeokdxwpa`). The only
+   `sb_publishable_` strings left in the tree are test fixtures and a comment in
+   `tools/check-manifests.mjs`.
+   *Update, 2026-10-31:* the key is out of history too. The history was rewritten into a new
+   repository under the same name. In the 17 commits that carried the key (#22 to #38) it now reads
+   `REDACTED_SUPABASE_PUBLISHABLE_KEY`, and every commit message was cut to its title line, with the
+   conventional-commit scope removed. Authors, dates and every other byte of every file are
+   unchanged. Commit IDs changed as a result, and the IDs cited in these ADRs are the new ones. The
+   previous repository is kept, private, as `Atlas-Admin-Shell_archive`: it still holds the key and
+   the pull-request discussions, and pull-request numbers such as #22, in commit titles and in these
+   ADRs, refer to it. Publishing this repository no longer publishes the key. Revoking the key in
+   the old Supabase project is a separate step and is not recorded here as done.
 3. **Weaken the gates to fit the budget.** Rejected outright. Dropping e2e or Lighthouse to save
    minutes would delete exactly the coverage that unit tests structurally cannot provide — the
    cross-origin federation path, axe on rendered output, the cost of runtime composition.
@@ -50,8 +59,12 @@ engineering and then cannot verify itself has lost the argument, whatever its RE
 ## Decision Outcome
 
 `pnpm run ci:local` runs all fourteen gates; `ci:local:quick` skips the four browser-driven ones.
-The `CI` and `Deploy` workflows are `disabled_manually`, which is one command to reverse when either
-the monthly allowance resets or option 2 is taken.
+Actions is disabled for the whole repository, so neither `CI` nor `Deploy` can run. One command
+reverses that when either the monthly allowance resets or option 2 is taken
+(`gh api -X PUT repos/EleoXDA/Atlas-Admin-Shell/actions/permissions -F enabled=true`), and it starts
+both workflows at once: each is listed as `active`, and only the repository switch holds them. Until
+2026-10-31 the two workflows were `disabled_manually` one by one instead; that setting belonged to
+the previous repository and did not move with the history.
 
 **Two deliberate differences from `.github/workflows/ci.yml`:**
 
@@ -98,6 +111,17 @@ Checked 2026-10-22:
 - Full local run against `fix/apply-manifest-readback`, the open pull request at the time:
   **14 of 14 gates passed.** Timings are listed in the PR; most are fast because Nx caches, and the
   browser-driven gates dominate the wall-clock.
+
+Checked 2026-10-31, after the history moved:
+
+- The rewritten history was compared with the old one commit by commit. In all 58 commits the author
+  and committer names, emails, dates and timezones are identical; 41 trees are identical, and the
+  other 17 differ only in the production manifest's key line. No object in the new repository
+  contains the key, and GitHub's own copy, cloned back, has the same 58 commit IDs.
+- `gh api repos/EleoXDA/Atlas-Admin-Shell/actions/permissions` reports `"enabled": false`, while
+  `gh workflow list --all` reports `CI  active` and `Deploy  active`. The `Copilot` entry the
+  previous repository listed does not appear. No workflow has run, including for the push that
+  created `main`.
 
 ## References
 

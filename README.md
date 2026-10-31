@@ -278,6 +278,12 @@ rebuild, no shell redeploy.
 Nx Cloud (remote caching) is deliberately not connected yet; opting in later is
 `pnpm exec nx connect` on the free Hobby plan.
 
+## Acknowledgements
+
+Much of this repository was written with [Claude Code](https://claude.com/claude-code), using
+Anthropic's Claude models. Commits carry no per-commit co-author lines; this section is the credit
+for all of them.
+
 ## License
 
 [MIT](LICENSE)
