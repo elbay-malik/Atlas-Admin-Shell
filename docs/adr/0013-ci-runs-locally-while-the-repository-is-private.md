@@ -46,7 +46,8 @@ engineering and then cannot verify itself has lost the argument, whatever its RE
    previous repository is kept, private, as `Atlas-Admin-Shell_archive`: it still holds the key and
    the pull-request discussions, and pull-request numbers such as #22, in commit titles and in these
    ADRs, refer to it. Publishing this repository no longer publishes the key. Revoking the key in
-   the old Supabase project is a separate step and is not recorded here as done.
+   the old Supabase project was a separate step. On 2026-11-01 the owner reported it done; this was
+   not checked against Supabase.
 3. **Weaken the gates to fit the budget.** Rejected outright. Dropping e2e or Lighthouse to save
    minutes would delete exactly the coverage that unit tests structurally cannot provide — the
    cross-origin federation path, axe on rendered output, the cost of runtime composition.
