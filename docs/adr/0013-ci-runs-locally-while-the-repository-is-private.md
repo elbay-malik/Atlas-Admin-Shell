@@ -62,7 +62,7 @@ engineering and then cannot verify itself has lost the argument, whatever its RE
 `pnpm run ci:local` runs all fourteen gates; `ci:local:quick` skips the four browser-driven ones.
 Actions is disabled for the whole repository, so neither `CI` nor `Deploy` can run. One command
 reverses that when either the monthly allowance resets or option 2 is taken
-(`gh api -X PUT repos/EleoXDA/Atlas-Admin-Shell/actions/permissions -F enabled=true`), and it starts
+(`gh api -X PUT repos/elbay-malik/Atlas-Admin-Shell/actions/permissions -F enabled=true`), and it starts
 both workflows at once: each is listed as `active`, and only the repository switch holds them. Until
 2026-10-31 the two workflows were `disabled_manually` one by one instead; that setting belonged to
 the previous repository and did not move with the history.
