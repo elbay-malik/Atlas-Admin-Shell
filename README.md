@@ -1,6 +1,6 @@
 # Atlas Admin Shell
 
-[![CI](https://github.com/EleoXDA/Atlas-Admin-Shell/actions/workflows/ci.yml/badge.svg)](https://github.com/EleoXDA/Atlas-Admin-Shell/actions/workflows/ci.yml)
+[![CI](https://github.com/elbay-malik/Atlas-Admin-Shell/actions/workflows/ci.yml/badge.svg)](https://github.com/elbay-malik/Atlas-Admin-Shell/actions/workflows/ci.yml)
 ![Angular](https://img.shields.io/badge/Angular-21%20LTS-dd0031)
 ![Nx](https://img.shields.io/badge/Nx-23-143055)
 ![pnpm](https://img.shields.io/badge/pnpm-11-f69220)
@@ -117,7 +117,7 @@ dated receipts (npm peer ranges, GitHub issue states) for its claims.
 # Node 24.18 (fnm picks up .nvmrc automatically) and pnpm via corepack
 corepack enable   # if corepack is missing: npm i -g corepack
 
-git clone git@github.com:EleoXDA/Atlas-Admin-Shell.git
+git clone git@github.com:elbay-malik/Atlas-Admin-Shell.git
 cd Atlas-Admin-Shell
 pnpm install
 
