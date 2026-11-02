@@ -4,6 +4,8 @@
   // Assets-only for now; the edge BFF adds "main" + "run_worker_first" here.
   "name": "atlas-shell",
   "routes": [{ "pattern": "atlas.elbaymalik.com", "custom_domain": true }],
+  // Keep the old address answering: routes turn workers.dev off by default.
+  "workers_dev": true,
   "compatibility_date": "2026-09-05",
   // The edge BFF. run_worker_first scopes the Worker to /api/* ONLY, so every
   // other path is served by asset routing exactly as before — the SPA fallback
