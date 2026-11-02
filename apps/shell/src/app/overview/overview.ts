@@ -159,6 +159,11 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
           before authenticating and it names each remote's required role. Opening one needs that
           role — sign in from the header.
         </p>
+        <p class="mt-2 max-w-prose text-sm text-text-muted" data-testid="overview-signin-note">
+          Sign-in runs on a free Nhost project that sleeps when idle, so it may need the project to
+          be woken up first. If the sign-in page does not load, the console on this page still shows
+          the composition.
+        </p>
       }
     </section>
   `,
