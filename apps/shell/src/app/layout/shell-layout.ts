@@ -1,10 +1,11 @@
-import { DOCUMENT } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { RemoteDefinition } from '@atlas/shared-contracts';
 import { UiBadge, UiButton, UiIcon, UiNavItem, UiShortId, UiThemeToggle } from '@atlas/shared-ui';
+import { DEMO_SESSION } from '../auth/demo-session';
 import { IdentityFlow, providerName } from '../auth/identity-flow';
 import { ATLAS_MANIFEST } from '../manifest.token';
 import { ShellNotice } from '../notice/shell-notice';
@@ -23,7 +24,7 @@ interface NavEntry extends RemoteDefinition {
   // Escape closes the drawer from anywhere inside it, which is what a keyboard
   // user reaches for before hunting back to the toggle.
   host: { '(document:keydown.escape)': 'closeMenu()' },
-  imports: [RouterOutlet, UiBadge, UiButton, UiIcon, UiNavItem, UiShortId, UiThemeToggle],
+  imports: [NgTemplateOutlet, RouterOutlet, UiBadge, UiButton, UiIcon, UiNavItem, UiShortId, UiThemeToggle],
   template: `
     <!--
       First focusable element in the document. Without it the tab order walks
@@ -119,7 +120,7 @@ interface NavEntry extends RemoteDefinition {
       }
       <div class="flex min-w-0 flex-1 flex-col">
         <header
-          class="flex h-14 items-center gap-3 border-b border-border bg-surface px-4"
+          class="flex h-14 items-center gap-2 border-b border-border bg-surface px-4 md:gap-3"
         >
           <button
             type="button"
@@ -135,7 +136,21 @@ interface NavEntry extends RemoteDefinition {
           </button>
           <!-- pushes the identity cluster right, replacing justify-end -->
           <span class="flex-1"></span>
-          @if (auth.user(); as user) {
+          <!--
+            On every route, because a screen that shows no label reads as real.
+            Only mock mode has one: the Overview's registry reports http itself.
+          -->
+          @if (mockData) {
+            <ui-badge class="shrink-0 whitespace-nowrap" data-testid="header-mock-data">mock data</ui-badge>
+          }
+          @if (demo?.active()) {
+            <!--
+              Checked before the user below, which also holds the demo visitor: no
+              name and no role badge, since either would read as a real session.
+            -->
+            <ui-badge tone="warning" data-testid="header-demo">demo</ui-badge>
+            <ui-button variant="secondary" (pressed)="exitDemo()">Exit demo</ui-button>
+          } @else if (auth.user(); as user) {
             <!-- the name is the first thing to go when space is short; the
                  role badge is what actually changes what you can do -->
             @if (user.name === user.id) {
@@ -159,7 +174,13 @@ interface NavEntry extends RemoteDefinition {
               {{ user.role }}
             </ui-badge>
             <ui-button variant="secondary" (pressed)="flow.signOut()">Sign out</ui-button>
-          } @else if (identityProvider) {
+          } @else {
+            <ng-container [ngTemplateOutlet]="signIn" />
+          }
+          <ui-theme-toggle />
+        </header>
+        <ng-template #signIn>
+          @if (identityProvider) {
             <!--
               Real identity: one button, and the hint is the PROVIDER name. The
               persona buttons below are not a different label for the same
@@ -175,13 +196,49 @@ interface NavEntry extends RemoteDefinition {
             </ui-button>
           } @else {
             <!-- Mock only: the hint is a persona, and anyone may pick one. -->
-            <ui-button (pressed)="flow.signIn('admin')">Sign in as admin</ui-button>
+            <!--
+              "Sign in" leaves the screen below md, where the badge beside it needs the
+              room, and stays in the button's name, which "as admin" alone would not explain.
+            -->
+            <ui-button (pressed)="flow.signIn('admin')">
+              <span class="sr-only md:not-sr-only">Sign in </span>as admin
+            </ui-button>
             <ui-button variant="secondary" (pressed)="flow.signIn('viewer')">as viewer</ui-button>
           }
-          <ui-theme-toggle />
-        </header>
+        </ng-template>
         <!-- tabindex="-1" so the skip link can move focus here, not just scroll -->
         <main id="main-content" tabindex="-1" class="flex-1">
+          <!--
+            What the demo badge means, on every route. It is here rather than in
+            the header because a phone has no room for it there. Always in the DOM
+            so that starting the demo is announced, and collapsed the same way as
+            the notice below while there is no demo.
+          -->
+          <div
+            class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
+            [class.border-b]="demo?.active()"
+            [class.border-border]="demo?.active()"
+            [class.bg-surface]="demo?.active()"
+            [class.px-6]="demo?.active()"
+            [class.py-2]="demo?.active()"
+          >
+            <p
+              role="status"
+              aria-live="polite"
+              data-testid="demo-strip"
+              class="max-w-prose min-w-0 text-sm"
+            >
+              @if (demo?.active()) {
+                Demo session, no account. Mock data, in this tab only. The edge BFF is not exercised,
+                so nothing here proves authorization.
+              }
+            </p>
+            @if (demo?.active()) {
+              <div class="flex items-center gap-3">
+                <ng-container [ngTemplateOutlet]="signIn" />
+              </div>
+            }
+          </div>
           <!--
             The one place the shell reports what happened to the visitor's
             identity. The region is always in the DOM, because one inserted with
@@ -233,6 +290,9 @@ export class ShellLayout {
   protected readonly notice = inject(ShellNotice);
   // Built here, before the router's initial navigation: see its constructor.
   protected readonly flow = inject(IdentityFlow);
+  /** Null unless this deployment offers the demo (ADR-0015). */
+  protected readonly demo = inject(DEMO_SESSION, { optional: true });
+  protected readonly mockData = (this.manifest.apiMode ?? 'mock') === 'mock';
 
   /**
    * The configured OIDC provider, or null when this deployment runs the mock.
@@ -267,6 +327,12 @@ export class ShellLayout {
         : this.document.querySelector<HTMLElement>('[data-testid="nav-toggle"]');
       target?.focus();
     });
+  }
+
+  protected async exitDemo(): Promise<void> {
+    await this.flow.signOut();
+    // The button just pressed is gone; without this focus falls to <body>.
+    this.document.querySelector<HTMLElement>('#main-content')?.focus();
   }
 
   protected dismissNotice(): void {

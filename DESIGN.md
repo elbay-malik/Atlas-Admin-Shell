@@ -207,8 +207,8 @@ foreground ink — never as a solid fill behind body text, and never to set a mo
 
 - **Operational Green** (`status-success`): a healthy remote, an enabled flag, a live
   event, an admin role.
-- **Attention Amber** (`status-warning`): a remote mid-load — transitional states
-  only.
+- **Attention Amber** (`status-warning`): a remote mid-load, and the `demo` badge.
+  Both say the same thing: what is on screen is not the settled, real state.
 - **Fault Red** (`status-danger`): an offline remote, a failed request, a destructive
   action. **Fault Red Deep** (`status-danger-strong`) is its hover step and doubles as
   the light-mode danger ink.
@@ -548,6 +548,26 @@ the screens' `p-6` edge.
   short machine code, because anyone can craft that link. The free-text description
   goes to the console.
 
+### Demo Session
+
+A visitor-chosen way in on mock data (ADR-0015), and only ever visible as itself.
+
+- **The way in** is one primary button above the registry on the signed-out Overview,
+  "Explore with demo data (no account)", with a line under it saying what it is not. It
+  is absent from the DOM when the deployment does not offer it.
+- **The header says so on every route.** A `warning` `demo` badge and a secondary **Exit
+  demo** take the place of the name, role and Sign out. The header never shows a demo a
+  name or a role badge, because together those are what a real session looks like.
+- **The strip says what the badge means.** It sits at the top of `main` above the shell
+  notice, on `surface` with a hairline, and states that the edge BFF is not exercised. It
+  is a `polite` status region that is always in the DOM and collapses like the notice,
+  and it carries the sign-in control while the demo runs, since the header is full.
+- **`mock data` is not part of the demo.** That neutral header badge shows on every route
+  whenever `apiMode` is `mock`, whoever is signed in, because a screen with no label reads
+  as real. `/audit` adds a line under its subtitle saying its trail lives in this tab.
+- **Focus goes to `main`** when the control just pressed disappears, on the way in and on
+  Exit demo, rather than dropping to `<body>`.
+
 ### Short ID
 
 A long identifier as `3f6c…91c6`, in mono under The Literal Value Rule, used when an
@@ -685,6 +705,8 @@ outright — including the ring forced-colors mode synthesises.
 - **Do** draw a new icon into the shared set at the same 1.5 stroke weight on the
   20px grid, in `currentColor`, and give the manifest its name.
 - **Do** report identity problems in the shell notice, not only in the console.
+- **Do** check the demo before the user when rendering identity. A demo visitor has a
+  `user`, and must still never look signed in.
 - **Do** acknowledge every write in the screen's action status, and offer Undo unless
   the action is one of the refusals.
 - **Do** leave focus to the shared ring. It already covers `<button>`, `<a>`,

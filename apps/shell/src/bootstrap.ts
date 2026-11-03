@@ -1,4 +1,11 @@
-import { inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
+import {
+  EnvironmentProviders,
+  Type,
+  inject,
+  makeEnvironmentProviders,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+} from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import {
   NavigationError,
@@ -10,7 +17,7 @@ import {
   withNavigationErrorHandler,
 } from '@angular/router';
 import type { NativeFederationResult } from '@angular-architects/native-federation-v4';
-import { AtlasAuth, provideAtlasAuth, provideAtlasHttp } from '@atlas/shared-auth';
+import { AtlasAuth, MockAtlasAuth, provideAtlasAuth, provideAtlasHttp } from '@atlas/shared-auth';
 import { ATLAS_API_MODE, AtlasApiMode } from '@atlas/shared-util';
 import {
   ATLAS_MANIFEST_VERSION,
@@ -18,8 +25,10 @@ import {
   AtlasManifest,
   isAtlasManifest,
 } from '@atlas/shared-contracts';
+import { isDemoAvailable, provideDemoSession } from './app/auth/demo-session';
 import { IdentityFlow } from './app/auth/identity-flow';
 import { provideNhostAtlasAuth } from './app/auth/provide-nhost-auth';
+import { TokenAtlasAuth } from './app/auth/token-atlas-auth';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { App } from './app/app';
 import { AtlasTitleStrategy } from './app/atlas-title.strategy';
@@ -125,14 +134,25 @@ export function resolveManifest(rawManifest: unknown): AtlasManifest {
  * remotes — so falling back here would pair real domains with a provider where
  * any visitor picks their own role. Refusing to boot is the safe failure; a
  * console that comes up with mock auth over real remotes is not.
+ *
+ * `offerDemo` is not that fallback (ADR-0015). It adds a path a visitor has to
+ * choose and that stays labelled, and only after a provider has been selected,
+ * so a manifest naming an unknown provider still refuses to boot. Without it the
+ * demo is absent from the injector, not merely hidden.
  */
-export function provideIdentity(auth: AtlasAuthConfig | undefined) {
-  if (!auth) return provideAtlasAuth();
+export function provideIdentity(auth: AtlasAuthConfig | undefined, offerDemo = false) {
+  const withDemo = (real: EnvironmentProviders, provider: Type<AtlasAuth>) =>
+    offerDemo ? makeEnvironmentProviders([real, provideDemoSession(provider)]) : real;
+
+  if (!auth) return withDemo(provideAtlasAuth(), MockAtlasAuth);
 
   const kind = auth.kind ?? 'supabase';
   switch (kind) {
     case 'nhost':
-      return provideNhostAtlasAuth({ url: auth.url, provider: auth.provider });
+      return withDemo(
+        provideNhostAtlasAuth({ url: auth.url, provider: auth.provider }),
+        TokenAtlasAuth
+      );
     case 'supabase':
       // The implementation is gone, and this branch is what stops that being a
       // silent downgrade. A manifest still naming the old provider must fail
@@ -166,7 +186,7 @@ export function bootstrap(rawManifest: unknown, federation: NativeFederationResu
       // — keeps the mock. That is what lets this repo run with no identity
       // project at all while production's manifest names its Nhost project,
       // from the same bundle.
-      provideIdentity(manifest.auth),
+      provideIdentity(manifest.auth, isDemoAvailable(manifest)),
       provideAtlasHttp(),
       // The mock auth cannot produce a token the edge would accept, so the data
       // source follows the auth provider (see api-mode.token.ts).

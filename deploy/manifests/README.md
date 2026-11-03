@@ -21,6 +21,7 @@ Worker's `ATLAS_JWT_ISSUER` names the same one (ADR-0014; `manifest:check` fails
 disagree). The value is still `mock`, and no change since records a decision on when it should
 become `http`; until it does, nothing exercises the edge's real HTTP path in production. It stays
 written out rather than left to the `absent means mock` default, so that it reads as a decision.
+Moving it to `http` also removes the demo path, which exists only on mock data (ADR-0015).
 
 Separately, and not a condition on `apiMode`: #41 listed the production redirect URL as
 outstanding before a production deploy. It was allow-listed on 2026-10-25, and a production

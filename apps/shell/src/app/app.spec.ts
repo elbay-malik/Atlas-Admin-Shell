@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { AtlasAuth, AuthUser, MockAtlasAuth } from '@atlas/shared-auth';
 import { AtlasManifest } from '@atlas/shared-contracts';
 import { App } from './app';
+import { DEMO_SESSION, provideDemoSession } from './auth/demo-session';
 import { ATLAS_MANIFEST } from './manifest.token';
 import { ShellNotice } from './notice/shell-notice';
 
@@ -153,5 +154,73 @@ describe('App', () => {
       expect(fixture.nativeElement.querySelector('[data-testid="identity-fallback"]')).toBeNull();
       expect(fixture.nativeElement.querySelector('header')?.textContent).toContain('Grace Hopper');
     });
+  });
+});
+
+describe('App labels', () => {
+  const remotes = manifest.remotes;
+  const text = async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    return { fixture, el: fixture.nativeElement as HTMLElement };
+  };
+  const byTestId = (el: HTMLElement, id: string) => el.querySelector(`[data-testid="${id}"]`);
+
+  beforeEach(() => localStorage.clear());
+
+  it('says mock data in the header, signed in or out', async () => {
+    TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideRouter([]),
+        { provide: ATLAS_MANIFEST, useValue: manifest },
+        { provide: AtlasAuth, useClass: MockAtlasAuth },
+      ],
+    });
+    const { el, fixture } = await text();
+    expect(byTestId(el, 'header-mock-data')?.textContent).toContain('mock data');
+
+    await TestBed.inject(AtlasAuth).login('viewer');
+    await fixture.whenStable();
+    expect(byTestId(el, 'header-mock-data')?.textContent).toContain('mock data');
+    expect(byTestId(el, 'header-demo')).toBeNull();
+  });
+
+  it('under http has neither label, and no demo in the injector', async () => {
+    TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideRouter([]),
+        { provide: ATLAS_MANIFEST, useValue: { version: 1, apiMode: 'http', remotes } },
+        { provide: AtlasAuth, useClass: MockAtlasAuth },
+      ],
+    });
+    const { el } = await text();
+    expect(byTestId(el, 'header-mock-data')).toBeNull();
+    expect(byTestId(el, 'header-demo')).toBeNull();
+    expect(TestBed.inject(DEMO_SESSION, null)).toBeNull();
+  });
+
+  it('labels a demo in the header with no name or role, and says the edge is not exercised', async () => {
+    TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideRouter([]),
+        { provide: ATLAS_MANIFEST, useValue: manifest },
+        provideDemoSession(MockAtlasAuth),
+      ],
+    });
+    const { el, fixture } = await text();
+    expect(byTestId(el, 'demo-strip')?.textContent?.trim()).toBe('');
+
+    TestBed.inject(DEMO_SESSION).enter();
+    await fixture.whenStable();
+
+    expect(byTestId(el, 'header-demo')?.textContent).toContain('demo');
+    expect(byTestId(el, 'demo-strip')?.textContent).toContain('edge BFF is not exercised');
+    const header = el.querySelector('header')?.textContent ?? '';
+    expect(header).not.toContain('Demo visitor');
+    expect(header).not.toContain('admin');
+    expect(header).toContain('Exit demo');
   });
 });

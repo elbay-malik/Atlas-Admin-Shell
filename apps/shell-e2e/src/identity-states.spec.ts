@@ -84,7 +84,9 @@ test.describe('on the mock personas', () => {
   test('a signed-out deep link is remembered across sign-in', async ({ page }) => {
     await page.goto('/iam');
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByTestId(NOTICE)).toHaveText('Sign in to open Identity & Access.');
+    await expect(page.getByTestId(NOTICE)).toHaveText(
+      'Sign in or explore with demo data to open Identity & Access.'
+    );
 
     await page.getByRole('button', { name: 'Sign in as admin' }).click();
 
@@ -253,7 +255,9 @@ test.describe('on the real client, with a faked provider', () => {
 
     await page.goto('/flags');
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByTestId(NOTICE)).toHaveText('Sign in to open Feature Flags.');
+    await expect(page.getByTestId(NOTICE)).toHaveText(
+      'Sign in or explore with demo data to open Feature Flags.'
+    );
 
     const button = page.locator('header ui-button button');
     await button.click();

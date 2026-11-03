@@ -89,6 +89,33 @@ function verifier() {
   return createVerifier({ jwks, issuer: ISSUER });
 }
 
+/**
+ * What a demo session (ADR-0015) can send. It has no token, so it sends no header,
+ * and the shell's spec proves that half. The rest pins this half: nothing shaped
+ * like a demo credential gets past the production verifier. worker.dev.ts does
+ * trust `mock.*` strings, which is why it is not in the deployed artifact.
+ */
+describe('a demo session at the edge', () => {
+  it('is refused with no Authorization header, which is all it ever sends', async () => {
+    expect(await verifier()(request())).toMatchObject({ ok: false, status: 401 });
+  });
+
+  it('is refused if a demo-shaped token is forged', async () => {
+    for (const forged of ['mock.demo.admin', 'demo', 'null', 'undefined']) {
+      expect(await verifier()(request(forged))).toMatchObject({ ok: false, status: 401 });
+    }
+  });
+
+  it('is refused for a signed token claiming to be the demo user, with a key we did not publish', async () => {
+    const forged = await token({
+      key: attackerKey,
+      subject: 'demo',
+      namespace: { 'x-hasura-allowed-roles': ['admin'] },
+    });
+    expect(await verifier()(request(forged))).toMatchObject({ ok: false, status: 401 });
+  });
+});
+
 describe('token verification', () => {
   it('accepts a correctly signed token and derives the principal', async () => {
     const result = await verifier()(request(await token()));

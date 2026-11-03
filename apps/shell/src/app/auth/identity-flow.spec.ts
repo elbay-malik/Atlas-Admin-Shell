@@ -8,6 +8,7 @@ import { buildRoutes } from '../../bootstrap';
 import { ATLAS_MANIFEST } from '../manifest.token';
 import { ShellNotice } from '../notice/shell-notice';
 import { RemoteLoader } from '../remotes/remote-loader';
+import { DEMO_USER, DemoAtlasAuth, provideDemoSession } from './demo-session';
 import { IdentityFlow, providerName, SIGN_IN_STALL_MS } from './identity-flow';
 import { ATLAS_IDENTITY, AtlasIdentityClient, IdentityIssue } from './identity.port';
 
@@ -89,9 +90,138 @@ async function settle(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve));
 }
 
+/** ScriptedAuth as the real provider behind the demo, reachable from a test. */
+@Injectable()
+class ScriptedRealAuth extends ScriptedAuth {
+  static latest: ScriptedRealAuth;
+  constructor() {
+    super();
+    ScriptedRealAuth.latest = this;
+  }
+}
+
+/** The flow on a deployment that offers the demo. */
+function setupWithDemo() {
+  TestBed.configureTestingModule({
+    providers: [
+      provideAtlasEventBus(),
+      provideRouter(buildRoutes(manifest)),
+      { provide: ATLAS_MANIFEST, useValue: manifest },
+      provideDemoSession(ScriptedRealAuth),
+      { provide: ATLAS_IDENTITY, useValue: { takeIssue: () => null } },
+      { provide: RemoteLoader, useValue: { load: async () => [{ path: '', component: RemoteHome }] } },
+    ],
+  });
+  const auth = TestBed.inject(AtlasAuth) as DemoAtlasAuth;
+  return {
+    auth,
+    real: ScriptedRealAuth.latest,
+    router: TestBed.inject(Router),
+    notice: TestBed.inject(ShellNotice),
+    flow: TestBed.inject(IdentityFlow),
+  };
+}
+
 describe('IdentityFlow', () => {
   beforeEach(() => sessionStorage.clear());
   afterEach(() => vi.useRealTimers());
+
+  describe('on a deployment that offers the demo', () => {
+    it('names the demo when a route declines a signed-out visitor', async () => {
+      const { router, notice } = setupWithDemo();
+      await router.navigateByUrl('/flags');
+      expect(notice.current()?.text).toBe(
+        'Sign in or explore with demo data to open Feature Flags.'
+      );
+    });
+
+    it('reaches a role-gated route once the visitor chooses the demo', async () => {
+      const { router, flow } = setupWithDemo();
+      flow.enterDemo();
+      await settle();
+      await router.navigateByUrl('/iam');
+      expect(router.url).toBe('/iam');
+    });
+
+    it('goes on to the route that sent them away', async () => {
+      const { router, flow } = setupWithDemo();
+      await router.navigateByUrl('/iam');
+      expect(router.url).toBe('/');
+      flow.enterDemo();
+      await settle();
+      expect(router.url).toBe('/iam');
+    });
+
+    it('leaving the demo returns to plain signed out, and says which it was', async () => {
+      const { auth, router, notice, flow } = setupWithDemo();
+      flow.enterDemo();
+      await settle();
+      await router.navigateByUrl('/iam');
+
+      await flow.signOut();
+      await settle();
+
+      expect(router.url).toBe('/');
+      expect(auth.user()).toBeNull();
+      expect(notice.current()).toEqual({ text: 'Demo ended.', tone: 'info' });
+    });
+
+    it('a real sign-in ends the demo and is judged on its own role', async () => {
+      const { auth, real, router, notice, flow } = setupWithDemo();
+      flow.enterDemo();
+      await settle();
+      await router.navigateByUrl('/iam');
+
+      real.current.set(VIEWER);
+      await settle();
+
+      expect(auth.active()).toBe(false);
+      expect(auth.user()).toEqual(VIEWER);
+      expect(router.url).toBe('/');
+      expect(notice.current()?.text).toContain('you are a viewer');
+    });
+
+    it('stays busy while a provider redirect starts from inside the demo', async () => {
+      const { auth, flow } = setupWithDemo();
+      flow.enterDemo();
+      await settle();
+      expect(auth.user()).toBe(DEMO_USER);
+
+      await flow.signIn('github');
+
+      expect(flow.signingIn()).toBe(true);
+    });
+
+    it('stops being busy when the real user arrives during that sign-in', async () => {
+      const { real, flow } = setupWithDemo();
+      flow.enterDemo();
+      await settle();
+      await flow.signIn('github');
+
+      real.current.set(VIEWER);
+      await settle();
+
+      expect(flow.signingIn()).toBe(false);
+    });
+
+    it('stays in the labelled demo and reports it when a sign-in cannot start', async () => {
+      const { auth, real, notice, flow } = setupWithDemo();
+      flow.enterDemo();
+      await settle();
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.spyOn(real, 'login').mockRejectedValueOnce(new Error('no provider'));
+
+      await flow.signIn('github');
+      spy.mockRestore();
+
+      expect(auth.active()).toBe(true);
+      expect(flow.signingIn()).toBe(false);
+      expect(notice.current()).toEqual({
+        text: 'Sign-in could not be started. Try again.',
+        tone: 'problem',
+      });
+    });
+  });
 
   describe('when a session ends on a protected route', () => {
     it('leaves the route and says it was a sign-out', async () => {

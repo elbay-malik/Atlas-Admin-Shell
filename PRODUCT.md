@@ -98,6 +98,9 @@ Confirmed functionality:
   singleton, never by events.
 - Authentication is either the documented mock personas or Nhost with GitHub as
   the OAuth provider, chosen by the manifest's `auth` block (ADR-0014).
+- Under `apiMode: 'mock'` the signed-out Overview also offers a labelled demo on
+  mock data. It is not a login: it holds no token and never reaches the edge
+  (ADR-0015).
 
 Durable technical constraints future design work must respect:
 
@@ -146,7 +149,7 @@ Real and verifiable:
 
 - Four deployed Workers on `*.eleo-666.workers.dev`; the console composes live from
   real cross-origin remote entries.
-- Fourteen ADRs in `docs/adr/`, MADR-style, several carrying dated verification
+- Fifteen ADRs in `docs/adr/`, MADR-style, several carrying dated verification
   receipts — and some recording expired ones.
 - A 14-gate local pipeline (`tools/ci-local.mjs`): zoneless guard, manifest
   contract, token drift, lint, typecheck, unit and contract suites, four builds,
