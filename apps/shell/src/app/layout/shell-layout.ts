@@ -9,7 +9,12 @@ import { DEMO_SESSION } from '../auth/demo-session';
 import { IdentityFlow, providerName } from '../auth/identity-flow';
 import { ATLAS_MANIFEST } from '../manifest.token';
 import { ShellNotice } from '../notice/shell-notice';
-import { RemoteHealthStore, RemoteStatus, UNKNOWN_REMOTE_HEALTH } from '../remotes/remote-health.store';
+import {
+  REMOTE_STATUS_LABEL,
+  RemoteHealthStore,
+  RemoteStatus,
+  UNKNOWN_REMOTE_HEALTH,
+} from '../remotes/remote-health.store';
 
 interface NavEntry extends RemoteDefinition {
   name: string;
@@ -89,7 +94,19 @@ interface NavEntry extends RemoteDefinition {
                 [icon]="entry.icon"
                 [disabled]="!entry.allowed"
               >
-                <span class="truncate">{{ entry.displayName }}</span>
+                @if (entry.allowed && entry.status === 'down') {
+                  <!--
+                    Stacked, and only here. "unavailable" beside the name leaves
+                    room for "Identity…"; this item growing a line is honest for a
+                    state that is rare and needs noticing, and the name stays whole.
+                  -->
+                  <span class="flex min-w-0 flex-col items-start gap-1">
+                    <span class="max-w-full truncate">{{ entry.displayName }}</span>
+                    <ui-badge tone="danger">{{ unavailableLabel }}</ui-badge>
+                  </span>
+                } @else {
+                  <span class="truncate">{{ entry.displayName }}</span>
+                }
                 @if (!entry.allowed) {
                   <!--
                     A lock, plus the reason in text only a screen reader hears.
@@ -100,8 +117,6 @@ interface NavEntry extends RemoteDefinition {
                   -->
                   <ui-icon name="lock" [size]="16" />
                   <span class="sr-only">Requires the {{ entry.requiredRole }} role</span>
-                } @else if (entry.status === 'down') {
-                  <ui-badge tone="danger">offline</ui-badge>
                 }
               </ui-nav-item>
             </div>
@@ -304,6 +319,8 @@ export class ShellLayout {
   protected readonly identityProvider = this.manifest.auth?.provider ?? null;
   protected readonly providerLabel = providerName(this.identityProvider);
   protected readonly accountLabel = this.providerLabel ? `${this.providerLabel} account` : 'Account';
+
+  protected readonly unavailableLabel = REMOTE_STATUS_LABEL.down;
 
   /** Drawer state. Only meaningful below md, where the sidebar is off-canvas. */
   protected readonly menuOpen = signal(false);

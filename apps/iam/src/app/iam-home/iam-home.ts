@@ -155,7 +155,7 @@ import {
                   data-testid="user-status"
                   [tone]="user.active ? 'success' : 'neutral'"
                 >
-                  {{ user.active ? 'active' : 'disabled' }}
+                  {{ user.active ? 'active' : 'deactivated' }}
                 </ui-badge>
               </td>
               <td class="py-2">

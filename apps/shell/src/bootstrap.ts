@@ -198,7 +198,7 @@ export function bootstrap(rawManifest: unknown, federation: NativeFederationResu
       { provide: FEDERATION, useValue: federation },
       provideAppInitializer(() => {
         // A remote missing from remoteInfoRepo failed its remoteEntry.json fetch
-        // during initFederation, so the nav can show it as offline immediately.
+        // during initFederation, so the nav can show it as unavailable immediately.
         const repo = federation.adapters.remoteInfoRepo;
         inject(RemoteHealthStore).seed(Object.keys(manifest.remotes), (name) => repo.contains(name));
       }),

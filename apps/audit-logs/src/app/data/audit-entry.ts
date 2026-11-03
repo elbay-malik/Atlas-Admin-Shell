@@ -13,7 +13,7 @@ export interface AuditEntry {
   actor: string;
   action: string;
   target: string;
-  /** Optional context, e.g. `viewer -> admin` for a role change. */
+  /** Optional context, e.g. `viewer to admin` for a role change. */
   detail?: string;
   source: 'seed' | AtlasEventSource;
 }

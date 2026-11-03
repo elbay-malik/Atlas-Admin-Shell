@@ -51,7 +51,7 @@ export function setUserRole(
   if (previous === role) return { body: { user } }; // idempotent: no second audit row
 
   user.role = role;
-  record(store, principal.email || principal.sub, 'user.role.changed', user.email, `${previous} -> ${role}`);
+  record(store, principal.email || principal.sub, 'user.role.changed', user.email, `${previous} to ${role}`);
   return { body: { user } };
 }
 

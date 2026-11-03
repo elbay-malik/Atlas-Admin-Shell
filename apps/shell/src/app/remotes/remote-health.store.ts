@@ -6,6 +6,19 @@ export type RemoteFailureReason = 'entry' | 'module';
 
 export type RemoteStatus = 'unknown' | 'loading' | 'ready' | 'down';
 
+/**
+ * What each state is called on screen, in one place, because a failed remote
+ * once had three names: `unreachable`, `offline` and `down`. "unavailable" is the
+ * word the failure screen's heading, its route and the `remote.unavailable` audit
+ * row already use. `down` stays as the code's own identifier and is never shown.
+ */
+export const REMOTE_STATUS_LABEL: Record<RemoteStatus, string> = {
+  unknown: 'resolved',
+  loading: 'loading',
+  ready: 'loaded',
+  down: 'unavailable',
+};
+
 export interface RemoteHealth {
   status: RemoteStatus;
   /** Load attempts since the last success; drives the bounded auto-retry. */
@@ -42,7 +55,7 @@ function patchRemote(
 /**
  * Per-remote availability, owned by the shell (no store crosses a federation
  * boundary — ADR-0005). Seeded at bootstrap from the federation result so the
- * navigation can show a remote as offline from first paint, before anyone
+ * navigation can show a remote as unavailable from first paint, before anyone
  * tries to navigate into it.
  */
 export const RemoteHealthStore = signalStore(
@@ -70,7 +83,7 @@ export const RemoteHealthStore = signalStore(
               status: 'down',
               attempts: 0,
               reason: 'entry',
-              lastError: 'remoteEntry.json was unreachable when the shell started',
+              lastError: 'remoteEntry.json could not be fetched when the shell started',
             };
       }
       patchState(store, { remotes });

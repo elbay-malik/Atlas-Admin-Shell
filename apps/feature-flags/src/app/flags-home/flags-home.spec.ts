@@ -285,4 +285,18 @@ describe('FlagsHome', () => {
     const fixture = await render();
     expect(query(fixture, '[data-testid="flags-readonly-reason"]')).toBeNull();
   });
+
+  it('offers an admin the toggles in its intro line', async () => {
+    const fixture = await render();
+    expect(query(fixture, '[data-testid="flags-intro"]')?.textContent?.trim()).toBe(
+      'Toggle features for this deployment.'
+    );
+  });
+
+  it('does not offer a viewer toggles they cannot use', async () => {
+    const fixture = await render('viewer');
+    expect(query(fixture, '[data-testid="flags-intro"]')?.textContent?.trim()).toBe(
+      'See which features are on for this deployment.'
+    );
+  });
 });

@@ -35,7 +35,7 @@ describe('toAuditEntry', () => {
     expect(entry).toMatchObject({
       action: 'user.role.changed',
       target: 'alan@atlas.dev',
-      detail: 'viewer -> admin',
+      detail: 'viewer to admin',
     });
   });
 

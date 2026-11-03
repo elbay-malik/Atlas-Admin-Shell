@@ -71,7 +71,7 @@ narration to make sense.
 Operational truths of using it:
 
 - The console is one page composed at runtime from four independently deployed
-  origins. A remote can be unavailable while the rest of the console works; the
+  origins: the shell and its three remotes. A remote can be unavailable while the rest of the console works; the
   shell rejects and never caches a fallback, and recovers by re-initialising the
   remote (ADR-0007).
 - Every manifest committed in the repo defaults to `apiMode: 'mock'` (ADR-0010), so

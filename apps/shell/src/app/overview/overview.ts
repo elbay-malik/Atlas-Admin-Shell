@@ -7,7 +7,12 @@ import { UiBadge, UiBadgeTone, UiButton, UiIcon } from '@atlas/shared-ui';
 import { DEMO_SESSION } from '../auth/demo-session';
 import { IdentityFlow } from '../auth/identity-flow';
 import { ATLAS_MANIFEST } from '../manifest.token';
-import { RemoteHealthStore, RemoteStatus, UNKNOWN_REMOTE_HEALTH } from '../remotes/remote-health.store';
+import {
+  REMOTE_STATUS_LABEL,
+  RemoteHealthStore,
+  RemoteStatus,
+  UNKNOWN_REMOTE_HEALTH,
+} from '../remotes/remote-health.store';
 
 interface RemoteRow extends RemoteDefinition {
   name: string;
@@ -17,15 +22,15 @@ interface RemoteRow extends RemoteDefinition {
   allowed: boolean;
 }
 
-/** Label and tone per health state, so the vocabulary is defined once. */
-const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: string }> = {
+/** Tone and hint per health state; the words themselves are REMOTE_STATUS_LABEL. */
+const STATE: Record<RemoteStatus, { tone: UiBadgeTone; hint: string }> = {
   // seed() marks a remote 'unknown' when its remoteEntry.json WAS fetched
   // during initFederation but its code has not been imported yet. That is the
   // normal resting state of a lazily loaded remote, and saying so is the point.
-  unknown: { label: 'resolved', tone: 'neutral', hint: 'Entry fetched at boot; code loads on first visit' },
-  loading: { label: 'loading', tone: 'warning', hint: 'Fetching the module now' },
-  ready: { label: 'loaded', tone: 'success', hint: 'Module imported and running in this page' },
-  down: { label: 'unreachable', tone: 'danger', hint: 'Its origin did not answer' },
+  unknown: { tone: 'neutral', hint: 'Entry fetched at boot; code loads on first visit' },
+  loading: { tone: 'warning', hint: 'Fetching the module now' },
+  ready: { tone: 'success', hint: 'Module imported and running in this page' },
+  down: { tone: 'danger', hint: 'Could not be loaded from its origin' },
 };
 
 /**
@@ -59,8 +64,9 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
         <div>
           <h1 class="mb-1 text-2xl font-semibold">Atlas Admin</h1>
           <p class="max-w-prose text-text-muted">
-            One console, composed in the browser from
-            {{ remotes().length }} independently deployed origins. The table below is the
+            One console, composed in the browser from a shell and
+            {{ remotes().length }} independently deployed
+            {{ remotes().length === 1 ? 'remote' : 'remotes' }}. The table below is the
             registry it booted from — adding a domain to this platform is an edit there, not a
             rebuild of this shell.
           </p>
@@ -146,7 +152,7 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
               </td>
               <td class="py-2">
                 <ui-badge [tone]="state(remote).tone" [title]="state(remote).hint">
-                  {{ state(remote).label }}
+                  {{ label(remote) }}
                 </ui-badge>
               </td>
             </tr>
@@ -173,7 +179,7 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
                 <ui-icon [name]="remote.icon" />
                 <span class="truncate">{{ remote.displayName }}</span>
               </span>
-              <ui-badge [tone]="state(remote).tone">{{ state(remote).label }}</ui-badge>
+              <ui-badge [tone]="state(remote).tone">{{ label(remote) }}</ui-badge>
             </div>
             <span class="font-mono text-xs break-all text-text-muted">{{ remote.origin }}</span>
             <span class="text-xs text-text-muted">
@@ -188,17 +194,35 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
         }
       </ul>
 
+      <!--
+        Written out, at every width: the badge's title is hover text, which a phone
+        never shows, and "resolved" is the word on this screen a visitor can least guess.
+      -->
+      @if (remotes().length) {
+        <p class="mt-3 max-w-prose text-sm text-text-muted" data-testid="overview-state-note">
+          <span class="block">
+            <span class="font-medium text-text">resolved</span>: the remote's entry file was fetched
+            at boot, and its code loads on the first visit.
+          </span>
+          <span class="block">
+            <span class="font-medium text-text">loaded</span>: that code is running in this page.
+          </span>
+        </p>
+      }
+
       @if (!auth.user()) {
         <p class="mt-4 max-w-prose text-sm text-text-muted" data-testid="overview-signed-out">
           Every domain is listed before anyone signs in, because the shell fetches this registry
           before authenticating and it names each remote's required role. Opening one needs that
           role — sign in from the header{{ demo ? ', or explore with demo data above' : '' }}.
         </p>
-        <p class="mt-2 max-w-prose text-sm text-text-muted" data-testid="overview-signin-note">
-          Sign-in runs on a free Nhost project that sleeps when idle, so it may need the project to
-          be woken up first. If the sign-in page does not load, the console on this page still shows
-          the composition.
-        </p>
+        @if (nhost) {
+          <p class="mt-2 max-w-prose text-sm text-text-muted" data-testid="overview-signin-note">
+            Sign-in runs on a free Nhost project that sleeps when idle, so it may need the project to
+            be woken up first. If the sign-in page does not load, the console on this page still shows
+            the composition.
+          </p>
+        }
       }
     </section>
   `,
@@ -210,6 +234,8 @@ export class Overview {
   private readonly flow = inject(IdentityFlow);
   private readonly document = inject(DOCUMENT);
   protected readonly demo = inject(DEMO_SESSION, { optional: true });
+  /** The wake note is about Nhost, so a deployment on any other provider never shows it. */
+  protected readonly nhost = this.manifest.auth?.kind === 'nhost';
 
   protected exploreDemo(): void {
     this.flow.enterDemo();
@@ -231,6 +257,10 @@ export class Overview {
 
   protected state(remote: RemoteRow) {
     return STATE[remote.status];
+  }
+
+  protected label(remote: RemoteRow): string {
+    return REMOTE_STATUS_LABEL[remote.status];
   }
 }
 

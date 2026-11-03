@@ -109,6 +109,18 @@ describe('authorization', () => {
       target: 'sso-enforced',
     });
   });
+
+  it('records a role change in the words the audit screen shows', async () => {
+    await call('PATCH', '/api/iam/users/u-3/role', admin, { role: 'admin' });
+
+    const audit = (await (await call('GET', '/api/audit', admin)).json()) as {
+      entries: { action: string; detail?: string }[];
+    };
+    expect(audit.entries[0]).toMatchObject({
+      action: 'user.role.changed',
+      detail: 'viewer to admin',
+    });
+  });
 });
 
 describe('invariants the client cannot enforce', () => {
