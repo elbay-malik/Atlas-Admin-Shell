@@ -93,7 +93,8 @@ labelled control on the signed-out Overview.
   and the strip states what it does not prove, but no copy makes someone try the harder one.
 - Negative: `user()` non-null with `isAuthenticated()` false is a state only this provider produces.
   Anything in a remote that reads `user()` treats a demo visitor as signed in, which is what lets the
-  remotes work unchanged, and it is the reason the header has to check the demo first.
+  remotes work unchanged, and it is the reason the header has to check the demo first. So `/iam`'s
+  session line does read `demo@atlas.dev (admin)`, under the header's `demo` badge and the strip.
 - Negative: a reload ends the demo. A visitor reloading on `/iam` lands on the Overview and presses the
   button again, and it then returns them to `/iam`. Keeping it in `sessionStorage` would fix that, at
   the price of a stored way back into the demo.
@@ -118,9 +119,12 @@ Run 2026-11-04 on branch `ui/demo-path`:
   `mock.demo.admin` and similar strings, and for a token claiming to be the demo user signed with an
   unpublished key. `apps/shell-bff/src/verify.ts` has no diff on this branch.
 - `apps/shell-e2e/src/demo-path.spec.ts`, in a browser on a manifest with real auth and `apiMode: 'mock'`:
-  every remote reached, labels on every route, no request with an `Authorization` header and none to
-  `/api/`; `http` offers nothing; a valid manifest naming `supabase` still refuses to boot; a stored
-  persona never enters the demo.
+  every remote reached, labels on every route including the failure screen and an unknown route at
+  390px, no request with an `Authorization` header and none to `/api/`; `http` and an out-of-contract
+  `apiMode` offer nothing, and an absent one offers it as mock; a valid manifest naming `supabase`
+  still refuses to boot; a stored persona or demo flag never enters the demo. A refused or unanswered
+  redirect leaves a working demo and no credential sent, and a stored session is kept through one. A
+  real session in a second tab leaves a demo labelled and uncredentialed until its next load.
 
 ### Not demonstrated
 

@@ -556,8 +556,8 @@ A visitor-chosen way in on mock data (ADR-0015), and only ever visible as itself
   "Explore with demo data (no account)", with a line under it saying what it is not. It
   is absent from the DOM when the deployment does not offer it.
 - **The header says so on every route.** A `warning` `demo` badge and a secondary **Exit
-  demo** take the place of the name, role and Sign out. A demo never shows a name or a
-  role badge, because together those are what a real session looks like.
+  demo** take the place of the name, role and Sign out. The header never shows a demo a
+  name or a role badge, because together those are what a real session looks like.
 - **The strip says what the badge means.** It sits at the top of `main` above the shell
   notice, on `surface` with a hairline, and states that the edge BFF is not exercised. It
   is a `polite` status region that is always in the DOM and collapses like the notice,
