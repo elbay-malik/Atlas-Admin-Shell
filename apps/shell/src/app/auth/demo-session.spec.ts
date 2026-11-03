@@ -17,6 +17,8 @@ class ScriptedRealAuth extends AtlasAuth {
   readonly isAuthenticated = computed(() => this.current() !== null);
   readonly logout = vi.fn(async () => this.current.set(null));
   readonly login = vi.fn(async (_hint?: string): Promise<void> => undefined);
+  /** A session with no user: TokenAtlasAuth holds one when a token carries no `sub`. */
+  orphanToken: string | null = null;
 
   constructor() {
     super();
@@ -26,7 +28,7 @@ class ScriptedRealAuth extends AtlasAuth {
     return undefined;
   }
   async getAccessToken(): Promise<string | null> {
-    return this.current() ? 'real.signed.token' : null;
+    return this.orphanToken ?? (this.current() ? 'real.signed.token' : null);
   }
 }
 
@@ -80,6 +82,16 @@ describe('the demo session', () => {
       const { auth } = setup();
       auth.enter();
       await expect(auth.getAccessToken()).resolves.toBeNull();
+    });
+
+    it('does not hand over a token the real provider holds with no user behind it', async () => {
+      const { auth, real } = setup();
+      real.orphanToken = 'real.signed.token';
+      auth.enter();
+      await expect(auth.getAccessToken()).resolves.toBeNull();
+
+      await auth.logout();
+      await expect(auth.getAccessToken()).resolves.toBe('real.signed.token');
     });
 
     it('sends no credential on a same-origin API call', async () => {

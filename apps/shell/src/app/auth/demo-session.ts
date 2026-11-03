@@ -42,7 +42,8 @@ export const DEMO_USER: AuthUser = Object.freeze(toAuthUser(DEMO_CLAIMS) as Auth
  *
  * Takes the VALIDATED manifest, so an out-of-contract apiMode has already become
  * zero remotes and answers false here. A console with no remotes has nothing to
- * demonstrate, and "mock" must be what the manifest says, never a guess.
+ * demonstrate. "mock" is the data source bootstrap resolves from the same manifest,
+ * so an absent apiMode offers the demo, because absent means mock (ADR-0015).
  */
 export function isDemoAvailable(manifest: AtlasManifest): boolean {
   return (manifest.apiMode ?? 'mock') === 'mock' && Object.keys(manifest.remotes).length > 0;

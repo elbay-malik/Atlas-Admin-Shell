@@ -191,6 +191,36 @@ describe('IdentityFlow', () => {
 
       expect(flow.signingIn()).toBe(true);
     });
+
+    it('stops being busy when the real user arrives during that sign-in', async () => {
+      const { real, flow } = setupWithDemo();
+      flow.enterDemo();
+      await settle();
+      await flow.signIn('github');
+
+      real.current.set(VIEWER);
+      await settle();
+
+      expect(flow.signingIn()).toBe(false);
+    });
+
+    it('stays in the labelled demo and reports it when a sign-in cannot start', async () => {
+      const { auth, real, notice, flow } = setupWithDemo();
+      flow.enterDemo();
+      await settle();
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.spyOn(real, 'login').mockRejectedValueOnce(new Error('no provider'));
+
+      await flow.signIn('github');
+      spy.mockRestore();
+
+      expect(auth.active()).toBe(true);
+      expect(flow.signingIn()).toBe(false);
+      expect(notice.current()).toEqual({
+        text: 'Sign-in could not be started. Try again.',
+        tone: 'problem',
+      });
+    });
   });
 
   describe('when a session ends on a protected route', () => {
