@@ -196,9 +196,12 @@ interface NavEntry extends RemoteDefinition {
             </ui-button>
           } @else {
             <!-- Mock only: the hint is a persona, and anyone may pick one. -->
-            <!-- "Sign in" gives way below md, where the badge beside it needs the room. -->
+            <!--
+              "Sign in" leaves the screen below md, where the badge beside it needs the
+              room, and stays in the button's name, which "as admin" alone would not explain.
+            -->
             <ui-button (pressed)="flow.signIn('admin')">
-              <span class="hidden md:inline">Sign in </span>as admin
+              <span class="sr-only md:not-sr-only">Sign in </span>as admin
             </ui-button>
             <ui-button variant="secondary" (pressed)="flow.signIn('viewer')">as viewer</ui-button>
           }
