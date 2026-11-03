@@ -96,7 +96,10 @@ const STATUS_TONE: Record<RemoteStatus, UiBadgeTone> = {
               Reload page
             </ui-button>
           }
-          <a class="px-2 text-sm text-text-muted underline hover:text-text" routerLink="/">
+          <a
+            class="inline-flex min-h-11 items-center px-2 text-sm text-text-muted underline hover:text-text md:min-h-0"
+            routerLink="/"
+          >
             Back to overview
           </a>
         </div>

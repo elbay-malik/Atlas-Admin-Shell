@@ -1,13 +1,25 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { UiBadge, UiButton } from '@atlas/shared-ui';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
+import { UiBadge, UiButton, UiScrollRegion } from '@atlas/shared-ui';
 import { ATLAS_API_MODE } from '@atlas/shared-util';
 import { AuditEntry } from '../data/audit-entry';
-import { AuditStore } from '../data/audit.store';
+import { AuditStore, filterEntries } from '../data/audit.store';
+
+/** Long enough to outlast a burst of typing, short enough to feel like an answer. */
+const FILTER_SETTLE_MS = 300;
 
 @Component({
   selector: 'audit-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiBadge, UiButton],
+  imports: [UiBadge, UiButton, UiScrollRegion],
   template: `
     <section class="p-6">
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -44,18 +56,31 @@ import { AuditStore } from '../data/audit.store';
         </div>
       }
 
-      <label class="mb-4 block max-w-md">
+      <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+      <label class="block w-full max-w-md">
         <span class="sr-only">Filter events by actor, action or target</span>
         <input
           type="search"
           data-testid="audit-filter"
           placeholder="Filter by actor, action or target…"
-          class="w-full rounded border border-border-strong bg-surface px-3 py-2 text-sm
-                 placeholder:text-text-muted"
+          class="min-h-11 w-full rounded border border-border-strong bg-surface px-3 py-2 text-sm
+                 placeholder:text-text-muted md:min-h-0"
           [value]="store.query()"
           (input)="onFilter($event)"
         />
       </label>
+      <!--
+        Always in the DOM, because a region inserted with its text is often not
+        announced. It answers once typing settles rather than on every key, which
+        would talk over the screen reader's own echo of what was just typed.
+      -->
+      <p
+        role="status"
+        aria-live="polite"
+        data-testid="audit-filter-results"
+        class="text-sm text-text-muted"
+      >{{ filterResults() }}</p>
+      </div>
 
       @if (store.isPending() && store.filtered().length === 0) {
         <p data-testid="audit-loading" class="text-sm text-text-muted">Loading audit events…</p>
@@ -68,7 +93,7 @@ import { AuditStore } from '../data/audit.store';
         scroll HERE rather than letting it reach the document is the fix — the
         page itself must never pan, or the chrome drifts off screen with it.
       -->
-      <div class="overflow-x-auto">
+      <div uiScrollRegion="Audit events">
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="border-b border-border text-text-muted">
@@ -122,8 +147,52 @@ export class AuditHome {
     () => this.store.entities().filter((entry) => entry.source !== 'seed').length
   );
 
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  /** The filter once typing has paused: what the URL holds and the region reports. */
+  private readonly settledQuery = signal('');
+  private settling: ReturnType<typeof setTimeout> | null = null;
+
+  /** Empty with no filter, and until there are rows a count could be true of. */
+  protected readonly filterResults = computed(() => {
+    const query = this.settledQuery();
+    const total = this.store.entities().length;
+    if (!query.trim() || this.store.error() || (this.store.isPending() && total === 0)) return '';
+    const found = filterEntries(this.store.entities(), query).length;
+    const noun = total === 1 ? 'event' : 'events';
+    return `${found} of ${total} ${noun} ${found === 1 ? 'matches' : 'match'}.`;
+  });
+
+  constructor() {
+    // The URL owns the filter, so a link or a reload lands on the same view, and
+    // Back or the nav link can change it. While typing is ahead of the URL the
+    // field wins: a slower echo of an earlier value must not rewrite the input.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      if (this.settling !== null) return;
+      const query = params.get('q') ?? '';
+      this.store.setQuery(query);
+      this.settledQuery.set(query);
+    });
+    inject(DestroyRef).onDestroy(() => {
+      if (this.settling !== null) clearTimeout(this.settling);
+    });
+  }
+
   protected onFilter(event: Event): void {
-    this.store.setQuery((event.target as HTMLInputElement).value);
+    const query = (event.target as HTMLInputElement).value;
+    this.store.setQuery(query);
+    if (this.settling !== null) clearTimeout(this.settling);
+    this.settling = setTimeout(() => {
+      this.settling = null;
+      this.settledQuery.set(query);
+      // replaceUrl: Back should leave this screen, not undo one keystroke at a time.
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { q: query.trim() ? query : null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }, FILTER_SETTLE_MS);
   }
 
   /** Compact, locale-stable timestamp; the raw ISO value stays in the title. */

@@ -29,8 +29,8 @@ export function shortenId(value: string): string {
     <button
       type="button"
       data-testid="short-id"
-      class="inline-flex min-h-6 items-center rounded-sm font-mono text-xs underline decoration-dotted
-             underline-offset-4 transition-colors hover:text-on-brand"
+      class="inline-flex min-h-11 items-center rounded-sm font-mono text-xs underline decoration-dotted
+             underline-offset-4 transition-colors hover:text-on-brand md:min-h-6"
       [attr.aria-expanded]="open()"
       [attr.title]="value()"
       (click)="open.set(!open())"

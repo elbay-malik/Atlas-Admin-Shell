@@ -9,7 +9,7 @@ export type UiButtonVariant = 'primary' | 'secondary' | 'danger' | 'danger-quiet
   template: `
     <button
       type="button"
-      class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+      class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-1.5 md:min-h-0 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       [class]="variantClass()"
       [disabled]="disabled()"
       [attr.aria-label]="ariaLabel()"

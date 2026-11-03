@@ -1,7 +1,16 @@
 import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { NavigationEnd, NavigationSkipped, Router, RouterOutlet } from '@angular/router';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { RemoteDefinition } from '@atlas/shared-contracts';
 import { UiBadge, UiButton, UiIcon, UiNavItem, UiShortId, UiThemeToggle } from '@atlas/shared-ui';
@@ -28,7 +37,11 @@ interface NavEntry extends RemoteDefinition {
   changeDetection: ChangeDetectionStrategy.OnPush,
   // Escape closes the drawer from anywhere inside it, which is what a keyboard
   // user reaches for before hunting back to the toggle.
-  host: { '(document:keydown.escape)': 'closeMenu()' },
+  host: {
+    '(document:keydown.escape)': 'closeMenu()',
+    '(document:keydown.tab)': 'keepTabInDrawer($event)',
+    '(document:keydown.shift.tab)': 'keepTabInDrawer($event)',
+  },
   imports: [NgTemplateOutlet, RouterOutlet, UiBadge, UiButton, UiIcon, UiNavItem, UiShortId, UiThemeToggle],
   template: `
     <!--
@@ -38,6 +51,7 @@ interface NavEntry extends RemoteDefinition {
     -->
     <a
       href="#main-content"
+      [inert]="menuOpen()"
       class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50
              focus:rounded-md focus:border focus:border-border-strong focus:bg-surface
              focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-text"
@@ -55,6 +69,10 @@ interface NavEntry extends RemoteDefinition {
         colour only; a drawer that animates its geometry would be the first
         thing in the system to move, and an instant panel is also the one that
         cannot be caught half-open by a fast tap.
+
+        Open, it behaves as a modal: everything else is inert, so neither Tab nor a
+        screen reader's swipe reaches the controls under the scrim, and Tab wraps
+        here rather than leaving for the browser's own chrome.
       -->
       <aside
         id="primary-nav"
@@ -63,10 +81,24 @@ interface NavEntry extends RemoteDefinition {
                md:static md:visible md:translate-x-0"
         [class.!visible]="menuOpen()"
         [class.!translate-x-0]="menuOpen()"
+        [attr.role]="menuOpen() ? 'dialog' : null"
+        [attr.aria-modal]="menuOpen() ? 'true' : null"
+        [attr.aria-label]="menuOpen() ? 'Navigation' : null"
       >
         <div class="flex h-14 items-center gap-2 border-b border-border px-4">
           <ui-icon name="compass" [size]="22" />
           <span class="font-semibold tracking-tight">Atlas Admin</span>
+          <!-- The control that opened the drawer is under the scrim once it is open. -->
+          <button
+            type="button"
+            data-testid="nav-close"
+            aria-label="Close navigation"
+            class="-mr-2 ml-auto inline-flex h-11 w-11 items-center justify-center rounded-md
+                   transition-colors hover:bg-bg md:hidden"
+            (click)="closeMenu()"
+          >
+            <ui-icon name="close" />
+          </button>
         </div>
         <nav class="flex-1 space-y-1 p-3" aria-label="Primary">
           <ui-nav-item link="/" icon="overview" [exact]="true">Overview</ui-nav-item>
@@ -123,31 +155,35 @@ interface NavEntry extends RemoteDefinition {
           }
         </nav>
       </aside>
-      <!-- Dismisses the drawer on tap; never present at md and up. -->
+      <!--
+        Dismisses the drawer on tap; never present at md and up. Out of the tab
+        order, because the drawer's own close button already does this by keyboard.
+      -->
       @if (menuOpen()) {
         <button
           type="button"
           data-testid="nav-backdrop"
           aria-label="Close navigation"
+          tabindex="-1"
           class="fixed inset-0 z-30 bg-scrim/50 md:hidden"
           (click)="closeMenu()"
         ></button>
       }
-      <div class="flex min-w-0 flex-1 flex-col">
+      <div class="flex min-w-0 flex-1 flex-col" data-testid="console-column" [inert]="menuOpen()">
         <header
           class="flex h-14 items-center gap-2 border-b border-border bg-surface px-4 md:gap-3"
         >
           <button
             type="button"
             data-testid="nav-toggle"
-            class="-ml-1 inline-flex h-9 w-9 items-center justify-center rounded-md
+            class="-ml-1 inline-flex h-11 w-11 items-center justify-center rounded-md
                    border border-border-strong transition-colors hover:bg-bg md:hidden"
             aria-controls="primary-nav"
             [attr.aria-expanded]="menuOpen()"
-            [attr.aria-label]="menuOpen() ? 'Close navigation' : 'Open navigation'"
-            (click)="toggleMenu()"
+            aria-label="Open navigation"
+            (click)="openMenu()"
           >
-            <ui-icon [name]="menuOpen() ? 'close' : 'menu'" />
+            <ui-icon name="menu" />
           </button>
           <!-- pushes the identity cluster right, replacing justify-end -->
           <span class="flex-1"></span>
@@ -300,6 +336,7 @@ export class ShellLayout {
   private readonly manifest = inject(ATLAS_MANIFEST);
   private readonly router = inject(Router);
   private readonly document = inject(DOCUMENT);
+  private readonly injector = inject(Injector);
   private readonly health = inject(RemoteHealthStore);
   protected readonly auth = inject(AtlasAuth);
   protected readonly notice = inject(ShellNotice);
@@ -327,23 +364,62 @@ export class ShellLayout {
 
   constructor() {
     // A drawer that survives the navigation it just caused would cover the
-    // screen the user asked for.
-    this.router.events
-      .pipe(takeUntilDestroyed())
-      .subscribe((event) => event instanceof NavigationEnd && this.menuOpen.set(false));
+    // screen the user asked for. Skipped counts: tapping the route already open
+    // is still the user saying "this screen". The link they pressed is about to
+    // be hidden, and the screen is what they asked for, so focus goes there.
+    this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
+      if (!(event instanceof NavigationEnd || event instanceof NavigationSkipped)) return;
+      if (this.menuOpen()) this.setMenu(false, '#main-content');
+    });
+
+    // Widening past md with the drawer open would otherwise leave the whole
+    // console inert behind a sidebar that no longer looks like a drawer.
+    const desk = this.document.defaultView?.matchMedia?.('(min-width: 48rem)');
+    const onDeskChange = (change: MediaQueryListEvent): void => {
+      if (change.matches) this.menuOpen.set(false);
+    };
+    desk?.addEventListener('change', onDeskChange);
+    inject(DestroyRef).onDestroy(() => desk?.removeEventListener('change', onDeskChange));
   }
 
-  protected toggleMenu(): void {
-    this.menuOpen.update((open) => !open);
-    // Opening moves focus into the panel; a drawer the keyboard cannot reach is
-    // decoration. Closing hands focus back to the control that opened it, so
-    // the user does not land at the top of the document.
-    queueMicrotask(() => {
-      const target = this.menuOpen()
-        ? this.document.querySelector<HTMLElement>('#primary-nav a')
-        : this.document.querySelector<HTMLElement>('[data-testid="nav-toggle"]');
-      target?.focus();
-    });
+  /** Moves into the panel: a drawer the keyboard cannot reach is decoration. */
+  protected openMenu(): void {
+    this.setMenu(true, '#primary-nav a[href]');
+  }
+
+  /** Hands focus back to the control that opened it, not the top of the document. */
+  protected closeMenu(): void {
+    if (this.menuOpen()) this.setMenu(false, '[data-testid="nav-toggle"]');
+  }
+
+  /**
+   * The focus target is hidden or inert until the state has rendered, and focusing
+   * either does nothing. So this waits for the render: a microtask runs before it,
+   * which is how the drawer used to open with focus left behind on the toggle.
+   */
+  private setMenu(open: boolean, focusTarget: string): void {
+    this.menuOpen.set(open);
+    afterNextRender(
+      { read: () => this.document.querySelector<HTMLElement>(focusTarget)?.focus() },
+      { injector: this.injector }
+    );
+  }
+
+  /** Inert keeps Tab out of the console; this keeps it out of the browser's chrome. */
+  protected keepTabInDrawer(event: Event): void {
+    if (!this.menuOpen()) return;
+    const stops = Array.from(
+      this.document.querySelectorAll<HTMLElement>('#primary-nav a[href], #primary-nav button')
+    );
+    const first = stops[0];
+    const last = stops[stops.length - 1];
+    const backwards = (event as KeyboardEvent).shiftKey;
+    const leaving = backwards
+      ? this.document.activeElement === first
+      : this.document.activeElement === last;
+    if (!leaving) return;
+    event.preventDefault();
+    (backwards ? last : first)?.focus();
   }
 
   protected async exitDemo(): Promise<void> {
@@ -356,12 +432,6 @@ export class ShellLayout {
     this.notice.clear();
     // The button just removed held focus; without this it falls to <body>.
     this.document.querySelector<HTMLElement>('#main-content')?.focus();
-  }
-
-  protected closeMenu(): void {
-    if (!this.menuOpen()) return;
-    this.menuOpen.set(false);
-    this.document.querySelector<HTMLElement>('[data-testid="nav-toggle"]')?.focus();
   }
 
   // The manifest is the registry; the nav is a rendering of it. Every remote

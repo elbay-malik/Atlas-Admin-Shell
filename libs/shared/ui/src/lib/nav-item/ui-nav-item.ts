@@ -8,7 +8,7 @@ import { UiIcon } from '../icon/ui-icon';
   imports: [RouterLink, RouterLinkActive, UiIcon],
   template: `
     <a
-      class="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface hover:text-text aria-disabled:pointer-events-none aria-disabled:opacity-40"
+      class="flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm md:min-h-0 text-text-muted transition-colors hover:bg-surface hover:text-text aria-disabled:pointer-events-none aria-disabled:opacity-40"
       routerLinkActive="!bg-brand-primary/10 !text-on-brand font-medium"
       #active="routerLinkActive"
       [routerLink]="disabled() ? null : link()"
