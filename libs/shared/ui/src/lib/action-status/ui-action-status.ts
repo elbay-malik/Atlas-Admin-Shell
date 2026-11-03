@@ -71,6 +71,7 @@ export function actionStatusLifetime(status: UiActionStatusValue): number {
 @Component({
   selector: 'ui-action-status',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'block' },
   imports: [UiButton],
   template: `
     <p
@@ -78,7 +79,8 @@ export function actionStatusLifetime(status: UiActionStatusValue): number {
       role="status"
       aria-live="polite"
       data-testid="action-status"
-      class="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted md:min-h-9"
+      class="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted md:min-h-9
+             md:justify-end md:text-right"
     >
       @if (status(); as current) {
         <span>{{ current.message }}</span>

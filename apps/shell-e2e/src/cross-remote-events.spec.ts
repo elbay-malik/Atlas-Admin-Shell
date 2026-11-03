@@ -16,7 +16,7 @@ test.describe('cross-remote events', () => {
     const row = page.locator('[data-testid="flag-row"][data-flag-key="bulk-export"]');
     await expect(row).toBeVisible();
 
-    const toggle = row.getByTestId('flag-toggle');
+    const toggle = row.getByTestId('flag-toggle').locator('button');
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
@@ -54,10 +54,10 @@ test.describe('cross-remote events', () => {
 
     await page.click('a[href="/flags"]');
     const row = page.locator('[data-testid="flag-row"][data-flag-key="sso-enforced"]');
-    await row.getByTestId('flag-toggle').click();
+    await row.getByTestId('flag-toggle').locator('button').click();
     // This one is marked as reaching every tenant, so it asks first.
     await row.getByTestId('flag-confirm-commit').locator('button').click();
-    await expect(row.getByTestId('flag-toggle')).toHaveAttribute('aria-pressed', 'true');
+    await expect(row.getByTestId('flag-toggle').locator('button')).toHaveAttribute('aria-pressed', 'true');
 
     await page.click('a[href="/audit"]');
     await expect(page.locator('audit-home')).toBeVisible();
@@ -68,6 +68,7 @@ test.describe('cross-remote events', () => {
       page
         .locator('[data-testid="flag-row"][data-flag-key="sso-enforced"]')
         .getByTestId('flag-toggle')
+        .locator('button')
     ).toHaveAttribute('aria-pressed', 'true');
   });
 });

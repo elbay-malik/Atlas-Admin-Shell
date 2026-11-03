@@ -277,7 +277,7 @@ interface NavEntry extends RemoteDefinition {
               role="status"
               aria-live="polite"
               data-testid="demo-strip"
-              class="max-w-prose min-w-0 text-sm"
+              class="max-w-measure min-w-0 text-sm"
             >
               @if (demo?.active()) {
                 Demo session, no account. Mock data, in this tab only. The edge BFF is not exercised,

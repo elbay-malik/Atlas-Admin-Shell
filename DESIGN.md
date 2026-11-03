@@ -80,6 +80,7 @@ components:
     typography: "{typography.body-sm}"
     rounded: "{rounded.md}"
     padding: "0.375rem 0.75rem"
+    height: "2.25rem"
   button-primary-hover:
     backgroundColor: "{colors.brand-primary-strong}"
     textColor: "#ffffff"
@@ -89,12 +90,14 @@ components:
     typography: "{typography.body-sm}"
     rounded: "{rounded.md}"
     padding: "0.375rem 0.75rem"
+    height: "2.25rem"
   button-danger:
     backgroundColor: "{colors.status-danger}"
     textColor: "#ffffff"
     typography: "{typography.body-sm}"
     rounded: "{rounded.md}"
     padding: "0.375rem 0.75rem"
+    height: "2.25rem"
   button-danger-hover:
     backgroundColor: "{colors.status-danger-strong}"
     textColor: "#ffffff"
@@ -104,6 +107,7 @@ components:
     typography: "{typography.body-sm}"
     rounded: "{rounded.md}"
     padding: "0.375rem 0.75rem"
+    height: "2.25rem"
   badge-neutral:
     textColor: "{colors.light-text-muted}"
     typography: "{typography.label}"
@@ -134,7 +138,8 @@ components:
     textColor: "{colors.light-text}"
     typography: "{typography.body-sm}"
     rounded: "{rounded.sm}"
-    padding: "0.5rem 0.75rem"
+    padding: "0.375rem 0.75rem"
+    height: "2.25rem"
   icon-button:
     backgroundColor: "{colors.light-surface}"
     textColor: "{colors.light-text}"
@@ -289,7 +294,7 @@ from a second family.
   Flags", "Audit Logs", "<Module> is unavailable".
 - **Title** (600, `1.125rem`, tight tracking): the product wordmark in the sidebar
   head. Nothing else uses it.
-- **Body** (400, `1rem`): page-level descriptive prose, constrained to `max-w-prose`.
+- **Body** (400, `1rem`): page-level descriptive prose, constrained to `max-w-measure`.
 - **Body Small** (400, `0.875rem`): the working size of the system — table cells,
   list rows, button labels, inputs, descriptions, help text. Most of the interface is
   this size.
@@ -316,11 +321,18 @@ hairlines; the frame fills the viewport (`min-h-screen`) and content scrolls ins
 
 Every routed screen is a `section` with uniform `1.5rem` (p-6) padding, opening with a
 header row that pairs a title block against right-aligned status badges and wraps
-(`flex-wrap`) when crowded. Vertical rhythm runs on a small set of steps —
-`0.25rem` within a control, `0.5rem`–`0.75rem` between related controls, `1rem`
-between row groups, `1.5rem` between a screen's major blocks. Reading measure is
-capped with `max-w-prose` on every paragraph and `max-w-md` on the filter input;
-tables and lists run the full column.
+(`flex-wrap`) when crowded. The three domain screens share that row as `UiPageHeader`,
+so what follows it starts at one height on all of them at the desk (188px at 1440).
+Vertical rhythm runs on a small set of steps — `0.25rem` within a control,
+`0.5rem`–`0.75rem` between related controls, `1rem` between row groups, `1.5rem` between
+a screen's major blocks. Reading measure is capped with `max-w-measure` on every paragraph
+and `max-w-md` on the filter input; tables and lists run the full column.
+
+`max-w-measure` is `54ch`, a token in `dimension.json`, and it replaced `max-w-prose` for
+running text. `ch` is the width of the digit 0, wider than an average character here, so
+Tailwind's `65ch` came to as many as 93 characters a line; `54ch` comes to about 73, at
+either text size. The Overview's paragraphs also take `text-pretty`, so a line does not end
+on a lone word. The boundary's definition grid keeps `max-w-prose`, because it is not prose.
 
 **Responsive behaviour** turns on a single breakpoint, `md` (768px), and nothing else.
 One breakpoint is the whole vocabulary: the console is either at a desk or in a hand,
@@ -355,7 +367,8 @@ and inventing intermediate states would mean maintaining layouts nobody uses.
 - **Touch targets** reach 44px below `md` on every control (buttons, nav links, icon
   buttons, the filter, the role select, the flag toggle) and return to their dense
   sizes at the desk. Links inside a sentence are exempt. The pattern is `min-h-11` with
-  `md:min-h-0`, and `responsive.spec.ts` measures it on every route.
+  `md:min-h-9` on a button, select or input, and `responsive.spec.ts` measures it on every
+  route.
 
 ### Named Rules
 
@@ -376,7 +389,14 @@ which is the one visual promise federation has to keep.
 **The Header Row Rule.** A screen title and its status badges live on one wrapping
 flex row, title block left, badges right. It is how an operator finds "what is the
 state of this domain" in the same place on every screen, including screens owned by
-different teams in different repositories.
+different teams in different repositories. On a domain screen this is `UiPageHeader`,
+which also holds a one-line note under the subtitle and the action status under the
+badges. A screen does not build its own.
+
+**The One Control Height Rule.** Buttons, selects, inputs and the theme toggle are `2.25rem`
+at the desk and `2.75rem` below `md`, so controls side by side line up. A filled button
+carries a transparent border to match an outlined one. `page-layout.spec.ts` measures this
+and the content start.
 
 ## Elevation & Depth
 
@@ -448,6 +468,8 @@ route, or a reported state.
   solid red would spend the colour ration on what is only an option, and an `unavailable` badge
   would stop being impossible to miss. A refused one goes back to Secondary: it is a fact
   about the row, not an action on offer.
+- **Toggle:** a Secondary button with `toggled` set, which carries `aria-pressed` and takes
+  the Control Indigo fill when on. A flag's On/Off control is this, not a button of its own.
 - **Transition:** `transition-colors` only — colour moves, geometry never does. No
   transform, no lift.
 - **Disabled:** `cursor-not-allowed` with 50% opacity.
@@ -504,7 +526,7 @@ route, or a reported state.
 ### Inputs
 
 - **Style:** `surface` fill, **Control Edge** 1px border, `0.25rem` radius,
-  `0.5rem 0.75rem` padding, working size, Muted Ink placeholder.
+  `0.375rem 0.75rem` padding, `2.25rem` tall, working size, Muted Ink placeholder.
 - **Label:** visually hidden (`sr-only`) where the placeholder carries the visible
   affordance — the accessible name is never dropped, only hidden.
 - **Focus:** the shared ring — a 2px `text`-coloured outline at a 2px offset. See
@@ -532,8 +554,8 @@ against a secondary **Retry**.
 
 ### Action Status
 
-The acknowledgement line every domain screen carries, **inside** its header block,
-under the subtitle.
+The acknowledgement line each screen that writes carries, in its header row, under the
+badges.
 
 - **Always in the DOM, even when silent.** It is a `role="status"` / `aria-live="polite"`
   region, and a region inserted at the same moment its text appears is frequently never
@@ -541,10 +563,13 @@ under the subtitle.
   unconditionally and only its contents change.
 - **`polite`, never `assertive`.** The operator did this on purpose; it can wait for a
   pause rather than interrupt them.
-- **It reserves its height, inside the header.** Reserving space stops an arriving
-  message shifting the rows beneath it — but reserved space floating *between* two
-  blocks reads as a hole, while the same space inside a block reads as rhythm. It
-  belongs to the header.
+- **It reserves its height, where nothing shows.** Reserving space stops an arriving
+  message shifting the rows beneath it, but an empty band between two blocks reads as a
+  hole. So at the desk it sits beside the title block, whose height is already paid for,
+  right-aligned and costing nothing. Stacked on a phone it overlaps the header's bottom
+  margin instead of adding to it. One line and Undo never move the page. A second-change
+  note can wrap past the reserved height and move it by a few pixels at the desk, or by
+  the extra lines on a phone.
 - **It carries Undo, not a confirmation.** A confirm dialog interrupts every action to
   guard against the rare one, and an operator working down a list learns to dismiss it
   unread. Undo keeps the common path at one click and makes the rare mistake cheap.
@@ -563,6 +588,22 @@ under the subtitle.
   offer, and the line says which earlier change can no longer be undone and that its row
   is the way back. Changing the same control again reverses it directly, so nothing is lost
   and nothing is said.
+
+### Page Header
+
+`UiPageHeader`, the header row of `/iam`, `/flags` and `/audit`. Three remotes kept their
+own copies and drifted until the content started at 244, 200 and 164px.
+
+- **Title block:** the Headline, the subtitle as Body in Muted Ink, then a note line in
+  Body Small. The note is the session line on `/iam`, the read-only reason on `/flags` and
+  the in-memory line on `/audit`.
+- **The note line holds its height at the desk, even empty.** That is what lines the
+  content up. It costs an admin on `/flags` an extra `1.25rem` above the list. On a phone it
+  collapses, since nothing there lines up side by side.
+- **Reports column:** the badges, then the action status. Its width comes from a `20rem`
+  basis rather than its content, so a message arriving cannot wrap it onto a new line. It
+  stacks under the title block when the two no longer fit, which is an intrinsic wrap and
+  not a second breakpoint.
 
 ### Shell Notice
 

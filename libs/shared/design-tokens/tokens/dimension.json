@@ -6,6 +6,9 @@
     "lg": { "$value": "1.5rem", "$type": "dimension" },
     "xl": { "$value": "2.5rem", "$type": "dimension" }
   },
+  "container": {
+    "measure": { "$value": "54ch", "$type": "dimension" }
+  },
   "radius": {
     "sm": { "$value": "0.25rem", "$type": "dimension" },
     "md": { "$value": "0.5rem", "$type": "dimension" },
