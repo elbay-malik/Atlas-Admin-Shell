@@ -392,7 +392,7 @@ test('the stacked badges fit the height the phone header already has', async ({ 
   await page.setViewportSize(PHONE);
   await page.goto('/');
   await expect(page.locator('shell-overview')).toBeVisible();
-  const header = page.getByTestId('console-column').locator('header');
+  const header = page.locator('[data-testid="console-column"] > header');
   expect((await header.boundingBox())?.height).toBeLessThanOrEqual(57);
 });
 
