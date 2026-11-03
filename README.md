@@ -112,6 +112,7 @@ dated receipts (npm peer ranges, GitHub issue states) for its claims.
 | [0012](docs/adr/0012-lighthouse-without-lhci-and-an-honest-budget.md) | Drive Lighthouse directly rather than the dormant LHCI wrapper; budget for the architecture we chose |
 | [0013](docs/adr/0013-ci-runs-locally-while-the-repository-is-private.md) | Run the gates locally while the repository is private |
 | [0014](docs/adr/0014-nhost-replaces-supabase-as-identity-provider.md) | Nhost replaces Supabase as the identity provider |
+| [0015](docs/adr/0015-explicit-demo-path-on-mock-data.md) | An explicit, labelled demo path on mock data; never a fallback, and absent under `apiMode: 'http'` |
 
 ## Quickstart
 

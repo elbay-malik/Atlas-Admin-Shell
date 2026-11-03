@@ -1,7 +1,11 @@
+import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { RemoteDefinition } from '@atlas/shared-contracts';
-import { UiBadge, UiBadgeTone, UiIcon } from '@atlas/shared-ui';
+import { UiBadge, UiBadgeTone, UiButton, UiIcon } from '@atlas/shared-ui';
+import { DEMO_SESSION } from '../auth/demo-session';
+import { IdentityFlow } from '../auth/identity-flow';
 import { ATLAS_MANIFEST } from '../manifest.token';
 import { RemoteHealthStore, RemoteStatus, UNKNOWN_REMOTE_HEALTH } from '../remotes/remote-health.store';
 
@@ -48,7 +52,7 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
 @Component({
   selector: 'shell-overview',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiBadge, UiIcon],
+  imports: [RouterLink, UiBadge, UiButton, UiIcon],
   template: `
     <section class="p-6">
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -71,6 +75,37 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
           </ui-badge>
         </div>
       </header>
+
+      <!--
+        Above the registry, because for a cold visitor this is the way in: sign-in
+        is the slower path, and usually ends in a viewer. Absent from the DOM when
+        the deployment does not offer it, not just hidden.
+      -->
+      @if (demo; as session) {
+        @if (session.active()) {
+          <p class="mb-6 max-w-prose text-sm" data-testid="overview-demo-running">
+            Open
+            @for (remote of remotes(); track remote.name; let last = $last) {
+              @if (last && !$first) {
+                or
+              }
+              <a class="underline underline-offset-2" [routerLink]="'/' + remote.route">{{
+                remote.displayName
+              }}</a>{{ last ? '.' : ',' }}
+            }
+            Each one loads from its own origin the first time, and its Module badge below turns to
+            loaded.
+          </p>
+        } @else if (!auth.user()) {
+          <div class="mb-6 flex max-w-prose flex-col items-start gap-2" data-testid="overview-demo">
+            <ui-button (pressed)="exploreDemo()">Explore with demo data (no account)</ui-button>
+            <p class="text-sm text-text-muted">
+              Loads the real remotes on mock data, labelled as a demo on every screen. It is not a
+              sign-in: no token exists, so the edge BFF is not exercised.
+            </p>
+          </div>
+        }
+      }
 
       <!--
         Two presentations of one list, because five columns is the right shape
@@ -153,11 +188,11 @@ const STATE: Record<RemoteStatus, { label: string; tone: UiBadgeTone; hint: stri
         }
       </ul>
 
-      @if (!auth.isAuthenticated()) {
+      @if (!auth.user()) {
         <p class="mt-4 max-w-prose text-sm text-text-muted" data-testid="overview-signed-out">
           Every domain is listed before anyone signs in, because the shell fetches this registry
           before authenticating and it names each remote's required role. Opening one needs that
-          role — sign in from the header.
+          role — sign in from the header{{ demo ? ', or explore with demo data above' : '' }}.
         </p>
         <p class="mt-2 max-w-prose text-sm text-text-muted" data-testid="overview-signin-note">
           Sign-in runs on a free Nhost project that sleeps when idle, so it may need the project to
@@ -172,6 +207,15 @@ export class Overview {
   protected readonly manifest = inject(ATLAS_MANIFEST);
   protected readonly auth = inject(AtlasAuth);
   private readonly health = inject(RemoteHealthStore);
+  private readonly flow = inject(IdentityFlow);
+  private readonly document = inject(DOCUMENT);
+  protected readonly demo = inject(DEMO_SESSION, { optional: true });
+
+  protected exploreDemo(): void {
+    this.flow.enterDemo();
+    // The button just pressed is gone; without this focus falls to <body>.
+    this.document.querySelector<HTMLElement>('#main-content')?.focus();
+  }
 
   protected readonly remotes = computed((): RemoteRow[] => {
     this.auth.user(); // re-evaluate on sign-in and sign-out

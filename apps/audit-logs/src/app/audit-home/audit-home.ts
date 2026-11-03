@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { UiBadge, UiButton } from '@atlas/shared-ui';
+import { ATLAS_API_MODE } from '@atlas/shared-util';
 import { AuditEntry } from '../data/audit-entry';
 import { AuditStore } from '../data/audit.store';
 
@@ -15,6 +16,11 @@ import { AuditStore } from '../data/audit.store';
           <p class="text-text-muted">
             Searchable trail of platform events, live from every domain.
           </p>
+          @if (inMemory) {
+            <p data-testid="audit-in-memory" class="mt-1 text-sm text-text-muted">
+              This trail lives in this tab and clears on reload, back to its seeded rows.
+            </p>
+          }
         </div>
         <!--
           The count used to read "0 live" above four seeded rows, which parses
@@ -108,6 +114,8 @@ import { AuditStore } from '../data/audit.store';
 })
 export class AuditHome {
   protected readonly store = inject(AuditStore);
+  /** On the mock there is no server keeping this trail, whoever is signed in. */
+  protected readonly inMemory = inject(ATLAS_API_MODE) === 'mock';
 
   /** Rows that arrived over the bus rather than from the seeded backend. */
   protected readonly liveCount = computed(

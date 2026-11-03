@@ -5,6 +5,7 @@ import { AtlasAuth, AuthUser } from '@atlas/shared-auth';
 import { RemoteDefinition } from '@atlas/shared-contracts';
 import { ATLAS_MANIFEST } from '../manifest.token';
 import { ShellNotice } from '../notice/shell-notice';
+import { DEMO_SESSION, DEMO_USER } from './demo-session';
 import { ATLAS_IDENTITY, IdentityIssue } from './identity.port';
 import { forgetIntendedRoute, rememberIntendedRoute, takeIntendedRoute } from './intended-route';
 
@@ -41,6 +42,7 @@ export class IdentityFlow {
   private readonly location = inject(Location);
   private readonly notice = inject(ShellNotice);
   private readonly identity = inject(ATLAS_IDENTITY, { optional: true });
+  private readonly demo = inject(DEMO_SESSION, { optional: true });
   private readonly window = inject(DOCUMENT).defaultView;
   private readonly provider = providerName(inject(ATLAS_MANIFEST).auth?.provider ?? null);
 
@@ -95,8 +97,10 @@ export class IdentityFlow {
     }, SIGN_IN_STALL_MS);
     try {
       await this.auth.login(hint);
-      // A real provider has started navigating away by now, so stay busy.
-      if (this.auth.user()) this.endSignIn();
+      // A real provider has started navigating away by now, so stay busy. A demo
+      // user is not the sign-in having finished.
+      const user = this.auth.user();
+      if (user && user !== DEMO_USER) this.endSignIn();
     } catch (error) {
       console.error('Sign-in could not be started', error);
       this.endSignIn();
@@ -107,6 +111,11 @@ export class IdentityFlow {
   async signOut(): Promise<void> {
     this.signingOut = true;
     await this.auth.logout();
+  }
+
+  /** Only ever from the visitor pressing the labelled control (ADR-0015). */
+  enterDemo(): void {
+    this.demo?.enter();
   }
 
   /**
@@ -127,7 +136,11 @@ export class IdentityFlow {
       }
       // Not over a boot failure, which explains more than this would.
       if (!this.recheck && !this.notice.current()) {
-        this.notice.show(`Sign in to open ${remote.displayName}.`);
+        this.notice.show(
+          this.demo
+            ? `Sign in or explore with demo data to open ${remote.displayName}.`
+            : `Sign in to open ${remote.displayName}.`
+        );
       }
     }
     return this.router.parseUrl('/');
@@ -143,7 +156,9 @@ export class IdentityFlow {
       this.signingOut = false;
       if (signedOut) forgetIntendedRoute();
       void this.recheckRoute(signedOut ? 'signed-out' : 'session-lost').then(() =>
-        this.notice.show(signedOut ? 'Signed out.' : 'Your session ended.')
+        this.notice.show(
+          previous === DEMO_USER ? 'Demo ended.' : signedOut ? 'Signed out.' : 'Your session ended.'
+        )
       );
     } else if (!previous && user) {
       this.endSignIn();
@@ -151,6 +166,12 @@ export class IdentityFlow {
       const intended = takeIntendedRoute();
       if (intended && this.isAtOverview(this.router.url)) void this.router.navigateByUrl(intended);
     } else {
+      // A real sign-in replacing the demo is a sign-in finishing, and the route
+      // is re-checked against the real role.
+      if (previous === DEMO_USER) {
+        this.endSignIn();
+        this.notice.clear();
+      }
       // Same session, different authority: a refresh is where a revoked role
       // becomes visible (see TokenAtlasAuth.sync).
       void this.recheckRoute('role-changed');

@@ -1,4 +1,8 @@
-import { provideIdentity } from '../bootstrap';
+import { TestBed } from '@angular/core/testing';
+import { AtlasAuth, MockAtlasAuth } from '@atlas/shared-auth';
+import { ATLAS_API_MODE } from '@atlas/shared-util';
+import { provideIdentity, resolveManifest } from '../bootstrap';
+import { DEMO_SESSION, DemoAtlasAuth, isDemoAvailable } from './auth/demo-session';
 
 /**
  * The safety-critical branch is the one that does NOT exist yet.
@@ -47,5 +51,76 @@ describe('provideIdentity', () => {
     expect(() =>
       provideIdentity({ kind: 'firebase' as 'supabase', url: 'https://p.example.com' })
     ).toThrow(/unknown auth\.kind/);
+  });
+
+  /**
+   * The demo is added beside a provider, never instead of one: ADR-0014's refusal
+   * has to hold even on a manifest that would otherwise offer it.
+   */
+  it('still refuses an unknown or retired provider when the demo is offered', () => {
+    expect(() =>
+      provideIdentity({ kind: 'firebase' as 'supabase', url: 'https://p.example.com' }, true)
+    ).toThrow(/unknown auth\.kind/);
+    expect(() => provideIdentity({ kind: 'supabase', url: 'https://p.supabase.co' }, true)).toThrow(
+      /no longer supported/
+    );
+  });
+
+  describe('the demo, in the injector', () => {
+    function install(offerDemo: boolean, apiMode: 'mock' | 'http') {
+      TestBed.configureTestingModule({
+        providers: [provideIdentity(undefined, offerDemo), { provide: ATLAS_API_MODE, useValue: apiMode }],
+      });
+    }
+
+    it('does not exist when it is not offered', () => {
+      install(false, 'http');
+      expect(TestBed.inject(DEMO_SESSION, null)).toBeNull();
+      expect(TestBed.inject(AtlasAuth)).toBeInstanceOf(MockAtlasAuth);
+    });
+
+    it('wraps the selected provider when it is', () => {
+      install(true, 'mock');
+      expect(TestBed.inject(AtlasAuth)).toBeInstanceOf(DemoAtlasAuth);
+      expect(TestBed.inject(DEMO_SESSION)).toBe(TestBed.inject(AtlasAuth));
+    });
+
+    it('fails closed if it is ever installed under apiMode http', () => {
+      install(true, 'http');
+      expect(() => TestBed.inject(AtlasAuth)).toThrow(/only when apiMode is "mock"/);
+    });
+  });
+});
+
+describe('isDemoAvailable', () => {
+  const remotes = {
+    iam: {
+      url: 'http://localhost:4201/remoteEntry.json',
+      displayName: 'IAM',
+      route: 'iam',
+      icon: 'users',
+      exposedModule: './Routes',
+      requiredRole: 'admin',
+    },
+  };
+
+  it('is available on an explicit or a defaulted mock', () => {
+    expect(isDemoAvailable(resolveManifest({ version: 1, apiMode: 'mock', remotes }))).toBe(true);
+    expect(isDemoAvailable(resolveManifest({ version: 1, remotes }))).toBe(true);
+  });
+
+  it('is not available under http', () => {
+    expect(isDemoAvailable(resolveManifest({ version: 1, apiMode: 'http', remotes }))).toBe(false);
+  });
+
+  /**
+   * An out-of-contract apiMode must not read as "not http, so mock". The contract
+   * guard turns the manifest into zero remotes, and zero remotes offer no demo.
+   */
+  it('fails closed on a manifest that fails the contract', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    expect(isDemoAvailable(resolveManifest({ version: 1, apiMode: 'HTTP', remotes }))).toBe(false);
+    expect(isDemoAvailable(resolveManifest('not a manifest'))).toBe(false);
+    spy.mockRestore();
   });
 });
