@@ -17,11 +17,17 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { EMPTY, exhaustMap, mergeMap, pipe, tap } from 'rxjs';
 import { IamApi, IamUser } from './iam-api';
 
-/** The last write, kept so it can be announced and reversed. */
-interface LastChange {
+/** The last write, kept so it can be announced and, usually, reversed. */
+export interface LastChange {
   id: string;
   message: string;
-  /** The value to restore — exactly one of these is set. */
+  /** False once this is the acknowledgement of an undo: undo is not itself undone. */
+  undoable: boolean;
+  /** The message of the earlier change whose Undo this one replaced, if any. */
+  supersedes: string | null;
+  /** Which of the row's controls this change came from. */
+  field: 'role' | 'active';
+  /** The value to restore, when undoable — only the one matching `field` is set. */
   role?: AtlasRole;
   active?: boolean;
 }
@@ -50,7 +56,17 @@ export interface RefusalContext {
   actorId: string | null;
   /** '' when the identity project mints no email claim. */
   actorEmail: string;
-  adminCount: number;
+  activeAdminCount: number;
+}
+
+/**
+ * The one count of administrators, used by the header and by both refusals so
+ * the screen cannot state two different numbers. Active admins only, matching
+ * `wouldRemoveLastAdmin` at the edge: a deactivated admin is not cover for a live
+ * one (ADR-0011).
+ */
+export function countActiveAdmins(users: readonly IamUser[]): number {
+  return users.filter((user) => user.role === 'admin' && user.active).length;
 }
 
 export const SIGNED_OUT_REFUSAL = 'Sign in to make changes.';
@@ -76,7 +92,8 @@ export function refuseRoleChange(
   if (isSelf(user, context)) {
     return 'You cannot remove your own admin role — ask another administrator.';
   }
-  if (context.adminCount <= 1) {
+  // user.active: demoting someone already deactivated removes no working admin.
+  if (user.active && context.activeAdminCount <= 1) {
     return `${user.name} is the last administrator; promote someone else first.`;
   }
   return null;
@@ -92,7 +109,7 @@ export function refuseDeactivate(
   if (isSelf(user, context)) {
     return 'You cannot deactivate the account you are signed in with.';
   }
-  if (user.role === 'admin' && context.adminCount <= 1) {
+  if (user.role === 'admin' && user.active && context.activeAdminCount <= 1) {
     return `${user.name} is the last administrator; promote someone else first.`;
   }
   return null;
@@ -112,10 +129,21 @@ export const IamUsersStore = signalStore(
   withEntities<IamUser>(),
   withRequestStatus(),
   withState(initialState),
-  withComputed(({ entities }) => ({
-    adminCount: computed(() => entities().filter((user) => user.role === 'admin').length),
-    activeCount: computed(() => entities().filter((user) => user.active).length),
-  })),
+  withComputed(({ entities }, auth = inject(AtlasAuth)) => {
+    const activeAdminCount = computed(() => countActiveAdmins(entities()));
+    return {
+      activeAdminCount,
+      activeCount: computed(() => entities().filter((user) => user.active).length),
+      /** What the refusals need. The template and the writes both read this one. */
+      refusalContext: computed(
+        (): RefusalContext => ({
+          actorId: auth.user()?.id ?? null,
+          actorEmail: auth.user()?.email ?? '',
+          activeAdminCount: activeAdminCount(),
+        })
+      ),
+    };
+  }),
   withMethods(
     (store, api = inject(IamApi), bus = inject(AtlasEventBus), auth = inject(AtlasAuth)) => {
       const begin = (id: string) =>
@@ -126,11 +154,28 @@ export const IamUsersStore = signalStore(
           pendingIds: state.pendingIds.filter((pending) => pending !== id),
         }));
 
-      /** Context both refusals need, read fresh at the moment of the write. */
-      const guardContext = (): RefusalContext => ({
-        actorId: auth.user()?.id ?? null,
-        actorEmail: auth.user()?.email ?? '',
-        adminCount: store.entities().filter((u) => u.role === 'admin' && u.active).length,
+      /** The acknowledgement of a write that just succeeded. */
+      const acknowledged = (
+        change: Pick<LastChange, 'id' | 'message' | 'field' | 'role' | 'active'>,
+        undoOf: LastChange | undefined
+      ): LastChange => {
+        const earlier = store.lastChange();
+        // A later change to the same control reverses the earlier one anyway, so
+        // only a different control loses anything.
+        const samePlace = earlier?.id === change.id && earlier.field === change.field;
+        return {
+          ...change,
+          ...(undoOf
+            ? { message: `Undone: ${undoOf.message}`, role: undefined, active: undefined }
+            : {}),
+          undoable: !undoOf,
+          supersedes: earlier?.undoable && !samePlace ? earlier.message : null,
+        };
+      };
+
+      /** A failed undo leaves the change standing, so the way back must stay. */
+      const restoreOffer = (undoOf: LastChange | undefined) => ({
+        lastChange: store.lastChange() ?? undoOf ?? null,
       });
 
       return {
@@ -149,10 +194,11 @@ export const IamUsersStore = signalStore(
           )
         ),
 
-        changeRole: rxMethod<{ id: string; role: AtlasRole }>(
+        /** `undoOf` marks the write as an undo; only undoLastChange passes it. */
+        changeRole: rxMethod<{ id: string; role: AtlasRole; undoOf?: LastChange }>(
           // mergeMap: independent rows may be in flight at the same time
           pipe(
-            mergeMap(({ id, role }) => {
+            mergeMap(({ id, role, undoOf }) => {
               // Who is making the change, from the shell's auth singleton. Read
               // once, here: a session ending mid-write must not blank the actor
               // of a change that session started, and with no user there is no
@@ -172,9 +218,9 @@ export const IamUsersStore = signalStore(
               // Refused here as well as disabled in the template: the control
               // being hidden is not the same as the change being impossible,
               // and this method is reachable without the control.
-              const refusal = refuseRoleChange(user, role, guardContext());
+              const refusal = refuseRoleChange(user, role, store.refusalContext());
               if (refusal) {
-                patchState(store, setError(refusal));
+                patchState(store, setError(refusal), restoreOffer(undoOf));
                 return EMPTY;
               }
 
@@ -186,11 +232,15 @@ export const IamUsersStore = signalStore(
                 tapResponse({
                   next: () => {
                     patchState(store, setFulfilled(), {
-                      lastChange: {
-                        id,
-                        role: previous,
-                        message: `${user.name} is now a ${role}.`,
-                      },
+                      lastChange: acknowledged(
+                        {
+                          id,
+                          field: 'role',
+                          role: previous,
+                          message: `${user.name} is now a ${role}.`,
+                        },
+                        undoOf
+                      ),
                     });
                     bus.publish(
                       userRoleChanged(
@@ -203,7 +253,8 @@ export const IamUsersStore = signalStore(
                     patchState(
                       store,
                       updateEntity({ id, changes: { role: previous } }),
-                      setError(error.message)
+                      setError(error.message),
+                      restoreOffer(undoOf)
                     ),
                   finalize: () => settle(id),
                 })
@@ -212,9 +263,10 @@ export const IamUsersStore = signalStore(
           )
         ),
 
-        setActive: rxMethod<{ id: string; active: boolean }>(
+        /** `undoOf` marks the write as an undo; only undoLastChange passes it. */
+        setActive: rxMethod<{ id: string; active: boolean; undoOf?: LastChange }>(
           pipe(
-            mergeMap(({ id, active }) => {
+            mergeMap(({ id, active, undoOf }) => {
               const actor = auth.user();
               if (!actor) {
                 patchState(store, setError(SIGNED_OUT_REFUSAL));
@@ -225,9 +277,9 @@ export const IamUsersStore = signalStore(
               if (!user || user.active === active) return EMPTY;
               if (store.pendingIds().includes(id)) return EMPTY;
 
-              const refusal = refuseDeactivate(user, active, guardContext());
+              const refusal = refuseDeactivate(user, active, store.refusalContext());
               if (refusal) {
-                patchState(store, setError(refusal));
+                patchState(store, setError(refusal), restoreOffer(undoOf));
                 return EMPTY;
               }
 
@@ -238,11 +290,15 @@ export const IamUsersStore = signalStore(
                 tapResponse({
                   next: () => {
                     patchState(store, setFulfilled(), {
-                      lastChange: {
-                        id,
-                        active: !active,
-                        message: `${user.name} ${active ? 'activated' : 'deactivated'}.`,
-                      },
+                      lastChange: acknowledged(
+                        {
+                          id,
+                          field: 'active',
+                          active: !active,
+                          message: `${user.name} ${active ? 'activated' : 'deactivated'}.`,
+                        },
+                        undoOf
+                      ),
                     });
                     bus.publish(
                       userStatusChanged(
@@ -255,7 +311,8 @@ export const IamUsersStore = signalStore(
                     patchState(
                       store,
                       updateEntity({ id, changes: { active: user.active } }),
-                      setError(error.message)
+                      setError(error.message),
+                      restoreOffer(undoOf)
                     ),
                   finalize: () => settle(id),
                 })
@@ -276,15 +333,17 @@ export const IamUsersStore = signalStore(
      */
     undoLastChange(): void {
       const change = store.lastChange();
-      if (!change) return;
+      if (!change?.undoable) return;
+      // The in-flight guard would swallow this write, and the offer with it.
+      if (store.pendingIds().includes(change.id)) return;
       patchState(store, { lastChange: null });
       if (change.role !== undefined) {
-        store.changeRole({ id: change.id, role: change.role });
+        store.changeRole({ id: change.id, role: change.role, undoOf: change });
       } else if (change.active !== undefined) {
-        store.setActive({ id: change.id, active: change.active });
+        store.setActive({ id: change.id, active: change.active, undoOf: change });
       }
     },
-    /** Called when the operator moves on, so a stale acknowledgement is not offered. */
+    /** Called when the status line expires, so a stale acknowledgement is not offered. */
     dismissLastChange(): void {
       patchState(store, { lastChange: null });
     },

@@ -218,4 +218,86 @@ describe('FlagsStore', () => {
     expect(store.pendingKeys()).toEqual([]);
     expect(store.enabledCount()).toBe(3);
   });
+
+  describe('undo', () => {
+    it('stops offering Undo once undone, and says the undo happened', async () => {
+      const { store, published } = track(await loaded());
+
+      store.toggle('bulk-export');
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      expect(store.lastToggle()?.undoable).toBe(true);
+
+      store.undoLastToggle();
+      expect(store.lastToggle()).toBeNull();
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+
+      expect(store.entityMap()['bulk-export'].enabled).toBe(false);
+      expect(store.lastToggle()).toMatchObject({
+        message: 'Undone: bulk-export turned on.',
+        undoable: false,
+      });
+      // The undo is a real change in the audit trail.
+      expect(published).toHaveLength(2);
+
+      // Nothing happens if something asks again.
+      store.undoLastToggle();
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      expect(published).toHaveLength(2);
+    });
+
+    it('keeps the offer when the undo fails, because the toggle still stands', async () => {
+      const { store, api } = track(await loaded());
+
+      store.toggle('bulk-export');
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      const offer = store.lastToggle();
+
+      api.failNext();
+      store.undoLastToggle();
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+
+      expect(store.entityMap()['bulk-export'].enabled).toBe(true);
+      expect(store.lastToggle()).toEqual(offer);
+    });
+
+    it('does not lose the offer to a write already in flight on that row', async () => {
+      const { store } = track(await loaded());
+
+      store.toggle('bulk-export');
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      store.toggle('bulk-export');
+
+      store.undoLastToggle();
+      expect(store.lastToggle()).not.toBeNull();
+    });
+
+    it('records which earlier Undo a toggle of another flag replaced', async () => {
+      const { store } = track(await loaded());
+
+      store.toggle('bulk-export');
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      expect(store.lastToggle()?.supersedes).toBeNull();
+
+      store.toggle('new-dashboard');
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      expect(store.lastToggle()?.supersedes).toBe('bulk-export turned on.');
+
+      // The same flag again reverses it directly, so nothing is lost.
+      store.toggle('new-dashboard');
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      expect(store.lastToggle()?.supersedes).toBeNull();
+    });
+
+    it('does not claim to replace an Undo that had already expired', async () => {
+      const { store } = track(await loaded());
+
+      store.toggle('bulk-export');
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      store.dismissLastToggle();
+
+      store.toggle('new-dashboard');
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      expect(store.lastToggle()?.supersedes).toBeNull();
+    });
+  });
 });

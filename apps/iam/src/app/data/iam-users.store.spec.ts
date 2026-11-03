@@ -77,7 +77,7 @@ describe('IamUsersStore', () => {
 
     expect(store.isFulfilled()).toBe(true);
     expect(store.entities()).toHaveLength(4);
-    expect(store.adminCount()).toBe(2);
+    expect(store.activeAdminCount()).toBe(2);
     expect(store.activeCount()).toBe(3);
   });
 
@@ -106,7 +106,7 @@ describe('IamUsersStore', () => {
     await vi.advanceTimersByTimeAsync(WRITE_MS);
 
     expect(store.pendingIds()).toEqual([]);
-    expect(store.adminCount()).toBe(3);
+    expect(store.activeAdminCount()).toBe(3);
     expect(published).toHaveLength(1);
     expect(published[0]).toMatchObject({
       type: 'user.role.changed',
@@ -244,5 +244,113 @@ describe('IamUsersStore', () => {
 
     await vi.advanceTimersByTimeAsync(WRITE_MS);
     expect(store.pendingIds()).toEqual([]);
+  });
+
+  describe('the active-admin count', () => {
+    it('drops when an admin is deactivated, and says so in one number', async () => {
+      const { store } = track(await loaded());
+
+      expect(store.activeAdminCount()).toBe(2);
+      store.setActive({ id: 'u-2', active: false });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+
+      expect(store.activeAdminCount()).toBe(1);
+      expect(store.refusalContext().activeAdminCount).toBe(1);
+    });
+
+    it('lets a deactivated admin be demoted, since no working admin is lost', async () => {
+      const { store } = track(await loaded());
+
+      store.setActive({ id: 'u-2', active: false });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      store.changeRole({ id: 'u-2', role: 'viewer' });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+
+      expect(store.entityMap()['u-2'].role).toBe('viewer');
+      expect(store.error()).toBeNull();
+    });
+  });
+
+  describe('undo', () => {
+    it('stops offering Undo once undone, and says the undo happened', async () => {
+      const { store, published } = track(await loaded());
+
+      store.setActive({ id: 'u-3', active: false });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      expect(store.lastChange()?.undoable).toBe(true);
+
+      store.undoLastChange();
+      expect(store.lastChange()).toBeNull();
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+
+      expect(store.entityMap()['u-3'].active).toBe(true);
+      expect(store.lastChange()).toMatchObject({
+        message: 'Undone: Alan Turing deactivated.',
+        undoable: false,
+      });
+      expect(published).toHaveLength(2);
+
+      store.undoLastChange();
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      expect(published).toHaveLength(2);
+    });
+
+    it('undoes a role change the same way', async () => {
+      const { store } = track(await loaded());
+
+      store.changeRole({ id: 'u-3', role: 'admin' });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      store.undoLastChange();
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+
+      expect(store.entityMap()['u-3'].role).toBe('viewer');
+      expect(store.lastChange()?.undoable).toBe(false);
+    });
+
+    it('keeps the offer when the undo fails, because the change still stands', async () => {
+      const { store, api } = track(await loaded());
+
+      store.setActive({ id: 'u-3', active: false });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      const offer = store.lastChange();
+
+      api.failNext();
+      store.undoLastChange();
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+
+      expect(store.entityMap()['u-3'].active).toBe(false);
+      expect(store.lastChange()).toEqual(offer);
+    });
+
+    it('records which earlier Undo a change elsewhere replaced', async () => {
+      const { store } = track(await loaded());
+
+      store.setActive({ id: 'u-3', active: false });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      store.setActive({ id: 'u-4', active: true });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      expect(store.lastChange()?.supersedes).toBe('Alan Turing deactivated.');
+
+      // The same control again reverses it directly, so nothing is lost.
+      store.setActive({ id: 'u-4', active: false });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      expect(store.lastChange()?.supersedes).toBeNull();
+
+      // A different control on the same row does lose the earlier Undo.
+      store.changeRole({ id: 'u-4', role: 'admin' });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      expect(store.lastChange()?.supersedes).toBe('Katherine Johnson deactivated.');
+    });
+
+    it('does not lose the offer to a write already in flight on that row', async () => {
+      const { store } = track(await loaded());
+
+      store.setActive({ id: 'u-3', active: false });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      store.changeRole({ id: 'u-3', role: 'admin' });
+
+      store.undoLastChange();
+      expect(store.lastChange()).not.toBeNull();
+    });
   });
 });

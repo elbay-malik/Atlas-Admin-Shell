@@ -98,6 +98,12 @@ components:
   button-danger-hover:
     backgroundColor: "{colors.status-danger-strong}"
     textColor: "#ffffff"
+  button-danger-quiet:
+    backgroundColor: "{colors.light-surface}"
+    textColor: "{colors.light-on-danger}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.md}"
+    padding: "0.375rem 0.75rem"
   badge-neutral:
     textColor: "{colors.light-text-muted}"
     typography: "{typography.label}"
@@ -425,7 +431,13 @@ route, or a reported state.
 - **Secondary:** `surface` fill with a **Control Edge** border and `text` ink; hover
   shifts the *border* to Control Indigo rather than filling. This is the system's most
   used control.
-- **Danger:** Fault Red fill, white text; hover steps to Fault Red Deep.
+- **Danger:** Fault Red fill, white text; hover steps to Fault Red Deep. It commits a
+  destructive action that has already been asked about.
+- **Quiet danger:** `surface` fill with `on-danger` border and ink; hover takes the Fault
+  Red fill. It offers a destructive action that repeats down a list. "Deactivate" × 40 in
+  solid red would spend the colour ration on what is only an option, and an offline badge
+  would stop being impossible to miss. A refused one goes back to Secondary: it is a fact
+  about the row, not an action on offer.
 - **Transition:** `transition-colors` only — colour moves, geometry never does. No
   transform, no lift.
 - **Disabled:** `cursor-not-allowed` with 50% opacity.
@@ -527,6 +539,18 @@ under the subtitle.
 - **Undo performs the inverse action**, through the same API call and the same event
   publication — so the audit trail shows the flag going on and then off, rather than an
   edit silently vanishing from the record.
+- **Undo happens once.** The line then reads `Undone: …` with no Undo beside it. If the
+  undo fails, the change still stands, so the offer comes back.
+- **Focus goes back to the row.** Undo leaves with its offer, so focus returns to the
+  control that made the change rather than falling to `<body>`. The slot that holds the
+  Undo button stays mounted; only the button inside it comes and goes.
+- **It expires.** 12 seconds with Undo, 6 without, plus 60ms a character for reading. The
+  clock stops while the pointer or focus is on the line and while the tab is hidden, so
+  nobody loses Undo while reaching for it or by looking away.
+- **One Undo at a time, and it says so.** A change to another control takes over the
+  offer, and the line says which earlier change can no longer be undone and that its row
+  is the way back. Changing the same control again reverses it directly, so nothing is lost
+  and nothing is said.
 
 ### Shell Notice
 
@@ -582,9 +606,16 @@ belongs to, such as "GitHub account".
 
 Some actions are not undoable because they would remove the ability to undo them:
 demoting yourself, deactivating your own session, or removing the last administrator.
-Those controls are **disabled and say why**, in a `title` on the host element and in the
-accessible name — a disabled `<button>` stops receiving the mouse events that would
-surface its own tooltip, so the reason has to live somewhere that is not disabled.
+Those controls are **disabled and say why in visible text** beneath the control, in
+label type and Muted Ink, tied to it by `aria-describedby` or carried in its accessible
+name. Never a `title`: a tooltip on a disabled control needs a pointer, on something that
+has stopped responding to one. A reason shared by every control on a screen is written once,
+above them: "Only admins can change feature flags." on `/flags`, and the session line for
+being signed out.
+
+The IAM header counts **active admins**, and the refusals use that same number. It is what
+`wouldRemoveLastAdmin` counts at the edge (ADR-0011): a deactivated admin cannot cover for
+a working one, and demoting one removes nobody's access, so it is never refused as the last.
 
 **These are error prevention, not security.** The edge BFF is the authorization boundary
 (ADR-0011) and the same invariants live there; the client only hides things. They exist
@@ -644,7 +675,13 @@ One exception, and it is not stylistic: `transition-colors` also transitions
 **The Undo Over Confirm Rule.** A reversible action is acknowledged and offers Undo; it
 does not ask first. Only an action that would remove the ability to undo it — losing
 your own access, or the platform's last administrator — is refused outright, and a
-refusal always says why on the control itself.
+refusal always says why, in visible text at the control.
+
+One exception: a flag whose data carries a `blastRadius`. Undo answers a mistake only the
+operator has seen, and this one reaches other people the moment it flips. It takes a second
+step, inline in the row and never a dialog: the consequence in words, focus on the choice
+that changes nothing, a Danger button naming the action, Escape to back out. Undo is still
+offered afterwards. Which flags qualify is decided in the data, not the template.
 
 **The Silent Success Rule.** No write completes without saying so. A label flipping is
 not feedback: it is invisible to a screen reader, and it is invisible to anyone whose
@@ -723,7 +760,9 @@ outright — including the ring forced-colors mode synthesises.
   active route. Its rarity is what makes it readable.
 - **Don't** use a status hue as text on its own tint, or a status colour to set a mood.
 - **Don't** animate geometry. Colour transitions only — no transform, lift or scale.
-- **Don't** add a confirmation dialog to a reversible action.
+- **Don't** add a confirmation dialog to a reversible action. A flag marked with a blast
+  radius gets the inline second step instead.
+- **Don't** put a refusal or lock reason only in a `title`.
 - **Don't** let a write complete silently, or signal it only by a control changing.
 - **Don't** write `outline: none`, anywhere, for any reason. It is the single edit
   that can remove focus indication outright.

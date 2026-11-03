@@ -6,13 +6,24 @@ export interface FeatureFlag {
   key: string;
   description: string;
   enabled: boolean;
+  /**
+   * What flipping this flag reaches, for a flag where that goes well beyond the
+   * operator. Its presence is what asks for the extra confirm step, so marking a
+   * flag is a data change and never a template change.
+   */
+  blastRadius?: string;
 }
 
 /** The canonical flag set this demo remote owns. */
 const SEED: readonly FeatureFlag[] = [
   { key: 'new-dashboard', description: 'Next-gen dashboard layout', enabled: true },
   { key: 'bulk-export', description: 'CSV export for audit logs', enabled: false },
-  { key: 'sso-enforced', description: 'Require SSO for all tenants', enabled: false },
+  {
+    key: 'sso-enforced',
+    description: 'Require SSO for all tenants',
+    enabled: false,
+    blastRadius: 'Changes sign-in for every tenant as soon as you confirm.',
+  },
 ];
 
 const GET_FLAGS_DELAY_MS = 300;

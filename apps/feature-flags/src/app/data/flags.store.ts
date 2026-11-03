@@ -24,11 +24,20 @@ const flagsConfig = entityConfig({
   selectId: (flag) => flag.key,
 });
 
+/** The last confirmed toggle, kept so it can be announced and, usually, reversed. */
+export interface LastToggle {
+  key: string;
+  message: string;
+  /** False once this is the acknowledgement of an undo: undo is not itself undone. */
+  undoable: boolean;
+  /** The message of the earlier toggle whose Undo this one replaced, if any. */
+  supersedes: string | null;
+}
+
 interface FlagsState {
   /** Keys whose write is in flight — one row can be busy while others are not. */
   pendingKeys: string[];
-  /** The last confirmed toggle, kept so it can be announced and reversed. */
-  lastToggle: { key: string; message: string } | null;
+  lastToggle: LastToggle | null;
 }
 
 const initialState: FlagsState = { pendingKeys: [], lastToggle: null };
@@ -73,10 +82,11 @@ export const FlagsStore = signalStore(
           )
         )
       ),
-      toggle: rxMethod<string>(
+      /** `undoOf` marks the write as an undo, and is put back if the write fails. */
+      _write: rxMethod<{ key: string; undoOf: LastToggle | null }>(
         // mergeMap: independent rows may be in flight at the same time
         pipe(
-          mergeMap((key) => {
+          mergeMap(({ key, undoOf }) => {
             // Read once, here: a session ending mid-write must not blank the
             // actor of a change it started, and with no user there is no write
             // at all, whatever a stale screen still offers.
@@ -105,10 +115,17 @@ export const FlagsStore = signalStore(
                 next: () => {
                   // clear any error left by an earlier failed write, or the
                   // banner would outlive the failure for the whole session
+                  const earlier = store.lastToggle();
                   patchState(store, setFulfilled(), {
                     lastToggle: {
                       key,
-                      message: `${key} turned ${enabled ? 'on' : 'off'}.`,
+                      message: undoOf
+                        ? `Undone: ${undoOf.message}`
+                        : `${key} turned ${enabled ? 'on' : 'off'}.`,
+                      undoable: !undoOf,
+                      // A later toggle of the same flag reverses the earlier one
+                      // anyway, so only a different flag loses anything.
+                      supersedes: earlier?.undoable && earlier.key !== key ? earlier.message : null,
                     },
                   });
                   bus.publish(
@@ -122,7 +139,9 @@ export const FlagsStore = signalStore(
                   patchState(
                     store,
                     updateEntity({ id: key, changes: { enabled: flag.enabled } }, flagsConfig),
-                    setError(error.message)
+                    setError(error.message),
+                    // The toggle still stands, so the way back must too.
+                    { lastToggle: store.lastToggle() ?? undoOf }
                   ),
                 finalize: () =>
                   patchState(store, (state) => ({
@@ -135,8 +154,11 @@ export const FlagsStore = signalStore(
       ),
     })
   ),
-  // A second pass, because undo has to call the toggle defined above.
+  // A second pass, because undo has to call the write defined above.
   withMethods((store) => ({
+    toggle(key: string): void {
+      store._write({ key, undoOf: null });
+    },
     /**
      * Reverses the last toggle by toggling again, not by patching state back.
      * The inverse goes through the same API call and publishes its own event,
@@ -146,9 +168,11 @@ export const FlagsStore = signalStore(
      */
     undoLastToggle(): void {
       const last = store.lastToggle();
-      if (!last) return;
+      if (!last?.undoable) return;
+      // The in-flight guard would swallow this write, and the offer with it.
+      if (store.pendingKeys().includes(last.key)) return;
       patchState(store, { lastToggle: null });
-      store.toggle(last.key);
+      store._write({ key: last.key, undoOf: last });
     },
     dismissLastToggle(): void {
       patchState(store, { lastToggle: null });

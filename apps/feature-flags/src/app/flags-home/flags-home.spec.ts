@@ -155,4 +155,134 @@ describe('FlagsHome', () => {
     expect(query(fixture, '[data-testid="flags-error"]')).toBeNull();
     expect(rows(fixture)).toHaveLength(3);
   });
+
+  describe('the extra step on a blast-radius flag', () => {
+    const inRow = <T extends Element>(row: Element, testId: string, inner = ''): T | null =>
+      row.querySelector<T>(`[data-testid="${testId}"] ${inner}`.trim());
+
+    async function open(): Promise<{ fixture: ComponentFixture<FlagsHome>; row: HTMLLIElement }> {
+      const fixture = await render();
+      const row = rows(fixture)[2];
+      document.body.appendChild(fixture.nativeElement);
+      toggleIn(row).click();
+      await TestBed.tick();
+      return { fixture, row };
+    }
+
+    it('asks first when the data marks the flag, and changes nothing yet', async () => {
+      const { row } = await open();
+
+      expect(inRow(row, 'flag-confirm')?.textContent).toContain('Turn on sso-enforced?');
+      expect(inRow(row, 'flag-confirm')?.textContent).toContain('every tenant');
+      expect(toggleIn(row).getAttribute('aria-pressed')).toBe('false');
+      expect(toggleIn(row).getAttribute('aria-expanded')).toBe('true');
+      expect(document.activeElement).toBe(
+        inRow(row, 'flag-confirm-cancel', 'button')
+      );
+    });
+
+    it('does not ask for a flag the data does not mark', async () => {
+      const fixture = await render();
+      const row = rows(fixture)[1];
+
+      toggleIn(row).click();
+      await TestBed.tick();
+
+      expect(inRow(row, 'flag-confirm')).toBeNull();
+      expect(toggleIn(row).getAttribute('aria-pressed')).toBe('true');
+      expect(toggleIn(row).hasAttribute('aria-expanded')).toBe(false);
+    });
+
+    it('applies on the second step and returns focus to the toggle', async () => {
+      const { fixture, row } = await open();
+
+      inRow<HTMLButtonElement>(row, 'flag-confirm-commit', 'button')?.click();
+      await TestBed.tick();
+      expect(toggleIn(row).getAttribute('aria-pressed')).toBe('true');
+      expect(inRow(row, 'flag-confirm')).toBeNull();
+      expect(document.activeElement).toBe(toggleIn(row));
+
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      await TestBed.tick();
+      expect(query(fixture, '[data-testid="action-status"]')?.textContent).toContain(
+        'sso-enforced turned on.'
+      );
+    });
+
+    it('backs out on Keep, on Escape and on the toggle, with focus back on the toggle', async () => {
+      const { row } = await open();
+
+      inRow<HTMLButtonElement>(row, 'flag-confirm-cancel', 'button')?.click();
+      await TestBed.tick();
+      expect(inRow(row, 'flag-confirm')).toBeNull();
+      expect(document.activeElement).toBe(toggleIn(row));
+
+      toggleIn(row).click();
+      await TestBed.tick();
+      inRow(row, 'flag-confirm')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await TestBed.tick();
+      expect(inRow(row, 'flag-confirm')).toBeNull();
+      expect(document.activeElement).toBe(toggleIn(row));
+
+      toggleIn(row).click();
+      await TestBed.tick();
+      toggleIn(row).click();
+      await TestBed.tick();
+      expect(inRow(row, 'flag-confirm')).toBeNull();
+      expect(toggleIn(row).getAttribute('aria-pressed')).toBe('false');
+    });
+  });
+
+  describe('Undo', () => {
+    it('returns focus to the row, and stops being offered', async () => {
+      const fixture = await render();
+      document.body.appendChild(fixture.nativeElement);
+      const row = rows(fixture)[1];
+
+      toggleIn(row).click();
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      await TestBed.tick();
+
+      const status = query<HTMLElement>(fixture, '[data-testid="action-status"]');
+      const undo = status?.querySelector<HTMLButtonElement>('button');
+      undo?.focus();
+      undo?.click();
+      await TestBed.tick();
+
+      expect(document.activeElement).toBe(toggleIn(row));
+      expect(query(fixture, '[data-testid="action-status-undo-slot"]')).not.toBeNull();
+
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      await TestBed.tick();
+      expect(status?.textContent).toContain('Undone: bulk-export turned on.');
+      expect(status?.querySelector('button')).toBeNull();
+    });
+
+    it('clears the line when it expires', async () => {
+      const fixture = await render();
+      toggleIn(rows(fixture)[1]).click();
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      await TestBed.tick();
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await TestBed.tick();
+
+      expect(query(fixture, '[data-testid="action-status"]')?.textContent?.trim()).toBe('');
+    });
+  });
+
+  it('tells a viewer why, in text the toggles point at', async () => {
+    const fixture = await render('viewer');
+
+    const reason = query<HTMLElement>(fixture, '[data-testid="flags-readonly-reason"]');
+    expect(reason?.textContent).toContain('Only admins can change feature flags');
+    const toggle = toggleIn(rows(fixture)[0]);
+    expect(toggle.getAttribute('aria-describedby')).toBe(reason?.id);
+    expect(toggle.hasAttribute('title')).toBe(false);
+  });
+
+  it('shows no such reason to an admin', async () => {
+    const fixture = await render();
+    expect(query(fixture, '[data-testid="flags-readonly-reason"]')).toBeNull();
+  });
 });
