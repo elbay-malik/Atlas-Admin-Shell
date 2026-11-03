@@ -89,6 +89,17 @@ export function toAtlasEmail(claims: Record<string, unknown>): string {
 }
 
 /**
+ * Who an audit entry names: the email, or the user id when there is no email.
+ *
+ * `||`, not `??`, is the point. A missing email is '' (see toAtlasEmail), which
+ * `??` lets through, and isAtlasEvent rejects an event with a blank actor. The
+ * edge applies the same rule to its own entries (`principal.email || principal.sub`).
+ */
+export function toAtlasActor(identity: { id: string; email: string }): string {
+  return identity.email || identity.id;
+}
+
+/**
  * A human-readable name, falling back to email and then to the subject.
  *
  * Display name is USER-EDITABLE, which is fine here and nowhere else: it names

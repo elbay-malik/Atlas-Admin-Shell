@@ -1,4 +1,4 @@
-import { AtlasIdentityClient } from './identity.port';
+import { AtlasIdentityClient, IdentityIssue } from './identity.port';
 
 export interface NhostIdentityConfig {
   /** Auth base URL, including the version segment: https://<sub>.auth.<region>.nhost.run/v1 */
@@ -9,15 +9,34 @@ export interface NhostIdentityConfig {
 
 /** The query parameter the provider appends when it returns from a redirect. */
 const REDIRECT_PARAM = 'refreshToken';
+/** How the provider reports a failed sign-in on the same redirect. */
+const ERROR_CODE_PARAM = 'error';
+const ERROR_DETAIL_PARAMS = ['errorDescription', 'error_description'];
+/** The only shape of provider code the console will show; see readProviderError. */
+const SAFE_ERROR_CODE = /^[A-Za-z0-9_.-]{1,64}$/;
 const DEFAULT_STORAGE_KEY = 'atlas.auth';
 /** Refresh this far before expiry, so a request never races the clock. */
 const REFRESH_SKEW_MS = 60_000;
 /** Never schedule a timer tighter than this, even for a very short-lived token. */
 const MIN_REFRESH_DELAY_MS = 5_000;
+/**
+ * How long one token exchange may take.
+ *
+ * The app initializer awaits the exchange at boot, so with no limit a sleeping
+ * provider means a console that never renders. Short enough that someone is
+ * still watching, long enough for a slow but working provider.
+ */
+export const TOKEN_EXCHANGE_TIMEOUT_MS = 8_000;
 // The '[atlas-auth]' log prefix and the '/signin/provider/' path are this
 // client's fingerprint: bundles:check greps every remote for them (ADR-0006).
 // Reserved — no other code may log under that prefix, or every remote that
 // ships it fails as if it bundled this client.
+
+/**
+ * The exchange got no verdict: timeout, network failure or a provider 5xx.
+ * Nothing says the token is bad, unlike a 4xx, so it must not be thrown away.
+ */
+class ProviderUnreachable extends Error {}
 
 interface Session {
   accessToken: string;
@@ -49,6 +68,7 @@ export class NhostIdentityClient implements AtlasIdentityClient {
   private timer: ReturnType<typeof setTimeout> | null = null;
   /** In flight refresh, so concurrent callers await one request, not several. */
   private pending: Promise<void> | null = null;
+  private issue: IdentityIssue | null = null;
 
   constructor(config: NhostIdentityConfig) {
     this.base = config.url.replace(/\/$/, '');
@@ -56,6 +76,7 @@ export class NhostIdentityClient implements AtlasIdentityClient {
   }
 
   async initialize(): Promise<void> {
+    this.issue = this.readProviderError();
     const fromRedirect = this.takeRedirectToken();
     const stored = this.readStored();
     const token = fromRedirect ?? stored;
@@ -64,14 +85,35 @@ export class NhostIdentityClient implements AtlasIdentityClient {
     try {
       await this.exchange(token);
     } catch (error) {
-      // A refresh token that no longer works is the normal end of a session,
-      // not a failure to report. Clearing is what makes the next load a clean
-      // signed-out state rather than a retry loop against a dead token.
+      if (error instanceof ProviderUnreachable) {
+        // Keep the token: this is the provider being asleep, and clearing it
+        // would turn a slow minute into a forced sign-in. The redirect's token
+        // has already left the URL, so storage is the only way a reload retries.
+        if (fromRedirect) this.writeStored(fromRedirect);
+        this.issue = {
+          kind: 'provider-unreachable',
+          during: fromRedirect ? 'sign-in' : 'restore',
+        };
+        console.warn('[atlas-auth] the identity provider did not answer', error);
+        return;
+      }
+      // A refresh token that no longer works is the normal end of a session.
+      // Clearing is what makes the next load a clean signed-out state rather
+      // than a retry loop against a dead token.
       this.clear();
       if (fromRedirect) {
+        this.issue = { kind: 'sign-in-rejected', code: null };
         console.error('[atlas-auth] sign-in could not be completed', error);
+      } else {
+        this.issue = { kind: 'session-expired' };
       }
     }
+  }
+
+  takeIssue(): IdentityIssue | null {
+    const issue = this.issue;
+    this.issue = null;
+    return issue;
   }
 
   claims(): Record<string, unknown> | null {
@@ -95,7 +137,8 @@ export class NhostIdentityClient implements AtlasIdentityClient {
     const target = new URL(`${this.base}/signin/provider/${encodeURIComponent(provider)}`);
     // The provider refuses a redirectTo that is not allow-listed, which is what
     // stops this being an open redirect. Sending our own origin keeps the
-    // allow-list short.
+    // allow-list short, which is also why the intended route does not travel
+    // here: the shell keeps it in sessionStorage (see intended-route.ts).
     target.searchParams.set('redirectTo', `${location.origin}/`);
     location.assign(target.toString());
   }
@@ -129,31 +172,54 @@ export class NhostIdentityClient implements AtlasIdentityClient {
    * not leave it behind either.
    */
   private takeRedirectToken(): string | null {
-    const url = new URL(location.href);
-    const token =
-      url.searchParams.get(REDIRECT_PARAM) ??
-      new URLSearchParams(url.hash.replace(/^#/, '')).get(REDIRECT_PARAM);
+    const token = this.readParam(REDIRECT_PARAM);
     if (!token) return null;
-
-    url.searchParams.delete(REDIRECT_PARAM);
-    const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
-    hash.delete(REDIRECT_PARAM);
-    url.hash = hash.toString() ? `#${hash}` : '';
-    history.replaceState(null, '', url.toString());
+    this.stripParams([REDIRECT_PARAM]);
     return token;
+  }
+
+  /**
+   * Reads a failed sign-in off the redirect and removes it from the URL.
+   *
+   * The URL is attacker-writable, so only a short machine code may reach the
+   * screen. The free-text description goes to the console and nowhere else;
+   * rendering it would let a crafted link put any sentence in the admin console.
+   */
+  private readProviderError(): IdentityIssue | null {
+    const code = this.readParam(ERROR_CODE_PARAM);
+    const detail = ERROR_DETAIL_PARAMS.map((name) => this.readParam(name)).find(Boolean);
+    if (code === null && !detail) return null;
+
+    this.stripParams([ERROR_CODE_PARAM, ...ERROR_DETAIL_PARAMS]);
+    console.error('[atlas-auth] the provider refused the sign-in', code, detail);
+    return {
+      kind: 'sign-in-rejected',
+      code: code !== null && SAFE_ERROR_CODE.test(code) ? code : null,
+    };
+  }
+
+  private readParam(name: string): string | null {
+    const url = new URL(location.href);
+    return (
+      url.searchParams.get(name) ?? new URLSearchParams(url.hash.replace(/^#/, '')).get(name)
+    );
+  }
+
+  /** Removes the named parameters and leaves the rest of the URL exactly as it was. */
+  private stripParams(names: string[]): void {
+    const url = new URL(location.href);
+    for (const name of names) url.searchParams.delete(name);
+    const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+    if (names.some((name) => hash.has(name))) {
+      for (const name of names) hash.delete(name);
+      url.hash = hash.toString() ? `#${hash}` : '';
+    }
+    history.replaceState(null, '', url.toString());
   }
 
   /** Exchanges a refresh token for a session, rotating the stored token. */
   private async exchange(refreshToken: string): Promise<void> {
-    const response = await fetch(`${this.base}/token`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-    if (!response.ok) {
-      throw new Error(`token exchange failed: ${response.status} ${response.statusText}`);
-    }
-    const body = (await response.json()) as Record<string, unknown>;
+    const body = await this.postToken(refreshToken);
     // Observed shape from the live endpoint:
     //   { accessToken, accessTokenExpiresIn, refreshToken, refreshTokenId, user }
     // i.e. flat, not nested. The sign-in endpoints DO nest theirs under
@@ -180,6 +246,36 @@ export class NhostIdentityClient implements AtlasIdentityClient {
     this.session = { accessToken, expiresAt: exp, claims };
     this.scheduleRefresh();
     this.notify();
+  }
+
+  /** One bounded POST, body read included: a stalled body hangs boot just the same. */
+  private async postToken(refreshToken: string): Promise<Record<string, unknown>> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TOKEN_EXCHANGE_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${this.base}/token`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+        signal: controller.signal,
+      });
+      if (response.status >= 500) {
+        throw new ProviderUnreachable(`token exchange answered ${response.status}`);
+      }
+      if (!response.ok) {
+        throw new Error(`token exchange failed: ${response.status} ${response.statusText}`);
+      }
+      return (await response.json()) as Record<string, unknown>;
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ProviderUnreachable(`no answer in ${TOKEN_EXCHANGE_TIMEOUT_MS}ms`);
+      }
+      // fetch rejects with a TypeError only when no response arrived at all.
+      if (error instanceof TypeError) throw new ProviderUnreachable(error.message);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private async refreshNow(): Promise<void> {

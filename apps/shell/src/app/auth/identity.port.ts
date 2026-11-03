@@ -5,7 +5,7 @@ import { InjectionToken } from '@angular/core';
  *
  * Narrowing it to a port is what makes the provider testable with no identity
  * project at all: the specs bind a hand-written fake to this token. It also
- * documents exactly how much vendor surface the platform depends on — six
+ * documents exactly how much vendor surface the platform depends on — seven
  * methods, none of them vendor-shaped.
  *
  * The previous version of this port was shaped around one vendor's SDK, down to
@@ -14,12 +14,29 @@ import { InjectionToken } from '@angular/core';
  * in the way. This one is expressed in the terms the SHELL needs, so the next
  * swap is an adapter rather than a refactor.
  */
+export type IdentityIssue =
+  /**
+   * The provider refused the sign-in. `code` is its short machine code when it
+   * sent one. Free text from the redirect is never carried here: anyone can
+   * craft that URL, so showing it would let a link write into the console.
+   */
+  | { kind: 'sign-in-rejected'; code: string | null }
+  /** The provider did not answer. The token was kept, so a reload can retry. */
+  | { kind: 'provider-unreachable'; during: 'sign-in' | 'restore' }
+  /** A stored session is no longer accepted. */
+  | { kind: 'session-expired' };
+
 export interface AtlasIdentityClient {
   /**
    * Restores a stored session and/or completes a redirect. Resolves normally
-   * when nobody is signed in — being signed out is not an error.
+   * when nobody is signed in — being signed out is not an error — and also when
+   * the attempt failed, because the console must boot either way. A failure is
+   * reported through `takeIssue()`.
    */
   initialize(): Promise<void>;
+
+  /** What went wrong during `initialize()`, once; null when nothing did. */
+  takeIssue(): IdentityIssue | null;
 
   /**
    * Claims of the current access token, or null when signed out.

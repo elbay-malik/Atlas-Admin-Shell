@@ -1,6 +1,6 @@
 import { computed, inject } from '@angular/core';
 import { AtlasAuth } from '@atlas/shared-auth';
-import { flagToggled } from '@atlas/shared-contracts';
+import { flagToggled, toAtlasActor } from '@atlas/shared-contracts';
 import { AtlasEventBus } from '@atlas/shared-event-bus';
 import { setError, setFulfilled, setPending, withRequestStatus } from '@atlas/shared-util';
 import {
@@ -77,6 +77,15 @@ export const FlagsStore = signalStore(
         // mergeMap: independent rows may be in flight at the same time
         pipe(
           mergeMap((key) => {
+            // Read once, here: a session ending mid-write must not blank the
+            // actor of a change it started, and with no user there is no write
+            // at all, whatever a stale screen still offers.
+            const actor = auth.user();
+            if (!actor) {
+              patchState(store, setError('Sign in to make changes.'));
+              return EMPTY;
+            }
+
             const flag = store.entityMap()[key];
             if (!flag) return EMPTY;
             // In-flight guard. The row stays focusable while its write is
@@ -105,7 +114,7 @@ export const FlagsStore = signalStore(
                   bus.publish(
                     flagToggled(
                       { key, enabled },
-                      { source: 'feature-flags', actor: auth.user()?.email ?? 'system' }
+                      { source: 'feature-flags', actor: toAtlasActor(actor) }
                     )
                   );
                 },

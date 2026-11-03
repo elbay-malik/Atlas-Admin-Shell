@@ -4,8 +4,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { RemoteDefinition } from '@atlas/shared-contracts';
-import { UiBadge, UiButton, UiIcon, UiNavItem, UiThemeToggle } from '@atlas/shared-ui';
+import { UiBadge, UiButton, UiIcon, UiNavItem, UiShortId, UiThemeToggle } from '@atlas/shared-ui';
+import { IdentityFlow, providerName } from '../auth/identity-flow';
 import { ATLAS_MANIFEST } from '../manifest.token';
+import { ShellNotice } from '../notice/shell-notice';
 import { RemoteHealthStore, RemoteStatus, UNKNOWN_REMOTE_HEALTH } from '../remotes/remote-health.store';
 
 interface NavEntry extends RemoteDefinition {
@@ -21,7 +23,7 @@ interface NavEntry extends RemoteDefinition {
   // Escape closes the drawer from anywhere inside it, which is what a keyboard
   // user reaches for before hunting back to the toggle.
   host: { '(document:keydown.escape)': 'closeMenu()' },
-  imports: [RouterOutlet, UiBadge, UiButton, UiIcon, UiNavItem, UiThemeToggle],
+  imports: [RouterOutlet, UiBadge, UiButton, UiIcon, UiNavItem, UiShortId, UiThemeToggle],
   template: `
     <!--
       First focusable element in the document. Without it the tab order walks
@@ -136,11 +138,27 @@ interface NavEntry extends RemoteDefinition {
           @if (auth.user(); as user) {
             <!-- the name is the first thing to go when space is short; the
                  role badge is what actually changes what you can do -->
-            <span class="hidden text-sm sm:inline">{{ user.name }}</span>
+            @if (user.name === user.id) {
+              <!--
+                The token had no name or email, so the name is the raw id. Purely
+                a display decision: nothing here reaches authorization.
+              -->
+              <span
+                data-testid="identity-fallback"
+                class="hidden items-center gap-2 text-sm sm:inline-flex"
+              >
+                <span class="text-text-muted">{{ accountLabel }}</span>
+                <ui-short-id [value]="user.id" label="account ID" align="end" />
+              </span>
+            } @else {
+              <span class="hidden max-w-64 truncate text-sm sm:inline" [attr.title]="user.name">
+                {{ user.name }}
+              </span>
+            }
             <ui-badge [tone]="user.role === 'admin' ? 'success' : 'neutral'">
               {{ user.role }}
             </ui-badge>
-            <ui-button variant="secondary" (pressed)="auth.logout()">Sign out</ui-button>
+            <ui-button variant="secondary" (pressed)="flow.signOut()">Sign out</ui-button>
           } @else if (identityProvider) {
             <!--
               Real identity: one button, and the hint is the PROVIDER name. The
@@ -148,18 +166,58 @@ interface NavEntry extends RemoteDefinition {
               thing — they pass 'admin'/'viewer' as the login hint, which a real
               provider would read as the name of an OAuth provider and fail on.
             -->
-            <ui-button (pressed)="auth.login(identityProvider)">
-              Sign in with {{ providerLabel }}
+            <!--
+              aria-busy, not disabled: disabling the control just pressed would
+              throw focus to <body>. The flow ignores a second press.
+            -->
+            <ui-button [busy]="flow.signingIn()" (pressed)="flow.signIn(identityProvider)">
+              {{ flow.signingIn() ? 'Opening ' + providerLabel + '…' : 'Sign in with ' + providerLabel }}
             </ui-button>
           } @else {
             <!-- Mock only: the hint is a persona, and anyone may pick one. -->
-            <ui-button (pressed)="auth.login('admin')">Sign in as admin</ui-button>
-            <ui-button variant="secondary" (pressed)="auth.login('viewer')">as viewer</ui-button>
+            <ui-button (pressed)="flow.signIn('admin')">Sign in as admin</ui-button>
+            <ui-button variant="secondary" (pressed)="flow.signIn('viewer')">as viewer</ui-button>
           }
           <ui-theme-toggle />
         </header>
         <!-- tabindex="-1" so the skip link can move focus here, not just scroll -->
         <main id="main-content" tabindex="-1" class="flex-1">
+          <!--
+            The one place the shell reports what happened to the visitor's
+            identity. The region is always in the DOM, because one inserted with
+            its text is often not announced. It collapses to no height when
+            silent rather than reserving a band: this is rare, and an empty strip
+            on every screen would cost more than the shift when it does arrive.
+            Dismiss sits outside the region so it is not read as part of the news.
+          -->
+          <div
+            class="flex items-center gap-3"
+            [class.border-b]="notice.current()"
+            [class.border-border]="notice.current()"
+            [class.bg-surface]="notice.current()"
+            [class.px-6]="notice.current()"
+          >
+            <p
+              role="status"
+              aria-live="polite"
+              data-testid="shell-notice"
+              class="min-w-0 flex-1 text-sm"
+              [class.py-2]="notice.current()"
+              [class.text-on-danger]="notice.current()?.tone === 'problem'"
+            >{{ notice.current()?.text }}</p>
+            @if (notice.current()) {
+              <button
+                type="button"
+                data-testid="shell-notice-dismiss"
+                aria-label="Dismiss notice"
+                class="-mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md
+                       transition-colors hover:bg-bg md:h-7 md:w-7"
+                (click)="dismissNotice()"
+              >
+                <ui-icon name="close" [size]="16" />
+              </button>
+            }
+          </div>
           <router-outlet />
         </main>
       </div>
@@ -172,6 +230,9 @@ export class ShellLayout {
   private readonly document = inject(DOCUMENT);
   private readonly health = inject(RemoteHealthStore);
   protected readonly auth = inject(AtlasAuth);
+  protected readonly notice = inject(ShellNotice);
+  // Built here, before the router's initial navigation: see its constructor.
+  protected readonly flow = inject(IdentityFlow);
 
   /**
    * The configured OIDC provider, or null when this deployment runs the mock.
@@ -181,9 +242,8 @@ export class ShellLayout {
    * bundle serves a mock-auth preview and a real-auth production.
    */
   protected readonly identityProvider = this.manifest.auth?.provider ?? null;
-  protected readonly providerLabel = this.identityProvider
-    ? this.identityProvider.charAt(0).toUpperCase() + this.identityProvider.slice(1)
-    : '';
+  protected readonly providerLabel = providerName(this.identityProvider);
+  protected readonly accountLabel = this.providerLabel ? `${this.providerLabel} account` : 'Account';
 
   /** Drawer state. Only meaningful below md, where the sidebar is off-canvas. */
   protected readonly menuOpen = signal(false);
@@ -207,6 +267,12 @@ export class ShellLayout {
         : this.document.querySelector<HTMLElement>('[data-testid="nav-toggle"]');
       target?.focus();
     });
+  }
+
+  protected dismissNotice(): void {
+    this.notice.clear();
+    // The button just removed held focus; without this it falls to <body>.
+    this.document.querySelector<HTMLElement>('#main-content')?.focus();
   }
 
   protected closeMenu(): void {
