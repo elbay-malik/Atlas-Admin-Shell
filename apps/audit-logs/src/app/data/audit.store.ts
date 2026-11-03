@@ -31,6 +31,12 @@ const matches = (entry: AuditEntry, query: string): boolean =>
   entry.action.toLowerCase().includes(query) ||
   entry.target.toLowerCase().includes(query);
 
+/** The entries a filter keeps; a blank filter keeps them all. */
+export function filterEntries(entries: AuditEntry[], query: string): AuditEntry[] {
+  const q = query.trim().toLowerCase();
+  return q ? entries.filter((entry) => matches(entry, q)) : entries;
+}
+
 /**
  * The audit trail: the seeded history from the mock backend plus every event
  * published on the cross-MFE bus, in one entity collection keyed by event id.
@@ -44,11 +50,7 @@ export const AuditStore = signalStore(
   withRequestStatus(),
   withState({ query: '' }),
   withComputed(({ entities, query }) => ({
-    filtered: computed(() => {
-      const q = query().trim().toLowerCase();
-      const rows = q ? entities().filter((entry) => matches(entry, q)) : entities();
-      return [...rows].sort(newestFirst);
-    }),
+    filtered: computed(() => [...filterEntries(entities(), query())].sort(newestFirst)),
   })),
   withMethods((store, api = inject(AuditApi)) => ({
     setQuery(query: string): void {

@@ -333,19 +333,29 @@ and inventing intermediate states would mean maintaining layouts nobody uses.
   `invisible` rather than merely translated, which is what keeps every nav link out of
   the tab order while it is closed — a transform alone would leave them focusable off
   screen. A scrim covers the content, Escape closes it, and navigating closes it.
+  Open, it is a modal: focus enters on the first link, the rest of the console is
+  `inert`, Tab wraps inside the panel, and the panel carries its own close button,
+  because the control that opened it is under the scrim. Closing returns focus to
+  that control; navigating moves it to the screen the visitor asked for.
 - **The drawer does not slide.** The system's motion vocabulary is colour; a panel
   that animated its geometry would be the first thing here to move, and an instant
   panel cannot be caught half-open by a fast tap.
 - **Dense tables scroll inside themselves,** never moving the page. An operator
   expects to pan a ledger, and dropping columns would hide the comparison the table
   exists for — but the document itself must never pan, or the chrome drifts off screen
-  with it.
-- **The Overview is the exception** and changes shape rather than scrolling: below
-  `md` each remote becomes a block instead of a table row, because it is the arrival
-  screen and the origin — the part carrying the architecture claim — has to survive
-  the narrow viewport.
-- **Touch targets** reach 44px below `md` on the controls an operator actually taps
-  (the flag toggle, the role select) and return to the dense 34px at the desk.
+  with it. The scrolling box is `UiScrollRegion`: a named, focusable region only while
+  there is something to pan, so a keyboard can reach it and a table that fits costs no
+  tab stop.
+- **The Overview and the IAM roster are the exceptions** and change shape rather than
+  scrolling. Below `md` each remote becomes a block instead of a table row, because it
+  is the arrival screen and the origin — the part carrying the architecture claim — has
+  to survive the narrow viewport. Each user becomes a block too, because that table is
+  a list of people to act on, and panning put the action itself off screen. It stays a
+  table to a screen reader, through explicit roles.
+- **Touch targets** reach 44px below `md` on every control (buttons, nav links, icon
+  buttons, the filter, the role select, the flag toggle) and return to their dense
+  sizes at the desk. Links inside a sentence are exempt. The pattern is `min-h-11` with
+  `md:min-h-0`, and `responsive.spec.ts` measures it on every route.
 
 ### Named Rules
 
@@ -517,6 +527,8 @@ against a secondary **Retry**.
 - An empty result renders a full-width Muted Ink row inside the table, never a bare
   page message — the column headers stay on screen so the operator can see what they
   filtered.
+- A filter lives in the URL (`?q=`), so a view can be shared and survives a reload, and
+  its count is reported by a polite live region once typing pauses, not on every key.
 
 ### Action Status
 

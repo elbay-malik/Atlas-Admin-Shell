@@ -78,7 +78,7 @@ export function actionStatusLifetime(status: UiActionStatusValue): number {
       role="status"
       aria-live="polite"
       data-testid="action-status"
-      class="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted"
+      class="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted md:min-h-9"
     >
       @if (status(); as current) {
         <span>{{ current.message }}</span>

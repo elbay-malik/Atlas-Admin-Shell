@@ -154,3 +154,212 @@ test('the overview keeps the origin at phone width, where the claim lives', asyn
   await expect(rows.first()).toContainText('http://localhost:4201');
   await expect(rows.first()).toContainText('needs');
 });
+
+test('the open drawer takes focus, keeps Tab inside itself and gives focus back', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(PHONE);
+  await page.goto('/');
+  await expect(page.locator('shell-layout')).toBeVisible();
+
+  const toggle = page.getByTestId('nav-toggle');
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+
+  // Opening used to leave focus on the toggle, under the scrim: the focus call ran
+  // in a microtask, before the render that made the panel focusable.
+  const insideDrawer = () =>
+    page.evaluate(() => !!document.activeElement?.closest('#primary-nav'));
+  await expect.poll(insideDrawer).toBe(true);
+  await expect(page.locator('#primary-nav a[href="/"]')).toBeFocused();
+
+  // Well past the number of stops in the panel, in both directions: it has to wrap
+  // rather than reach the header, the content or the browser's own chrome.
+  for (let press = 0; press < 12; press++) {
+    await page.keyboard.press('Tab');
+    expect(await insideDrawer(), `Tab ${press + 1} left the drawer`).toBe(true);
+  }
+  for (let press = 0; press < 12; press++) {
+    await page.keyboard.press('Shift+Tab');
+    expect(await insideDrawer(), `Shift+Tab ${press + 1} left the drawer`).toBe(true);
+  }
+
+  // Inert, so a screen reader's swipe cannot reach them either.
+  await expect(page.getByTestId('console-column')).toHaveJSProperty('inert', true);
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#primary-nav')).toBeHidden();
+  await expect(toggle).toBeFocused();
+  await expect(page.getByTestId('console-column')).toHaveJSProperty('inert', false);
+});
+
+test('the drawer closes from its own button, and navigating leaves focus on the screen', async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.setViewportSize(PHONE);
+  await page.goto('/');
+  await expect(page.locator('shell-layout')).toBeVisible();
+
+  const toggle = page.getByTestId('nav-toggle');
+  await toggle.click();
+  await page.getByTestId('nav-close').click();
+  await expect(page.locator('#primary-nav')).toBeHidden();
+  await expect(toggle).toBeFocused();
+
+  // Tapping the route already open is a skipped navigation, and still closes it.
+  await toggle.click();
+  await page.locator('#primary-nav a[href="/"]').click();
+  await expect(page.locator('#primary-nav')).toBeHidden();
+  await expect(page.locator('#main-content')).toBeFocused();
+});
+
+test('widening past md with the drawer open does not leave the console inert', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(PHONE);
+  await page.goto('/');
+  await expect(page.locator('shell-layout')).toBeVisible();
+
+  await page.getByTestId('nav-toggle').click();
+  await expect(page.getByTestId('console-column')).toHaveJSProperty('inert', true);
+
+  await page.setViewportSize(DESKTOP);
+  await expect(page.getByTestId('console-column')).toHaveJSProperty('inert', false);
+  await expect(page.getByTestId('nav-backdrop')).toHaveCount(0);
+});
+
+test('every row of /iam keeps its controls on a phone screen', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(PHONE);
+  await page.goto('/iam');
+  await expect(page.getByTestId('user-row').first()).toBeVisible();
+
+  // Deactivate used to start beyond the right edge: the table clipped by 142px, with
+  // nothing on screen to say a column was there.
+  const box = page.getByTestId('user-row').first().locator('xpath=ancestor::*[@data-overflowing]');
+  await expect(box).toHaveAttribute('data-overflowing', 'false');
+
+  const rows = page.getByTestId('user-row');
+  for (let index = 0; index < (await rows.count()); index++) {
+    for (const control of [rows.nth(index).getByTestId('role-select'), rows.nth(index).locator('[data-testid="toggle-active"] button')]) {
+      const rect = await control.boundingBox();
+      expect(rect).not.toBeNull();
+      expect(rect!.x).toBeGreaterThanOrEqual(0);
+      expect(rect!.x + rect!.width).toBeLessThanOrEqual(PHONE.width);
+    }
+  }
+
+  // Block-shaped on screen, still a table to a screen reader.
+  await expect(page.getByRole('table')).toHaveCount(1);
+  await expect(page.getByRole('columnheader', { name: 'Actions' })).toHaveCount(1);
+  await expect(rows.first().getByRole('cell').first()).toBeVisible();
+});
+
+test('/iam is the same table at a desk', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(DESKTOP);
+  await page.goto('/iam');
+  await expect(page.getByTestId('user-row').first()).toBeVisible();
+
+  const display = await page.getByTestId('user-row').first().evaluate((row) => getComputedStyle(row).display);
+  expect(display).toBe('table-row');
+  await expect(page.getByRole('columnheader', { name: 'Actions' })).toBeVisible();
+});
+
+/** Scrollable at a phone width, so a keyboard must be able to reach and pan it. */
+test('the audit ledger can be panned from the keyboard at phone width', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(PHONE);
+  await page.goto('/audit');
+  await expect(page.getByTestId('audit-row').first()).toBeVisible();
+
+  const region = page.getByRole('region', { name: 'Audit events' });
+  await expect(region).toHaveAttribute('tabindex', '0');
+  await region.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => region.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+});
+
+test('the ledger is not a tab stop at a desk, where nothing needs panning', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(DESKTOP);
+  await page.goto('/audit');
+  await expect(page.getByTestId('audit-row').first()).toBeVisible();
+  await expect(page.locator('[data-overflowing]')).toHaveAttribute('data-overflowing', 'false');
+  await expect(page.locator('[data-overflowing]')).not.toHaveAttribute('tabindex', '0');
+});
+
+/**
+ * Sizes had drifted: 32, 34, 36 and 38px within one screen, while the select and the
+ * flag toggle met 44px. Inline links in a sentence are exempt, as in WCAG 2.5.8.
+ */
+const TOUCH_TARGET = 44;
+
+async function undersizedControls(page: Page): Promise<string[]> {
+  return page
+    .locator('a[href], button, select, input')
+    .evaluateAll(
+      (controls, minimum) =>
+        controls
+          .filter((control) => {
+            const style = getComputedStyle(control);
+            const rect = control.getBoundingClientRect();
+            const shown = style.visibility === 'visible' && rect.width > 1 && rect.height > 1;
+            const inline = control.tagName === 'A' && !!control.closest('p');
+            return shown && !inline && rect.height < minimum;
+          })
+          .map((control) => {
+            const name =
+              control.getAttribute('aria-label') ??
+              control.getAttribute('data-testid') ??
+              control.textContent?.trim();
+            return `${name}: ${Math.round(control.getBoundingClientRect().height)}px`;
+          }),
+      TOUCH_TARGET
+    );
+}
+
+test('every control on a phone is a 44px touch target', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(PHONE);
+
+  const undersized: string[] = [];
+  for (const route of ROUTES) {
+    await page.goto(route.path);
+    await expect(page.locator(route.ready)).toBeVisible();
+    await expect(page.locator(route.rows).first()).toBeVisible();
+    undersized.push(...(await undersizedControls(page)).map((found) => `${route.path} ${found}`));
+  }
+
+  await page.getByTestId('nav-toggle').click();
+  await expect(page.locator('#primary-nav')).toBeVisible();
+  undersized.push(...(await undersizedControls(page)).map((found) => `drawer ${found}`));
+
+  expect(undersized, undersized.join('\n')).toEqual([]);
+});
+
+test('signed out, the header still fits and its controls are 44px', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto('/');
+  await expect(page.locator('shell-overview')).toBeVisible();
+
+  const undersized = await undersizedControls(page);
+  expect(undersized, undersized.join('\n')).toEqual([]);
+  const { doc, viewport } = await page.evaluate(() => ({
+    doc: document.documentElement.scrollWidth,
+    viewport: document.documentElement.clientWidth,
+  }));
+  expect(doc).toBeLessThanOrEqual(viewport);
+});
+
+test('the desk keeps its dense controls', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(DESKTOP);
+  await page.goto('/iam');
+  await expect(page.getByTestId('user-row').first()).toBeVisible();
+
+  const height = await page
+    .locator('[data-testid="toggle-active"] button')
+    .first()
+    .evaluate((button) => button.getBoundingClientRect().height);
+  expect(height).toBeLessThan(TOUCH_TARGET);
+});

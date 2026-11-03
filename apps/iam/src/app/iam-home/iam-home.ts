@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { AtlasRole } from '@atlas/shared-contracts';
-import { UiActionStatus, UiBadge, UiButton, UiShortId } from '@atlas/shared-ui';
+import { UiActionStatus, UiBadge, UiButton, UiScrollRegion, UiShortId } from '@atlas/shared-ui';
 import { IamUser } from '../data/iam-api';
 import {
   IamUsersStore,
@@ -20,7 +20,7 @@ import {
 @Component({
   selector: 'iam-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiActionStatus, UiBadge, UiButton, UiShortId],
+  imports: [UiActionStatus, UiBadge, UiButton, UiScrollRegion, UiShortId],
   template: `
     <section class="p-6">
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -85,24 +85,29 @@ import {
       }
 
       <!--
-        A dense record table is the one thing that legitimately scrolls
-        sideways on a phone: an operator expects to pan a ledger, and dropping
-        columns would hide the comparison the table exists for. Containing the
-        scroll HERE rather than letting it reach the document is the fix — the
-        page itself must never pan, or the chrome drifts off screen with it.
+        Unlike the audit ledger, this is a list of people to act on, and panning
+        put the action itself out of sight: the Actions column started beyond the
+        edge of a phone, with nothing to say it was there. So below md each row
+        changes shape into a block with its controls on screen.
+
+        The explicit roles are load-bearing. A table cell set to display:block or
+        grid can lose its table semantics in the accessibility tree, and these keep
+        the row and its column names for a screen reader at every width. The scroll
+        region stays for the band just above md, where the sidebar leaves the table
+        a little short of its full width.
       -->
-      <div class="overflow-x-auto">
-      <table class="w-full text-left text-sm">
-        <thead>
-          <tr class="border-b border-border text-text-muted">
-            <th scope="col" class="py-2 pr-4 font-medium">Name</th>
-            <th scope="col" class="py-2 pr-4 font-medium">Email</th>
-            <th scope="col" class="py-2 pr-4 font-medium">Role</th>
-            <th scope="col" class="py-2 pr-4 font-medium">Status</th>
-            <th scope="col" class="py-2 font-medium">Actions</th>
+      <div uiScrollRegion="Users">
+      <table role="table" class="block w-full text-left text-sm md:table">
+        <thead role="rowgroup" class="sr-only md:not-sr-only">
+          <tr role="row" class="border-b border-border text-text-muted">
+            <th role="columnheader" scope="col" class="py-2 pr-4 font-medium">Name</th>
+            <th role="columnheader" scope="col" class="py-2 pr-4 font-medium">Email</th>
+            <th role="columnheader" scope="col" class="py-2 pr-4 font-medium">Role</th>
+            <th role="columnheader" scope="col" class="py-2 pr-4 font-medium">Status</th>
+            <th role="columnheader" scope="col" class="py-2 font-medium">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup" class="block md:table-row-group">
           @for (user of store.entities(); track user.id) {
             <!--
               Controls stay enabled while a write is in flight and express it
@@ -111,19 +116,27 @@ import {
               store's in-flight guard swallows duplicate writes.
             -->
             <tr
+              role="row"
               data-testid="user-row"
               [attr.data-user-id]="user.id"
               [attr.data-pending]="isPending(user.id)"
-              class="border-b border-border/60"
+              class="grid grid-cols-2 gap-x-4 gap-y-2 border-b border-border/60 py-3 md:table-row md:py-0"
             >
-              <td class="py-2 pr-4">{{ user.name }}</td>
-              <td class="py-2 pr-4">{{ user.email }}</td>
-              <td class="py-2 pr-4">
+              <td role="cell" class="min-w-0 font-medium break-words md:py-2 md:pr-4 md:font-normal">
+                {{ user.name }}
+              </td>
+              <td
+                role="cell"
+                class="col-span-2 row-start-2 min-w-0 break-words text-text-muted md:py-2 md:pr-4 md:text-text"
+              >
+                {{ user.email }}
+              </td>
+              <td role="cell" class="row-start-3 min-w-0 md:py-2 md:pr-4">
                 <select
                   data-testid="role-select"
-                  class="min-h-11 rounded-md border border-border-strong bg-surface px-3 py-1.5
+                  class="min-h-11 w-full rounded-md border border-border-strong bg-surface px-3 py-1.5
                          text-sm text-text disabled:cursor-not-allowed disabled:opacity-50
-                         md:min-h-0"
+                         md:min-h-0 md:w-auto"
                   [value]="user.role"
                   [disabled]="!!roleRefusal(user)"
                   [attr.aria-describedby]="visibleReason(roleRefusal(user)) ? 'role-reason-' + user.id : null"
@@ -150,7 +163,7 @@ import {
                 already used for status in this page's header; the row now uses
                 the same vocabulary.
               -->
-              <td class="py-2 pr-4">
+              <td role="cell" class="col-start-2 row-start-1 justify-self-end md:py-2 md:pr-4">
                 <ui-badge
                   data-testid="user-status"
                   [tone]="user.active ? 'success' : 'neutral'"
@@ -158,7 +171,7 @@ import {
                   {{ user.active ? 'active' : 'deactivated' }}
                 </ui-badge>
               </td>
-              <td class="py-2">
+              <td role="cell" class="col-start-2 row-start-3 min-w-0 justify-self-end md:py-2">
                 <!--
                   Disabled rather than allowed-and-rejected: the operator should
                   not be able to reach for the one action that would lock them

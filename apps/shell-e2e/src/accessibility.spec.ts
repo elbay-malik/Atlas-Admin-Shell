@@ -63,6 +63,46 @@ test.describe('accessibility', () => {
   }
 
   /**
+   * A table that only scrolls on a phone is a violation only on a phone: at 390px
+   * the audit ledger was a scroller nothing could focus, which the desk-sized scans
+   * above cannot see. The wait is for the shape after rows arrive.
+   */
+  for (const screen of [
+    { path: '/audit', ready: 'audit-row' },
+    { path: '/iam', ready: 'user-row' },
+    { path: '/flags', ready: 'flag-row' },
+  ]) {
+    for (const theme of ['light', 'dark'] as const) {
+      test(`${screen.path} has no WCAG A/AA violations at phone width in ${theme}`, async ({ page }) => {
+        await page.addInitScript((chosen) => {
+          localStorage.setItem('atlas.auth.persona', 'admin');
+          localStorage.setItem('atlas.theme', chosen);
+        }, theme);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.goto(screen.path);
+        await expect(page.getByTestId(screen.ready).first()).toBeVisible();
+        if (screen.path === '/audit') {
+          await expect(page.locator('[data-overflowing]')).toHaveAttribute('tabindex', '0');
+        }
+
+        const { violations } = await scan(page);
+        expect(violations, report(violations)).toEqual([]);
+      });
+    }
+  }
+
+  test('the open drawer has no WCAG A/AA violations', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('atlas.auth.persona', 'admin'));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.getByTestId('nav-toggle').click();
+    await expect(page.locator('#primary-nav')).toBeVisible();
+
+    const { violations } = await scan(page);
+    expect(violations, report(violations)).toEqual([]);
+  });
+
+  /**
    * The design tokens flip per theme, so a colour can clear AA in light and fail
    * in dark. Slice 2 shipped a 2.57:1 nav link precisely because nothing ever
    * rendered dark mode for axe.
