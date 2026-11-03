@@ -46,7 +46,7 @@ test.describe('cross-remote events', () => {
       .filter({ hasText: 'alan@atlas.dev' })
       .first();
     await expect(auditRow).toContainText('user.role.changed');
-    await expect(auditRow).toContainText('viewer -> admin');
+    await expect(auditRow).toContainText('viewer to admin');
   });
 
   test('remote state survives navigating away and back', async ({ page }) => {
