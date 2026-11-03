@@ -10,6 +10,8 @@ An enterprise-grade **microfrontend control plane**: a zoneless Angular shell th
 independently deployable domain remotes — **IAM**, **Feature Flags**, and **Audit Logs** — at runtime
 via [Native Federation](https://native-federation.com) and a manifest-driven remote registry.
 
+**Live demo: <https://atlas.elbaymalik.com>**
+
 ## What is Atlas Admin Shell
 
 A production-shaped admin platform demonstrating how a large organization runs many domain teams
@@ -181,7 +183,7 @@ headers and the error boundary are all exercised in production exactly as ADR-00
 
 | App | URL |
 | --- | --- |
-| `shell` | https://atlas-shell.eleo-666.workers.dev |
+| `shell` | https://atlas.elbaymalik.com |
 | `iam` | https://atlas-iam.eleo-666.workers.dev |
 | `feature-flags` | https://atlas-feature-flags.eleo-666.workers.dev |
 | `audit-logs` | https://atlas-audit-logs.eleo-666.workers.dev |
