@@ -112,9 +112,10 @@ Durable technical constraints future design work must respect:
   `libs/shared/design-tokens/tokens/color.json` and `dimension.json` are the single
   source; the committed CSS is built from them and a `tokens:check` gate fails on
   drift. Editing the CSS directly is a gate failure, not a shortcut.
-- **Shared components live in `libs/shared/ui`** — currently `button`, `badge`,
-  `nav-item`, `theme`, `theme-toggle`. Anything a second surface needs belongs
-  there rather than duplicated into a remote.
+- **Shared components live in `libs/shared/ui`** — currently `action-status`,
+  `badge`, `button`, `icon`, `nav-item`, `page-header`, `scroll-region`, `short-id`,
+  `theme`, `theme-toggle`. Anything a second surface needs belongs there rather than
+  duplicated into a remote.
 - **No remote may bundle the identity client** (ADR-0006), enforced by
   `bundles:check`.
 - Performance is budgeted for the architecture actually chosen — runtime federation
@@ -122,9 +123,9 @@ Durable technical constraints future design work must respect:
 
 Explicitly undecided / not yet true:
 
-- The repository is private and CI minutes are exhausted, so the gates run locally
-  via `pnpm run ci:local` (ADR-0013). There is no green check on a pull request.
-- Going public has not been decided.
+- The repository is public (`gh repo view` said so on 2026-11-04) and the console links
+  to it. It ran out of CI minutes while private, and the gates still run locally via
+  `pnpm run ci:local` (ADR-0013). There is no green check on a pull request.
 - `apiMode` is `'mock'` in production today, so flag data is not real and nothing
   exercises the edge's real HTTP path in production. Sign-in itself is real: on
   2026-10-25 a GitHub sign-in completed on the live console, by hand (ADR-0014).

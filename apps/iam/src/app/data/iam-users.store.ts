@@ -1,5 +1,5 @@
-import { computed, inject } from '@angular/core';
-import { AtlasAuth } from '@atlas/shared-auth';
+import { computed, effect, inject, untracked } from '@angular/core';
+import { AtlasAuth, AuthUser } from '@atlas/shared-auth';
 import { AtlasRole, toAtlasActor, userRoleChanged, userStatusChanged } from '@atlas/shared-contracts';
 import { AtlasEventBus } from '@atlas/shared-event-bus';
 import { setError, setFulfilled, setPending, withRequestStatus } from '@atlas/shared-util';
@@ -118,6 +118,11 @@ export function refuseDeactivate(
   return null;
 }
 
+/** The same person with the same authority: what an offer of Undo was made to. */
+function sameSession(a: AuthUser | null, b: AuthUser | null): boolean {
+  return a?.id === b?.id && a?.role === b?.role;
+}
+
 /**
  * The IAM domain store (ADR-0005: a store never crosses a federation boundary —
  * this one is provided on the remote's root route).
@@ -176,9 +181,13 @@ export const IamUsersStore = signalStore(
         };
       };
 
-      /** A failed undo leaves the change standing, so the way back must stay. */
-      const restoreOffer = (undoOf: LastChange | undefined) => ({
-        lastChange: store.lastChange() ?? undoOf ?? null,
+      /**
+       * A failed undo leaves the change standing, so the way back must stay, but
+       * only for the session that made it.
+       */
+      const restoreOffer = (undoOf: LastChange | undefined, actor: AuthUser) => ({
+        lastChange:
+          store.lastChange() ?? (sameSession(actor, auth.user()) ? undoOf : null) ?? null,
       });
 
       return {
@@ -223,7 +232,7 @@ export const IamUsersStore = signalStore(
               // and this method is reachable without the control.
               const refusal = refuseRoleChange(user, role, store.refusalContext());
               if (refusal) {
-                patchState(store, setError(refusal), restoreOffer(undoOf));
+                patchState(store, setError(refusal), restoreOffer(undoOf, actor));
                 return EMPTY;
               }
 
@@ -234,17 +243,22 @@ export const IamUsersStore = signalStore(
               return api.setRole(id, role).pipe(
                 tapResponse({
                   next: () => {
-                    patchState(store, setFulfilled(), {
-                      lastChange: acknowledged(
-                        {
-                          id,
-                          field: 'role',
-                          role: previous,
-                          message: `${user.name} is now ${ROLE_WITH_ARTICLE[role]}.`,
-                        },
-                        undoOf
-                      ),
-                    });
+                    patchState(store, setFulfilled());
+                    // Finishing after the session ended still counts as a change,
+                    // and is still published. It just has nobody left to offer Undo to.
+                    if (sameSession(actor, auth.user())) {
+                      patchState(store, {
+                        lastChange: acknowledged(
+                          {
+                            id,
+                            field: 'role',
+                            role: previous,
+                            message: `${user.name} is now ${ROLE_WITH_ARTICLE[role]}.`,
+                          },
+                          undoOf
+                        ),
+                      });
+                    }
                     bus.publish(
                       userRoleChanged(
                         { userId: id, email: user.email, from: previous, to: role },
@@ -257,7 +271,7 @@ export const IamUsersStore = signalStore(
                       store,
                       updateEntity({ id, changes: { role: previous } }),
                       setError(error.message),
-                      restoreOffer(undoOf)
+                      restoreOffer(undoOf, actor)
                     ),
                   finalize: () => settle(id),
                 })
@@ -282,7 +296,7 @@ export const IamUsersStore = signalStore(
 
               const refusal = refuseDeactivate(user, active, store.refusalContext());
               if (refusal) {
-                patchState(store, setError(refusal), restoreOffer(undoOf));
+                patchState(store, setError(refusal), restoreOffer(undoOf, actor));
                 return EMPTY;
               }
 
@@ -292,17 +306,20 @@ export const IamUsersStore = signalStore(
               return api.setActive(id, active).pipe(
                 tapResponse({
                   next: () => {
-                    patchState(store, setFulfilled(), {
-                      lastChange: acknowledged(
-                        {
-                          id,
-                          field: 'active',
-                          active: !active,
-                          message: `${user.name} ${active ? 'activated' : 'deactivated'}.`,
-                        },
-                        undoOf
-                      ),
-                    });
+                    patchState(store, setFulfilled());
+                    if (sameSession(actor, auth.user())) {
+                      patchState(store, {
+                        lastChange: acknowledged(
+                          {
+                            id,
+                            field: 'active',
+                            active: !active,
+                            message: `${user.name} ${active ? 'activated' : 'deactivated'}.`,
+                          },
+                          undoOf
+                        ),
+                      });
+                    }
                     bus.publish(
                       userStatusChanged(
                         { userId: id, email: user.email, active },
@@ -315,7 +332,7 @@ export const IamUsersStore = signalStore(
                       store,
                       updateEntity({ id, changes: { active: user.active } }),
                       setError(error.message),
-                      restoreOffer(undoOf)
+                      restoreOffer(undoOf, actor)
                     ),
                   finalize: () => settle(id),
                 })
@@ -352,6 +369,23 @@ export const IamUsersStore = signalStore(
     },
   })),
   withHooks({
-    onInit: ({ loadUsers }) => loadUsers(),
+    onInit(store, auth = inject(AtlasAuth)) {
+      store.loadUsers();
+      // This store outlives a sign-out: it sits in the remote's cached route
+      // injector, so whoever signs in next in this tab gets the same instance.
+      // The offer of Undo, and the complaint about a refused write, were made to
+      // the session that just ended. A failed load stays: it is about the data,
+      // and it is what puts Retry on the screen.
+      let session = auth.user();
+      effect(() => {
+        const next = auth.user();
+        if (sameSession(session, next)) return;
+        session = next;
+        untracked(() => {
+          patchState(store, { lastChange: null });
+          if (store.error() && store.entities().length > 0) patchState(store, setFulfilled());
+        });
+      });
+    },
   })
 );

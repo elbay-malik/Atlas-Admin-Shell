@@ -15,7 +15,8 @@ describe('RemoteHealthStore', () => {
     store.seed(['iam', 'audit-logs'], (name) => name !== 'audit-logs');
 
     expect(store.remotes()['iam'].status).toBe('unknown');
-    expect(store.remotes()['audit-logs']).toMatchObject({ status: 'down', reason: 'entry' });
+    // The fetch at boot was an attempt: the failure screen must not say none were made.
+    expect(store.remotes()['audit-logs']).toMatchObject({ status: 'down', reason: 'entry', attempts: 1 });
   });
 
   it('exposes a nav-friendly list carrying the remote name', () => {

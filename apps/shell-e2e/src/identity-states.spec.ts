@@ -40,6 +40,25 @@ test.describe('on the mock personas', () => {
     await expect(page.locator('shell-overview')).toBeVisible();
   });
 
+  test('the next person to sign in here is not offered the last one\'s Undo', async ({ page }) => {
+    await seedPersona(page, 'admin');
+    await page.goto('/iam');
+    const row = page.locator('[data-testid="user-row"]', { hasText: 'Alan Turing' });
+    await expect(row).toBeVisible({ timeout: FIRST_FEDERATED_LOAD });
+
+    await row.getByRole('button', { name: /^Deactivate/ }).click();
+    const undo = page.getByTestId('action-status').getByRole('button', { name: /Undo/ });
+    await expect(undo).toBeVisible();
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page.getByTestId(NOTICE)).toHaveText('Signed out.');
+    await page.getByRole('button', { name: 'Sign in as admin' }).click();
+    await page.locator('a[href="/iam"]').first().click();
+
+    await expect(row).toBeVisible();
+    await expect(undo).toHaveCount(0);
+  });
+
   test('after a sign-out there is no write left to make', async ({ page }) => {
     await seedPersona(page, 'admin');
     await page.goto('/iam');

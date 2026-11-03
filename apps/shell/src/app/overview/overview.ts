@@ -13,6 +13,7 @@ import {
   RemoteStatus,
   UNKNOWN_REMOTE_HEALTH,
 } from '../remotes/remote-health.store';
+import { originOf } from '../remotes/remote-origin';
 
 interface RemoteRow extends RemoteDefinition {
   name: string;
@@ -62,9 +63,9 @@ const STATE: Record<RemoteStatus, { tone: UiBadgeTone; hint: string }> = {
     <section class="p-6">
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 class="mb-1 text-2xl font-semibold">Atlas Admin</h1>
+          <h1 class="mb-1 text-2xl font-semibold">Overview</h1>
           <p class="max-w-measure text-pretty text-text-muted">
-            One console, composed in the browser from a shell and
+            Atlas Admin is one console, composed in the browser from a shell and
             {{ remotes().length }} independently deployed
             {{ remotes().length === 1 ? 'remote' : 'remotes' }}. The table below is the
             registry it booted from — adding a domain to this platform is an edit there, not a
@@ -139,10 +140,26 @@ const STATE: Record<RemoteStatus, { tone: UiBadgeTone; hint: string }> = {
               class="border-b border-border/60"
             >
               <td class="py-2 pr-4">
-                <span class="inline-flex items-center gap-2">
-                  <ui-icon [name]="remote.icon" />
-                  {{ remote.displayName }}
-                </span>
+                <!--
+                  A link only where it would go somewhere. A domain this visitor may
+                  not open stays text, like its locked nav item, and the Requires
+                  column beside it says why.
+                -->
+                @if (remote.allowed) {
+                  <a
+                    class="inline-flex items-center gap-2 underline underline-offset-2 hover:text-text"
+                    data-testid="overview-remote-link"
+                    [routerLink]="'/' + remote.route"
+                  >
+                    <ui-icon [name]="remote.icon" />
+                    {{ remote.displayName }}
+                  </a>
+                } @else {
+                  <span class="inline-flex items-center gap-2">
+                    <ui-icon [name]="remote.icon" />
+                    {{ remote.displayName }}
+                  </span>
+                }
               </td>
               <td class="py-2 pr-4 font-mono text-xs">/{{ remote.route }}</td>
               <!-- the whole point: each domain is served from its own origin -->
@@ -175,10 +192,21 @@ const STATE: Record<RemoteStatus, { tone: UiBadgeTone; hint: string }> = {
             class="flex flex-col gap-1 border-b border-border/60 py-3"
           >
             <div class="flex items-center justify-between gap-3">
-              <span class="inline-flex min-w-0 items-center gap-2 font-medium">
-                <ui-icon [name]="remote.icon" />
-                <span class="truncate">{{ remote.displayName }}</span>
-              </span>
+              @if (remote.allowed) {
+                <a
+                  class="inline-flex min-h-11 min-w-0 items-center gap-2 font-medium underline underline-offset-2"
+                  data-testid="overview-remote-link"
+                  [routerLink]="'/' + remote.route"
+                >
+                  <ui-icon [name]="remote.icon" />
+                  <span class="truncate">{{ remote.displayName }}</span>
+                </a>
+              } @else {
+                <span class="inline-flex min-w-0 items-center gap-2 font-medium">
+                  <ui-icon [name]="remote.icon" />
+                  <span class="truncate">{{ remote.displayName }}</span>
+                </span>
+              }
               <ui-badge [tone]="state(remote).tone">{{ label(remote) }}</ui-badge>
             </div>
             <span class="font-mono text-xs break-all text-text-muted">{{ remote.origin }}</span>
@@ -261,19 +289,5 @@ export class Overview {
 
   protected label(remote: RemoteRow): string {
     return REMOTE_STATUS_LABEL[remote.status];
-  }
-}
-
-/**
- * A manifest may carry a relative url, which resolves against the manifest's
- * own location at boot (ADR-0010). There is no origin to show for one, so the
- * raw value is shown instead of inventing this page's own origin — which would
- * claim the remote is served from here when it is not.
- */
-function originOf(url: string): string {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return url;
   }
 }

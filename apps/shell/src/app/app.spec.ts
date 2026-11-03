@@ -79,10 +79,14 @@ describe('App', () => {
     const item = el.querySelector('[data-testid="nav-iam"] a');
     expect(item, 'the admin-only domain must still be rendered').not.toBeNull();
     expect(item?.getAttribute('aria-disabled')).toBe('true');
-    // No href: the item announces the domain and the role it needs, and is not
-    // a link that would bounce the viewer back to the overview.
+    // No href: the item names the domain and is not a link that would bounce the
+    // viewer back to the overview. The role it needs is written out beside it, in
+    // text anyone can read rather than in a title or for a screen reader alone.
     expect(item?.hasAttribute('href')).toBe(false);
-    expect(item?.textContent).toContain('admin');
+    const reason = el.querySelector('[data-testid="nav-iam"] [data-testid="nav-lock-reason"]');
+    expect(reason?.textContent?.trim()).toBe('Requires the admin role');
+    expect(reason?.classList.contains('sr-only')).toBe(false);
+    expect(el.querySelector('[data-testid="nav-iam"]')?.hasAttribute('title')).toBe(false);
   });
 
   describe('the shell notice', () => {

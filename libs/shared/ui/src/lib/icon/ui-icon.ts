@@ -26,7 +26,8 @@ export type UiIconName =
   | 'moon'
   | 'menu'
   | 'close'
-  | 'lock';
+  | 'lock'
+  | 'external';
 
 const PATHS: Record<UiIconName, readonly string[]> = {
   // a roof over an open body: "the top level", not a house
@@ -52,6 +53,8 @@ const PATHS: Record<UiIconName, readonly string[]> = {
   // truncating the label to fit was worse than either — a nav item nobody can
   // read is not a nav item.
   lock: ['M6 9V6.5a4 4 0 0 1 8 0V9', 'M4.75 9h10.5v8.25H4.75z'],
+  // leaves this tab: an arrow out of a box's open corner
+  external: ['M8.5 4.5H4.75v10.75H15.5V11.5', 'M11.5 3.75h4.75V8.5', 'M16.25 3.75 9.5 10.5'],
   // the drawer control, below md only
   menu: ['M3.25 6h13.5', 'M3.25 10h13.5', 'M3.25 14h13.5'],
   close: ['M5.25 5.25l9.5 9.5', 'M14.75 5.25l-9.5 9.5'],

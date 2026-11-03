@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { ATLAS_EVENT_FIXTURES, flagToggled } from '@atlas/shared-contracts';
 import { AtlasEventBus, provideAtlasEventBus } from '@atlas/shared-event-bus';
-import { AuditApi, AuditMockApi } from './audit-api';
-import { AuditStore } from './audit.store';
+import { AuditApi, AuditMockApi, auditSeed } from './audit-api';
+import { AuditEntry, formatWhen } from './audit-entry';
+import { AuditStore, filterEntries } from './audit.store';
 
 const GET_EVENTS_MS = 300;
 
@@ -104,5 +105,81 @@ describe('AuditStore', () => {
 
     store.setQuery('   ');
     expect(store.filtered().length).toBeGreaterThan(1);
+  });
+});
+
+describe('formatWhen', () => {
+  it('names the zone', () => {
+    expect(formatWhen('2026-07-08T09:12:45.000Z')).toBe('2026-07-08 09:12 UTC');
+  });
+
+  it('converts an offset rather than mislabelling it', () => {
+    expect(formatWhen('2026-07-08T11:12:00+02:00')).toBe('2026-07-08 09:12 UTC');
+  });
+
+  it('shows a value it cannot parse as it came', () => {
+    expect(formatWhen('yesterday')).toBe('yesterday');
+  });
+});
+
+describe('auditSeed', () => {
+  const NOW = Date.parse('2026-11-04T10:30:20.000Z');
+
+  it('dates every row before the load, on a whole minute, and within the last day', () => {
+    for (const { at } of auditSeed(NOW)) {
+      const time = Date.parse(at);
+      expect(time).toBeLessThan(NOW);
+      expect(time).toBeGreaterThan(NOW - 24 * 60 * 60 * 1000);
+      expect(time % 60_000).toBe(0);
+    }
+  });
+
+  it('keeps its rows seeded and its ids stable, so a retry cannot duplicate them', () => {
+    const rows = auditSeed(NOW);
+    expect(rows.every((row) => row.source === 'seed')).toBe(true);
+    expect(auditSeed(NOW + 3_600_000).map((row) => row.id)).toEqual(rows.map((row) => row.id));
+  });
+});
+
+describe('filterEntries', () => {
+  const seed: AuditEntry = {
+    id: 'a',
+    at: '2026-07-08T09:12:00.000Z',
+    actor: 'ada@atlas.dev',
+    action: 'user.role.changed',
+    target: 'alan@atlas.dev',
+    detail: 'viewer to admin',
+    source: 'seed',
+  };
+  const live: AuditEntry = {
+    id: 'b',
+    at: '2025-01-02T03:04:00.000Z',
+    actor: 'grace@atlas.dev',
+    action: 'flag.toggled',
+    target: 'new-dashboard',
+    source: 'iam',
+  };
+  const ids = (query: string) => filterEntries([seed, live], query).map((entry) => entry.id);
+
+  it('finds a date as the row shows it, and as its title holds it', () => {
+    expect(ids('2026')).toEqual(['a']);
+    expect(ids('2026-07-08 09:12')).toEqual(['a']);
+    expect(ids('2026-07-08T09')).toEqual(['a']);
+  });
+
+  it('finds the rows wearing the live badge, and only those', () => {
+    expect(ids('live')).toEqual(['b']);
+    expect(ids('LIVE')).toEqual(['b']);
+  });
+
+  it('searches the detail text', () => {
+    expect(ids('viewer to admin')).toEqual(['a']);
+  });
+
+  it('still searches actor, action and target, and keeps all on a blank filter', () => {
+    expect(ids('grace')).toEqual(['b']);
+    expect(ids('role.changed')).toEqual(['a']);
+    expect(ids('new-dash')).toEqual(['b']);
+    expect(ids('  ')).toEqual(['a', 'b']);
   });
 });

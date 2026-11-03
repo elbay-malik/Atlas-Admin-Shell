@@ -48,6 +48,9 @@ engineering and then cannot verify itself has lost the argument, whatever its RE
    ADRs, refer to it. Publishing this repository no longer publishes the key. Revoking the key in
    the old Supabase project was a separate step. On 2026-11-01 the owner reported it done; this was
    not checked against Supabase.
+   *Update, 2026-11-04:* the repository is public: `gh repo view` reports `PUBLIC`, and both it and
+   `docs/adr` return 200 to an anonymous request. The console now links to them. Hosted CI was not
+   re-enabled or re-verified as part of that, so `pnpm run ci:local` remains the gate.
 3. **Weaken the gates to fit the budget.** Rejected outright. Dropping e2e or Lighthouse to save
    minutes would delete exactly the coverage that unit tests structurally cannot provide — the
    cross-origin federation path, axe on rendered output, the cost of runtime composition.

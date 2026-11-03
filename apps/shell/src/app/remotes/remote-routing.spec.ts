@@ -119,6 +119,34 @@ describe('manifest-derived routing and the remote error boundary', () => {
     expect(router.url).toBe('/'); // redirected to the overview
   });
 
+  it('sends away from the boundary a visitor who may not enter that domain', async () => {
+    const router = setup(
+      fakeLoader(async (name) => {
+        throw new RemoteUnavailableError(name, 'entry', 'down');
+      })
+    );
+    const auth = TestBed.inject(AtlasAuth) as MockAtlasAuth;
+    await auth.login('admin');
+    await router.navigateByUrl('/iam');
+    expect(router.url).toBe('/unavailable/iam?returnUrl=%2Fiam');
+
+    await auth.logout();
+    await router.navigateByUrl(router.url, { onSameUrlNavigation: 'reload' });
+
+    expect(router.url).toBe('/');
+  });
+
+  it('keeps the boundary for a remote this visitor may enter, and an unknown one', async () => {
+    const router = setup(fakeLoader(async () => [{ path: '', component: RemoteHome }]));
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('viewer');
+
+    await router.navigateByUrl('/unavailable/feature-flags');
+    expect(router.url).toBe('/unavailable/feature-flags');
+
+    await router.navigateByUrl('/unavailable/no-such-remote');
+    expect(router.url).toBe('/unavailable/no-such-remote');
+  });
+
   it('keeps the rest of the platform working when one remote is down', async () => {
     const loader = fakeLoader(async (name) => {
       if (name === 'iam') throw new RemoteUnavailableError(name, 'entry', 'down');

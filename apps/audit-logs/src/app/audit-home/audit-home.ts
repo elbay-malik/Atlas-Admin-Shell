@@ -10,7 +10,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UiBadge, UiButton, UiPageHeader, UiScrollRegion } from '@atlas/shared-ui';
 import { ATLAS_API_MODE } from '@atlas/shared-util';
-import { AuditEntry } from '../data/audit-entry';
+import { AuditEntry, formatWhen, isLive } from '../data/audit-entry';
 import { AuditStore, filterEntries } from '../data/audit.store';
 
 /** Long enough to outlast a burst of typing, short enough to feel like an answer. */
@@ -26,16 +26,18 @@ const FILTER_SETTLE_MS = 300;
         <p>Searchable trail of platform events, live from every domain.</p>
         @if (inMemory) {
           <p uiPageNote data-testid="audit-in-memory">
-            This trail lives in this tab and clears on reload, back to its seeded rows.
+            This trail lives in this tab and clears on reload. Its seeded rows are samples, dated
+            back from the load.
           </p>
         }
         <!--
           The count used to read "0 live" above four seeded rows, which parses
           as "there are no events". Naming the total first makes the second
-          number obviously a subset rather than a contradiction.
+          number obviously a subset rather than a contradiction. Under a filter it
+          counts what the table shows, out of the whole trail.
         -->
         <ui-badge data-testid="audit-live-count" [tone]="liveCount() > 0 ? 'success' : 'neutral'">
-          {{ store.entities().length }} events · {{ liveCount() }} live
+          {{ countLabel() }}
         </ui-badge>
       </ui-page-header>
 
@@ -53,11 +55,11 @@ const FILTER_SETTLE_MS = 300;
 
       <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
       <label class="block w-full max-w-md">
-        <span class="sr-only">Filter events by actor, action or target</span>
+        <span class="sr-only">Filter events by date, actor, action, target or live</span>
         <input
           type="search"
           data-testid="audit-filter"
-          placeholder="Filter by actor, action or target…"
+          placeholder="Filter by date, actor, action, target or live…"
           class="min-h-11 w-full rounded border border-border-strong bg-surface px-3 py-1.5 text-sm
                  placeholder:text-text-muted md:min-h-9"
           [value]="store.query()"
@@ -87,8 +89,16 @@ const FILTER_SETTLE_MS = 300;
         columns would hide the comparison the table exists for. Containing the
         scroll HERE rather than letting it reach the document is the fix — the
         page itself must never pan, or the chrome drifts off screen with it.
+
+        The cut-off edge alone does not say a column is missing, so the line above
+        the table does, for as long as there is something to pan.
       -->
-      <div uiScrollRegion="Audit events">
+      @if (ledger.overflowing()) {
+        <p data-testid="audit-scroll-cue" class="mb-2 text-sm text-text-muted">
+          Scroll the table sideways to see every column.
+        </p>
+      }
+      <div uiScrollRegion="Audit events" #ledger="uiScrollRegion">
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="border-b border-border text-text-muted">
@@ -116,7 +126,7 @@ const FILTER_SETTLE_MS = 300;
               </td>
               <td class="py-2">
                 {{ event.target }}
-                @if (event.source !== 'seed') {
+                @if (isLive(event)) {
                   <ui-badge tone="success">live</ui-badge>
                 }
               </td>
@@ -137,10 +147,18 @@ export class AuditHome {
   /** On the mock there is no server keeping this trail, whoever is signed in. */
   protected readonly inMemory = inject(ATLAS_API_MODE) === 'mock';
 
-  /** Rows that arrived over the bus rather than from the seeded backend. */
-  protected readonly liveCount = computed(
-    () => this.store.entities().filter((entry) => entry.source !== 'seed').length
-  );
+  protected readonly isLive = isLive;
+
+  /** Live rows among those on screen, so the badge cannot contradict the table. */
+  protected readonly liveCount = computed(() => this.store.filtered().filter(isLive).length);
+
+  /** `6 events · 2 live`, or `1 of 6 events · 0 live` while a filter is narrowing it. */
+  protected readonly countLabel = computed(() => {
+    const total = this.store.entities().length;
+    const filtering = total > 0 && this.store.query().trim() !== '';
+    const count = filtering ? `${this.store.filtered().length} of ${total}` : `${total}`;
+    return `${count} ${total === 1 ? 'event' : 'events'} · ${this.liveCount()} live`;
+  });
 
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -190,8 +208,8 @@ export class AuditHome {
     }, FILTER_SETTLE_MS);
   }
 
-  /** Compact, locale-stable timestamp; the raw ISO value stays in the title. */
+  /** Compact, locale-stable timestamp with its zone; the raw ISO value stays in the title. */
   protected when(entry: AuditEntry): string {
-    return entry.at.replace('T', ' ').slice(0, 16);
+    return formatWhen(entry.at);
   }
 }

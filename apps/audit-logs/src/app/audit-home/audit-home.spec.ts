@@ -50,6 +50,47 @@ describe('AuditHome', () => {
     expect(el.querySelector('[data-testid="audit-in-memory"]')).toBeNull();
   });
 
+  describe('the count badge', () => {
+    const badge = async (entries: AuditEntry[], shown: AuditEntry[], query = '') => {
+      const store = configure('mock', entries);
+      store.filtered.set(shown);
+      const fixture = TestBed.createComponent(AuditHome);
+      // After creation: the screen takes its first query from the URL.
+      store.query.set(query);
+      await fixture.whenStable();
+      return (fixture.nativeElement as HTMLElement)
+        .querySelector('[data-testid="audit-live-count"]')
+        ?.textContent?.trim();
+    };
+    const seed = entry('a', 'ada');
+    const live = { ...entry('b', 'ada'), source: 'iam' } as AuditEntry;
+
+    it('counts the whole trail with no filter', async () => {
+      expect(await badge([seed, live], [seed, live])).toBe('2 events · 1 live');
+    });
+
+    it('says "event" for one', async () => {
+      expect(await badge([live], [live])).toBe('1 event · 1 live');
+    });
+
+    it('reports what a filter left on screen, out of the whole trail', async () => {
+      expect(await badge([seed, live], [seed], 'ada')).toBe('1 of 2 events · 0 live');
+    });
+
+    it('does not count out of nothing while the trail is loading', async () => {
+      expect(await badge([], [], 'ada')).toBe('0 events · 0 live');
+    });
+  });
+
+  it('gives each timestamp a zone', async () => {
+    configure('mock', [entry('a', 'ada')]);
+    const fixture = TestBed.createComponent(AuditHome);
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="audit-row"]')?.textContent).toContain(
+      '2026-01-01 00:00 UTC'
+    );
+  });
+
   describe('the filter in the URL', () => {
     const ENTRIES = [entry('a', 'grace@example.com'), entry('b', 'ada@example.com'), entry('c', 'ada@example.com')];
 

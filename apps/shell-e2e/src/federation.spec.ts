@@ -32,7 +32,8 @@ test.describe('federation', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'as viewer' }).click();
 
-    await expect(page.locator('a[href="/flags"]')).toBeVisible();
+    // In the nav: the Overview's own rows link to their domains as well.
+    await expect(page.locator('#primary-nav a[href="/flags"]')).toBeVisible();
     await expect(page.locator('a[href="/iam"]')).toHaveCount(0);
   });
 

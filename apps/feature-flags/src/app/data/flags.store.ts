@@ -1,5 +1,5 @@
-import { computed, inject } from '@angular/core';
-import { AtlasAuth } from '@atlas/shared-auth';
+import { computed, effect, inject, untracked } from '@angular/core';
+import { AtlasAuth, AuthUser } from '@atlas/shared-auth';
 import { flagToggled, toAtlasActor } from '@atlas/shared-contracts';
 import { AtlasEventBus } from '@atlas/shared-event-bus';
 import { setError, setFulfilled, setPending, withRequestStatus } from '@atlas/shared-util';
@@ -41,6 +41,11 @@ interface FlagsState {
 }
 
 const initialState: FlagsState = { pendingKeys: [], lastToggle: null };
+
+/** The same person with the same authority: what an offer of Undo was made to. */
+function sameSession(a: AuthUser | null, b: AuthUser | null): boolean {
+  return a?.id === b?.id && a?.role === b?.role;
+}
 
 /**
  * The feature-flags domain store (ADR-0005: a store never crosses a federation
@@ -116,18 +121,23 @@ export const FlagsStore = signalStore(
                   // clear any error left by an earlier failed write, or the
                   // banner would outlive the failure for the whole session
                   const earlier = store.lastToggle();
-                  patchState(store, setFulfilled(), {
-                    lastToggle: {
-                      key,
-                      message: undoOf
-                        ? `Undone: ${undoOf.message}`
-                        : `${key} turned ${enabled ? 'on' : 'off'}.`,
-                      undoable: !undoOf,
-                      // A later toggle of the same flag reverses the earlier one
-                      // anyway, so only a different flag loses anything.
-                      supersedes: earlier?.undoable && earlier.key !== key ? earlier.message : null,
-                    },
-                  });
+                  patchState(store, setFulfilled());
+                  // Finishing after the session ended still counts as a change,
+                  // and is still published. It just has nobody left to offer Undo to.
+                  if (sameSession(actor, auth.user())) {
+                    patchState(store, {
+                      lastToggle: {
+                        key,
+                        message: undoOf
+                          ? `Undone: ${undoOf.message}`
+                          : `${key} turned ${enabled ? 'on' : 'off'}.`,
+                        undoable: !undoOf,
+                        // A later toggle of the same flag reverses the earlier one
+                        // anyway, so only a different flag loses anything.
+                        supersedes: earlier?.undoable && earlier.key !== key ? earlier.message : null,
+                      },
+                    });
+                  }
                   bus.publish(
                     flagToggled(
                       { key, enabled },
@@ -140,8 +150,12 @@ export const FlagsStore = signalStore(
                     store,
                     updateEntity({ id: key, changes: { enabled: flag.enabled } }, flagsConfig),
                     setError(error.message),
-                    // The toggle still stands, so the way back must too.
-                    { lastToggle: store.lastToggle() ?? undoOf }
+                    // The toggle still stands, so the way back must too, but only
+                    // for the session that made it.
+                    {
+                      lastToggle:
+                        store.lastToggle() ?? (sameSession(actor, auth.user()) ? undoOf : null),
+                    }
                   ),
                 finalize: () =>
                   patchState(store, (state) => ({
@@ -179,6 +193,23 @@ export const FlagsStore = signalStore(
     },
   })),
   withHooks({
-    onInit: ({ load }) => load(),
+    onInit(store, auth = inject(AtlasAuth)) {
+      store.load();
+      // This store outlives a sign-out: it sits in the remote's cached route
+      // injector, so whoever signs in next in this tab gets the same instance.
+      // The offer of Undo, and the complaint about a failed write, were made to the
+      // session that just ended. A failed load stays: it is about the data, and it
+      // is what puts Retry on the screen.
+      let session = auth.user();
+      effect(() => {
+        const next = auth.user();
+        if (sameSession(session, next)) return;
+        session = next;
+        untracked(() => {
+          patchState(store, { lastToggle: null });
+          if (store.error() && store.entities().length > 0) patchState(store, setFulfilled());
+        });
+      });
+    },
   })
 );

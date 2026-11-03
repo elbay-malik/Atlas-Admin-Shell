@@ -153,9 +153,9 @@ docs/
 
 ## Quality gates
 
-> **Run them with `pnpm run ci:local`.** GitHub Actions is metered on private repositories and this
-> one has exhausted its monthly allowance, so the `CI` and `Deploy` workflows are disabled and the
-> pipeline runs locally instead (ADR-0013). The local runner is *stricter* than the workflow was —
+> **Run them with `pnpm run ci:local`.** This repository exhausted its GitHub Actions allowance while
+> it was private, and the pipeline moved to the local runner (ADR-0013). It stays the gate now that
+> the repository is public. The local runner is *stricter* than the workflow was —
 > it uses `run-many` rather than `affected`, so no gate can be skipped for want of a project-graph
 > edge. `ci:local:quick` skips the four browser-driven gates; do not merge on that alone.
 
@@ -194,8 +194,7 @@ shell sets `not_found_handling: "single-page-application"` because it owns route
 deliberately do not, so a missing chunk 404s and the shell's error boundary can classify it rather
 than receiving HTML with a 200.
 
-Deploys run from a developer machine: the `Deploy` workflow is disabled while the repository is
-private (ADR-0013), so nothing publishes on merge. The environment lives in the **manifest**, never
+Deploys run from a developer machine (ADR-0013). The environment lives in the **manifest**, never
 in the build (ADR-0010). With `CLOUDFLARE_API_TOKEN` set in the shell:
 
 ```bash

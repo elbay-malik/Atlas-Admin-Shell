@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { AtlasAuth, AuthUser, MockAtlasAuth } from '@atlas/shared-auth';
 import { AtlasEvent } from '@atlas/shared-contracts';
 import { AtlasEventBus, provideAtlasEventBus } from '@atlas/shared-event-bus';
-import { Subscription } from 'rxjs';
+import { Subscription, throwError } from 'rxjs';
 import { IamApi, IamMockApi } from './iam-api';
 import { IamUsersStore } from './iam-users.store';
 
@@ -363,6 +363,76 @@ describe('IamUsersStore', () => {
 
       store.undoLastChange();
       expect(store.lastChange()).not.toBeNull();
+    });
+  });
+
+  describe('when the session changes', () => {
+    const auth = () => TestBed.inject(AtlasAuth) as MockAtlasAuth;
+
+    it('does not offer the next person in this tab an Undo for the last one', async () => {
+      const { store } = await loaded();
+      store.setActive({ id: 'u-2', active: false });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      expect(store.lastChange()?.undoable).toBe(true);
+
+      await auth().logout();
+      TestBed.tick();
+      await auth().login('admin');
+      TestBed.tick();
+
+      expect(store.lastChange()).toBeNull();
+      store.undoLastChange();
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      expect(store.entityMap()['u-2'].active).toBe(false);
+    });
+
+    it('does not make an offer when a write lands after its session ended', async () => {
+      const { store, published } = await loaded();
+      store.setActive({ id: 'u-2', active: false });
+
+      await auth().logout();
+      TestBed.tick();
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+
+      expect(store.lastChange()).toBeNull();
+      expect(published).toHaveLength(1);
+    });
+
+    it('withdraws the offer when the role changes under the same account', async () => {
+      const { store } = await loaded();
+      store.setActive({ id: 'u-2', active: false });
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+
+      await auth().login('viewer');
+      TestBed.tick();
+
+      expect(store.lastChange()).toBeNull();
+    });
+
+    it('drops a refused write\'s complaint but keeps the rows', async () => {
+      const { store } = await loaded();
+      await auth().logout();
+      store.setActive({ id: 'u-2', active: false });
+      expect(store.error()).toBeTruthy();
+
+      TestBed.tick();
+
+      expect(store.error()).toBeNull();
+      expect(store.entities().length).toBeGreaterThan(0);
+    });
+
+    it('keeps a failed load, which is what puts Retry on the screen', async () => {
+      const getUsers = vi
+        .spyOn(IamMockApi.prototype, 'getUsers')
+        .mockReturnValue(throwError(() => new Error('nope')));
+      const { store } = setup();
+      getUsers.mockRestore();
+      expect(store.error()).toBe('nope');
+
+      await auth().login('admin');
+      TestBed.tick();
+
+      expect(store.error()).toBe('nope');
     });
   });
 });

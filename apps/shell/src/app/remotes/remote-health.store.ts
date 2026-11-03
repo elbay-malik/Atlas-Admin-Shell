@@ -81,7 +81,8 @@ export const RemoteHealthStore = signalStore(
           ? { ...UNKNOWN_REMOTE_HEALTH }
           : {
               status: 'down',
-              attempts: 0,
+              // The fetch at boot was the first attempt, and it failed.
+              attempts: 1,
               reason: 'entry',
               lastError: 'remoteEntry.json could not be fetched when the shell started',
             };

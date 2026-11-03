@@ -19,6 +19,7 @@ import {
   RemoteStatus,
   UNKNOWN_REMOTE_HEALTH,
 } from '../remotes/remote-health.store';
+import { originOf } from '../remotes/remote-origin';
 
 /** Bounded auto-retry: three attempts at 1s / 2s / 4s, then the user decides. */
 const AUTO_RETRY_DELAYS_SECONDS: readonly number[] = [1, 2, 4];
@@ -68,9 +69,13 @@ const STATUS_TONE: Record<RemoteStatus, UiBadgeTone> = {
 
         <dl class="mt-5 grid max-w-prose grid-cols-[8rem_1fr] gap-y-1 text-sm">
           <dt class="text-text-muted">Attempts</dt>
-          <dd data-testid="remote-attempts">{{ health().attempts }}</dd>
+          <dd data-testid="remote-attempts">{{ health().attempts || 'None yet' }}</dd>
           <dt class="text-text-muted">Failure</dt>
           <dd>{{ reasonLabel() }}</dd>
+          @if (origin(); as origin) {
+            <dt class="text-text-muted">Origin</dt>
+            <dd class="font-mono text-xs break-all" data-testid="remote-origin">{{ origin }}</dd>
+          }
           @if (health().lastError; as lastError) {
             <dt class="text-text-muted">Details</dt>
             <dd class="font-mono text-xs text-on-danger" data-testid="remote-last-error">
@@ -146,6 +151,12 @@ export class ModuleUnavailable {
   protected readonly displayName = computed(() => {
     const name = this.remote();
     return (name && this.manifest.remotes[name]?.displayName) || (name ?? 'This module');
+  });
+
+  /** Where the shell tried to fetch it from, which is the next thing to go and check. */
+  protected readonly origin = computed(() => {
+    const url = this.manifest.remotes[this.remote() ?? '']?.url;
+    return url ? originOf(url) : null;
   });
 
   protected readonly tone = computed(() => STATUS_TONE[this.health().status]);

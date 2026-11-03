@@ -42,6 +42,9 @@ test.describe('a remote that will not load', () => {
     await expect(page.getByTestId('remote-unavailable')).toBeVisible();
     await expect(page).toHaveURL(/\/unavailable\/audit-logs/);
     await expect(page.getByTestId('remote-unavailable')).toContainText('Audit Logs is unavailable');
+    // Which origin to go and check, and never a count of no attempts at all.
+    await expect(page.getByTestId('remote-origin')).toHaveText('http://localhost:4203');
+    await expect(page.getByTestId('remote-attempts')).not.toHaveText('0');
     await waitForAutoRetriesToStop(page);
     await expect(page.locator('body')).not.toContainText(/\b(offline|unreachable|down)\b/);
 
