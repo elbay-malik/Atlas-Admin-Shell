@@ -280,9 +280,7 @@ Nx Cloud (remote caching) is deliberately not connected yet; opting in later is
 
 ## Acknowledgements
 
-Much of this repository was written with [Claude Code](https://claude.com/claude-code), using
-Anthropic's Claude models. Commits carry no per-commit co-author lines; this section is the credit
-for all of them.
+Claude, Anthropic's AI model, was also used for building DevSprint. Claude worked on some commits in this repository.
 
 ## License
 
