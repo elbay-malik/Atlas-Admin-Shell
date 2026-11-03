@@ -290,8 +290,8 @@ from a second family.
 
 ### Hierarchy
 
-- **Headline** (600, `1.5rem`/`2rem`): the page title, one per screen — "Feature
-  Flags", "Audit Logs", "<Module> is unavailable".
+- **Headline** (600, `1.5rem`/`2rem`): the page title, one per screen — "Overview",
+  "Feature Flags", "Audit Logs", "<Module> is unavailable".
 - **Title** (600, `1.125rem`, tight tracking): the product wordmark in the sidebar
   head. Nothing else uses it.
 - **Body** (400, `1rem`): page-level descriptive prose, constrained to `max-w-measure`.
@@ -357,16 +357,20 @@ and inventing intermediate states would mean maintaining layouts nobody uses.
   exists for — but the document itself must never pan, or the chrome drifts off screen
   with it. The scrolling box is `UiScrollRegion`: a named, focusable region only while
   there is something to pan, so a keyboard can reach it and a table that fits costs no
-  tab stop.
+  tab stop. A cut-off edge does not say a column is missing, so `/audit` also says in words
+  that the table scrolls, for as long as it does.
 - **The Overview and the IAM roster are the exceptions** and change shape rather than
   scrolling. Below `md` each remote becomes a block instead of a table row, because it
   is the arrival screen and the origin — the part carrying the architecture claim — has
   to survive the narrow viewport. Each user becomes a block too, because that table is
   a list of people to act on, and panning put the action itself off screen. It stays a
-  table to a screen reader, through explicit roles.
+  table to a screen reader, through explicit roles. Just above `md`, where the sidebar
+  leaves that table short, the email breaks after its `@` rather than pushing Actions off.
 - **Touch targets** reach 44px below `md` on every control (buttons, nav links, icon
   buttons, the filter, the role select, the flag toggle) and return to their dense
-  sizes at the desk. Links inside a sentence are exempt. The pattern is `min-h-11` with
+  sizes at the desk. Links inside a sentence are exempt. The header's badges stack below
+  `md`, in the height the header already has, so a 320px phone keeps each button on one line. A sign-in button can still be too wide
+  there, so the header wraps, intrinsically, and takes the theme toggle down with it. The pattern is `min-h-11` with
   `md:min-h-9` on a button, select or input, and `responsive.spec.ts` measures it on every
   route.
 
@@ -497,22 +501,25 @@ route, or a reported state.
 - **Active:** 10% Control Indigo tint with `on-brand` ink at weight 500 — the tint,
   not a fill, and the only place in the sidebar colour appears unaided.
 - **Disabled:** `pointer-events-none` at 40% opacity, with `aria-disabled` set. A
-  domain the current role may not open carries a **lock mark**, not a word. A role
-  badge pushed long labels onto a second line, and truncating the label to fit was
-  worse than either — a nav item nobody can read is not a nav item. The requirement is
-  spoken via `sr-only` text, shown on hover via `title`, and spelled out in full on the
-  Overview.
+  domain the current role may not open carries a **lock mark** in the row, because a
+  role badge there pushed long labels onto a second line, and truncating the label to fit
+  was worse than either. The requirement is written on a line of its own under the row,
+  "Requires the admin role", in label type and Muted Ink, indented to the label. It sits
+  outside the link so the 40% does not reach it, and it needs no hover.
 - **A down remote keeps its href.** The nav item for a failed module stays clickable
   and gains a danger badge, because that row *is* the way back in (ADR-0007). Removing
   or disabling it strands the operator.
+- **Project links** sit at the foot of the sidebar under a hairline: the source and the
+  decision records, underlined in Muted Ink so they do not read as routes, opening in a
+  new tab with the `external` mark, because a mock session's changes live in this one.
 - **Icons** come from the drawn set (see Icons below). The manifest supplies the
   *name*; the drawing lives in the design system. Always `aria-hidden`, with the
   label carrying the accessible name.
 
 ### Icons
 
-- **The set:** `overview`, `users`, `flag`, `ledger`, `compass`, `sun`, `moon`, in
-  `libs/shared/ui/src/lib/icon/`. Stroke-only on a 20px grid at a single `1.5`
+- **The set:** `overview`, `users`, `flag`, `ledger`, `compass`, `sun`, `moon`, `menu`,
+  `close`, `lock`, `external`, in `libs/shared/ui/src/lib/icon/`. Stroke-only on a 20px grid at a single `1.5`
   weight, round caps and joins, no fills, no second colour.
 - **Colour:** always `currentColor`. An icon takes the ink of whatever it sits in —
   Muted Ink in a resting nav item, `on-brand` in the active one — which is what keeps
@@ -521,7 +528,8 @@ route, or a reported state.
   a registry edit like everything else about it (ADR-0004). An unrecognised name
   renders verbatim, because the manifest ships independently of this bundle and a
   deploy must never empty the nav.
-- **Size:** 20px in the nav and in tables; 22px for the wordmark. Nothing else.
+- **Size:** 20px in the nav and in tables; 22px for the wordmark; 16px for a mark beside
+  text, such as `lock`, `external` and a notice's `close`. Nothing else.
 
 ### Inputs
 
@@ -545,12 +553,15 @@ against a secondary **Retry**.
 - Header row: Muted Ink, weight 500, `0.5rem` vertical padding, closed by a hairline.
 - Body rows: separated by a 60%-opacity hairline — lighter than the header's, so the
   header reads as structure and the rows as content.
-- Timestamps are `whitespace-nowrap` with the full ISO value on `title`.
+- Timestamps are `whitespace-nowrap`, always in UTC and saying so (`2026-07-08 09:12 UTC`),
+  with the full ISO value on `title`.
 - An empty result renders a full-width Muted Ink row inside the table, never a bare
   page message — the column headers stay on screen so the operator can see what they
   filtered.
 - A filter lives in the URL (`?q=`), so a view can be shared and survives a reload, and
-  its count is reported by a polite live region once typing pauses, not on every key.
+  its count is reported by a polite live region once typing pauses, not on every key. It
+  searches everything the row shows: date, actor, action, detail, target and `live`. A
+  count badge above it counts what is on screen (`1 of 6 events · 0 live`).
 
 ### Action Status
 
@@ -576,6 +587,9 @@ badges.
 - **Undo performs the inverse action**, through the same API call and the same event
   publication — so the audit trail shows the flag going on and then off, rather than an
   edit silently vanishing from the record.
+- **An offer belongs to its session.** A store outlives a sign-out in the remote's cached
+  route injector, so it withdraws Undo when the user or role changes, and a write landing
+  after that makes no offer. Whoever signs in next is not handed someone else's change.
 - **Undo happens once.** The line then reads `Undone: …` with no Undo beside it. If the
   undo fails, the change still stands, so the offer comes back.
 - **Focus goes back to the row.** Undo leaves with its offer, so focus returns to the
@@ -693,6 +707,9 @@ active `apiMode`.
 It is a table, not a grid of cards, for two reasons: it is tabular data, and the
 console already taught the operator this table language on `/audit` and `/iam`.
 
+A domain the visitor may open is a link to it, underlined in the row's own ink. One they
+may not stays text, like its locked nav item, with the Requires column saying why.
+
 Its design thesis: **the claim and its receipt in the same frame.** The product's one
 uncopyable property is that domains are composed at runtime from separate origins;
 every other screen can only assert that. The `resolved` state is the detail that earns
@@ -713,14 +730,18 @@ is not a leak: the registry is fetched before authentication and publishes every
 The shell-owned screen for a remote that would not load, and the component where this
 system's point of view is clearest. It is a full screen, not a toast: headline plus a
 status badge, a `max-w-prose` explanation, then a `8rem 1fr` definition grid of exactly
-what is known — attempts, failure class, and the raw error in mono. Below that, a
+what is known — attempts, failure class, the origin it was fetched from, and the raw
+error in mono. Below that, a
 `role="status"` line counting down an automatic retry (3 attempts at 1s/2s/4s), then
 **Retry** as primary with **Reload page** offered only when the failure class actually
 requires it, and a quiet underlined link back to the overview.
 
 Its design thesis: **show the operator what you know.** No apologetic illustration, no
-"something went wrong" — the attempt count, the failure class and the literal error,
-because the audience for a failure is someone who has to decide what to do next.
+"something went wrong" — the attempt count, the failure class, the origin and the literal
+error, because the audience for a failure is someone who has to decide what to do next.
+
+It is for someone who may enter that domain. A session ending here leaves for the Overview
+rather than retrying a route that would now decline them.
 
 ### Named Rules
 

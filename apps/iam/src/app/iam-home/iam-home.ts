@@ -93,9 +93,11 @@ import {
 
         The explicit roles are load-bearing. A table cell set to display:block or
         grid can lose its table semantics in the accessibility tree, and these keep
-        the row and its column names for a screen reader at every width. The scroll
-        region stays for the band just above md, where the sidebar leaves the table
-        a little short of its full width.
+        the row and its column names for a screen reader at every width.
+
+        Just above md the sidebar leaves the table short of its full width. The email
+        gives way there, breaking after its @, because the alternative was Actions cut
+        off by 23px at 768. The scroll region stays for a value too long even for that.
       -->
       <div uiScrollRegion="Users">
       <table role="table" class="block w-full text-left text-sm md:table">
@@ -130,7 +132,8 @@ import {
                 role="cell"
                 class="col-span-2 row-start-2 min-w-0 break-words text-text-muted md:py-2 md:pr-4 md:text-text"
               >
-                {{ user.email }}
+                @let domainAt = user.email.indexOf('@') + 1;
+                {{ user.email.slice(0, domainAt) }}<wbr />{{ user.email.slice(domainAt) }}
               </td>
               <td role="cell" class="row-start-3 min-w-0 md:py-2 md:pr-4">
                 <select

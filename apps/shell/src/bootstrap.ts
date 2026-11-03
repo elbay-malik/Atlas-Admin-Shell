@@ -13,6 +13,7 @@ import {
   Route,
   Router,
   TitleStrategy,
+  UrlSegment,
   provideRouter,
   withNavigationErrorHandler,
 } from '@angular/router';
@@ -86,7 +87,25 @@ export function buildRoutes(manifest: AtlasManifest): Route[] {
   return [
     { path: '', pathMatch: 'full', title: 'Overview', component: Overview },
     ...remoteRoutes,
-    { path: 'unavailable/:remote', title: 'Unavailable', component: ModuleUnavailable },
+    // The boundary retries on its own, so a visitor who may no longer enter must
+    // not stay on it: a session ending here would otherwise have its retry declined
+    // by the route above, which reads as someone trying to open that domain. canMatch,
+    // because the re-check after a session ends reuses this route and skips canActivate.
+    {
+      path: 'unavailable/:remote',
+      title: 'Unavailable',
+      component: ModuleUnavailable,
+      canMatch: [
+        (_route: Route, segments: UrlSegment[]) => {
+          const def = manifest.remotes[segments[1]?.path ?? ''];
+          return !def || inject(AtlasAuth).hasRole(def.requiredRole);
+        },
+      ],
+    },
+    {
+      path: 'unavailable/:remote',
+      redirectTo: ({ params }) => inject(IdentityFlow).routeDeclined(manifest.remotes[params['remote']]),
+    },
     { path: '**', title: 'Page not found', component: ModuleUnavailable },
   ];
 }

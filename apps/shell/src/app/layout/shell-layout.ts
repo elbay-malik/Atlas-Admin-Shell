@@ -25,6 +25,8 @@ import {
   UNKNOWN_REMOTE_HEALTH,
 } from '../remotes/remote-health.store';
 
+const REPOSITORY_URL = 'https://github.com/elbay-malik/Atlas-Admin-Shell';
+
 interface NavEntry extends RemoteDefinition {
   name: string;
   status: RemoteStatus;
@@ -119,7 +121,6 @@ interface NavEntry extends RemoteDefinition {
               [attr.data-testid]="'nav-' + entry.name"
               [attr.data-health]="entry.status"
               [attr.data-allowed]="entry.allowed"
-              [attr.title]="entry.allowed ? null : 'Requires the ' + entry.requiredRole + ' role'"
             >
               <ui-nav-item
                 [link]="'/' + entry.route"
@@ -140,18 +141,41 @@ interface NavEntry extends RemoteDefinition {
                   <span class="truncate">{{ entry.displayName }}</span>
                 }
                 @if (!entry.allowed) {
-                  <!--
-                    A lock, plus the reason in text only a screen reader hears.
-                    The word "admin" as a visible badge pushed long labels onto
-                    a second line; truncating them to fit was worse still. The
-                    mark costs 16px, the sr-only text costs nothing, and the
-                    Overview spells the requirement out in full.
-                  -->
                   <ui-icon name="lock" [size]="16" />
-                  <span class="sr-only">Requires the {{ entry.requiredRole }} role</span>
                 }
               </ui-nav-item>
+              <!--
+                The reason, in text anyone can read, on a line of its own so a long
+                name is never truncated to fit it. Outside the link, because the
+                link's 40% disabled opacity would take the reason down with it, and
+                nothing here needs a pointer or a hover. Indented to the label.
+              -->
+              @if (!entry.allowed) {
+                <p class="pr-3 pb-1 pl-11 text-xs text-text-muted" data-testid="nav-lock-reason">
+                  Requires the {{ entry.requiredRole }} role
+                </p>
+              }
             </div>
+          }
+        </nav>
+        <!--
+          Readers of the console are often judging how it was built, so the record of
+          that is one click away on every screen. A new tab, because a mock session's
+          changes live in this one.
+        -->
+        <nav class="border-t border-border p-3 text-sm" aria-label="Project" data-testid="project-links">
+          @for (link of projectLinks; track link.href) {
+            <a
+              class="flex min-h-11 items-center gap-2 px-3 text-text-muted underline underline-offset-2 transition-colors
+                     hover:text-text md:min-h-8"
+              target="_blank"
+              rel="noopener"
+              [href]="link.href"
+            >
+              {{ link.label }}
+              <ui-icon name="external" [size]="16" />
+              <span class="sr-only">(opens in a new tab)</span>
+            </a>
           }
         </nav>
       </aside>
@@ -170,13 +194,18 @@ interface NavEntry extends RemoteDefinition {
         ></button>
       }
       <div class="flex min-w-0 flex-1 flex-col" data-testid="console-column" [inert]="menuOpen()">
+        <!--
+          Wraps rather than folding a label or panning the page. Only a sign-in button
+          ever needs to, on the narrowest phones: it takes the theme toggle down with it.
+        -->
         <header
-          class="flex h-14 items-center gap-2 border-b border-border bg-surface px-4 md:gap-3"
+          class="flex min-h-14 flex-wrap items-center justify-end gap-2 border-b border-border bg-surface
+                 px-4 py-1 md:gap-3"
         >
           <button
             type="button"
             data-testid="nav-toggle"
-            class="-ml-1 inline-flex h-11 w-11 items-center justify-center rounded-md
+            class="-ml-1 mr-auto inline-flex h-11 w-11 items-center justify-center rounded-md
                    border border-border-strong transition-colors hover:bg-bg md:hidden"
             aria-controls="primary-nav"
             [attr.aria-expanded]="menuOpen()"
@@ -185,23 +214,11 @@ interface NavEntry extends RemoteDefinition {
           >
             <ui-icon name="menu" />
           </button>
-          <!-- pushes the identity cluster right, replacing justify-end -->
-          <span class="flex-1"></span>
           <!--
-            On every route, because a screen that shows no label reads as real.
-            Only mock mode has one: the Overview's registry reports http itself.
+            Checked before the user, which also holds the demo visitor: no name and no
+            role badge for a demo, since either would read as a real session.
           -->
-          @if (mockData) {
-            <ui-badge class="shrink-0 whitespace-nowrap" data-testid="header-mock-data">mock data</ui-badge>
-          }
-          @if (demo?.active()) {
-            <!--
-              Checked before the user below, which also holds the demo visitor: no
-              name and no role badge, since either would read as a real session.
-            -->
-            <ui-badge tone="warning" data-testid="header-demo">demo</ui-badge>
-            <ui-button variant="secondary" (pressed)="exitDemo()">Exit demo</ui-button>
-          } @else if (auth.user(); as user) {
+          @if (signedInUser(); as user) {
             <!-- the name is the first thing to go when space is short; the
                  role badge is what actually changes what you can do -->
             @if (user.name === user.id) {
@@ -221,14 +238,38 @@ interface NavEntry extends RemoteDefinition {
                 {{ user.name }}
               </span>
             }
-            <ui-badge [tone]="user.role === 'admin' ? 'success' : 'neutral'">
-              {{ user.role }}
-            </ui-badge>
-            <ui-button variant="secondary" (pressed)="flow.signOut()">Sign out</ui-button>
-          } @else {
-            <ng-container [ngTemplateOutlet]="signIn" />
           }
-          <ui-theme-toggle />
+          <!--
+            The badges stack below md, in the height the header already has. Side by
+            side they left a 320px phone too narrow for one line, and Sign out and
+            Exit demo folded onto two.
+          -->
+          <div class="flex shrink-0 flex-col items-end whitespace-nowrap md:flex-row md:items-center md:gap-3">
+            <!--
+              On every route, because a screen that shows no label reads as real.
+              Only mock mode has one: the Overview's registry reports http itself.
+            -->
+            @if (mockData) {
+              <ui-badge data-testid="header-mock-data">mock data</ui-badge>
+            }
+            @if (demo?.active()) {
+              <ui-badge tone="warning" data-testid="header-demo">demo</ui-badge>
+            } @else if (signedInUser(); as user) {
+              <ui-badge [tone]="user.role === 'admin' ? 'success' : 'neutral'">
+                {{ user.role }}
+              </ui-badge>
+            }
+          </div>
+          <div class="flex items-center gap-2 whitespace-nowrap md:gap-3">
+            @if (demo?.active()) {
+              <ui-button variant="secondary" (pressed)="exitDemo()">Exit demo</ui-button>
+            } @else if (signedInUser()) {
+              <ui-button variant="secondary" (pressed)="flow.signOut()">Sign out</ui-button>
+            } @else {
+              <ng-container [ngTemplateOutlet]="signIn" />
+            }
+            <ui-theme-toggle />
+          </div>
         </header>
         <ng-template #signIn>
           @if (identityProvider) {
@@ -358,6 +399,14 @@ export class ShellLayout {
   protected readonly accountLabel = this.providerLabel ? `${this.providerLabel} account` : 'Account';
 
   protected readonly unavailableLabel = REMOTE_STATUS_LABEL.down;
+
+  /** The user, unless that user is the demo visitor, who must never look signed in. */
+  protected readonly signedInUser = computed(() => (this.demo?.active() ? null : this.auth.user()));
+
+  protected readonly projectLinks = [
+    { label: 'Source on GitHub', href: REPOSITORY_URL },
+    { label: 'Decision records', href: `${REPOSITORY_URL}/tree/main/docs/adr` },
+  ];
 
   /** Drawer state. Only meaningful below md, where the sidebar is off-canvas. */
   protected readonly menuOpen = signal(false);

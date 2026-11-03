@@ -363,3 +363,73 @@ test('the desk keeps its dense controls', async ({ page }) => {
     .evaluate((button) => button.getBoundingClientRect().height);
   expect(height).toBeLessThan(TOUCH_TARGET);
 });
+
+test('/iam keeps every column on screen at exactly 768px', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto('/iam');
+  await expect(page.getByTestId('user-row').first()).toBeVisible();
+
+  const region = page.locator('iam-home [data-overflowing]');
+  await expect(region).toHaveAttribute('data-overflowing', 'false');
+  const clipped = await region.evaluate((box) => box.scrollWidth - box.clientWidth);
+  expect(clipped).toBe(0);
+});
+
+test('the ledger says when a column is off screen, and only then', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(PHONE);
+  await page.goto('/audit');
+  await expect(page.getByTestId('audit-row').first()).toBeVisible();
+  await expect(page.getByTestId('audit-scroll-cue')).toBeVisible();
+
+  await page.setViewportSize(DESKTOP);
+  await expect(page.getByTestId('audit-scroll-cue')).toHaveCount(0);
+});
+
+test('the stacked badges fit the height the phone header already has', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(PHONE);
+  await page.goto('/');
+  await expect(page.locator('shell-overview')).toBeVisible();
+  const header = page.locator('[data-testid="console-column"] > header');
+  expect((await header.boundingBox())?.height).toBeLessThanOrEqual(57);
+});
+
+test.describe('at 320px each header control holds one line', () => {
+  const NARROW = { width: 320, height: 568 };
+  const oneLine = async (page: Page, name: string) => {
+    const label = page.getByRole('button', { name, exact: true });
+    await expect(label).toBeVisible();
+    // A second line of text would push it past the 44px it is built to.
+    const height = await label.evaluate((button) => button.getBoundingClientRect().height);
+    expect(height, `${name} wrapped`).toBeLessThanOrEqual(44);
+    const { doc, viewport } = await page.evaluate(() => ({
+      doc: document.documentElement.scrollWidth,
+      viewport: document.documentElement.clientWidth,
+    }));
+    expect(doc).toBeLessThanOrEqual(viewport);
+  };
+
+  test('with Sign out', async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize(NARROW);
+    await page.goto('/');
+    await oneLine(page, 'Sign out');
+  });
+
+  test('signed out, it wraps rather than folding a label or panning', async ({ page }) => {
+    await page.setViewportSize(NARROW);
+    await page.goto('/');
+    await expect(page.locator('shell-overview')).toBeVisible();
+    await oneLine(page, 'Sign in as admin');
+    await oneLine(page, 'as viewer');
+  });
+
+  test('with Exit demo', async ({ page }) => {
+    await page.setViewportSize(NARROW);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Explore with demo data (no account)' }).click();
+    await oneLine(page, 'Exit demo');
+  });
+});

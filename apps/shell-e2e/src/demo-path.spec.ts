@@ -165,6 +165,26 @@ test.describe('with real auth configured and apiMode mock', () => {
     await expect(page.locator('[data-testid="nav-iam"]')).toHaveAttribute('data-allowed', 'false');
   });
 
+  test('exiting on the failure screen leaves no destination for the next sign-in', async ({ page }) => {
+    await page.route('**/remoteEntry.json', (route) =>
+      route.request().url().includes(':4201') ? route.abort() : route.continue()
+    );
+    await page.goto('/');
+    await page.getByRole('button', { name: EXPLORE }).click();
+    await page.click('a[href="/iam"]');
+    await expect(page.getByTestId('remote-unavailable')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Exit demo' }).click();
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByTestId('shell-notice')).toHaveText('Demo ended.');
+    // Long enough for the boundary's first automatic retry, had it survived.
+    await page.waitForTimeout(1500);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByTestId('shell-notice')).toHaveText('Demo ended.');
+    expect(await page.evaluate(() => sessionStorage.getItem('atlas.auth.intended'))).toBeNull();
+  });
+
   test('the failure screen and an unknown route are labelled too, on a phone', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.route('**/remoteEntry.json', (route) =>

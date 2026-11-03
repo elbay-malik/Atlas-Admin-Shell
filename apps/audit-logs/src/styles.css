@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+/* Tailwind scans the repo for class names. A test's selector is not one, and
+   `[data-testid="x"]:visible` parses as a variant, which writes invalid CSS. */
+@source not '../../shell-e2e';
 @import '../../../libs/shared/design-tokens/src/generated/tokens.css';
 @import '../../../libs/shared/design-tokens/src/generated/theme.css';
 @import '../../../libs/shared/ui/src/focus-visible.css';

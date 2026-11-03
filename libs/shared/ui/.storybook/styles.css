@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* See the note in apps/shell/src/styles.css. */
+@source not '../../../../apps/shell-e2e';
 @import '../../design-tokens/src/generated/tokens.css';
 @import '../../design-tokens/src/generated/theme.css';
 @import '../src/focus-visible.css';

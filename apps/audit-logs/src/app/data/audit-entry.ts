@@ -17,3 +17,19 @@ export interface AuditEntry {
   detail?: string;
   source: 'seed' | AtlasEventSource;
 }
+
+/** Arrived over the bus while this page was open, rather than from the backend. */
+export function isLive(entry: AuditEntry): boolean {
+  return entry.source !== 'seed';
+}
+
+/**
+ * `2026-07-08 09:12 UTC`. Converted rather than cut out of the string, so a value
+ * written with an offset still reads as UTC and the label stays true. A value that
+ * does not parse is shown as it came, since inventing a time would be worse.
+ */
+export function formatWhen(at: string): string {
+  const time = Date.parse(at);
+  if (Number.isNaN(time)) return at;
+  return `${new Date(time).toISOString().replace('T', ' ').slice(0, 16)} UTC`;
+}

@@ -300,4 +300,50 @@ describe('FlagsStore', () => {
       expect(store.lastToggle()?.supersedes).toBeNull();
     });
   });
+
+  describe('when the session changes', () => {
+    const auth = () => TestBed.inject(AtlasAuth) as MockAtlasAuth;
+    const first = (store: Store) => store.entities()[0];
+
+    it('does not offer the next person in this tab an Undo for the last one', async () => {
+      const { store } = await loaded();
+      const { key, enabled } = first(store);
+      store.toggle(key);
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      expect(store.lastToggle()?.undoable).toBe(true);
+
+      await auth().logout();
+      TestBed.tick();
+      await auth().login('admin');
+      TestBed.tick();
+
+      expect(store.lastToggle()).toBeNull();
+      store.undoLastToggle();
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+      expect(store.entityMap()[key].enabled).toBe(!enabled);
+    });
+
+    it('does not make an offer when a write lands after its session ended', async () => {
+      const { store, published } = await loaded();
+      store.toggle(first(store).key);
+
+      await auth().logout();
+      TestBed.tick();
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+
+      expect(store.lastToggle()).toBeNull();
+      expect(published).toHaveLength(1);
+    });
+
+    it('withdraws the offer when the role changes under the same account', async () => {
+      const { store } = await loaded();
+      store.toggle(first(store).key);
+      await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+
+      await auth().login('viewer');
+      TestBed.tick();
+
+      expect(store.lastToggle()).toBeNull();
+    });
+  });
 });

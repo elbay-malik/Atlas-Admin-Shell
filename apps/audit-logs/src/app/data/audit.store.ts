@@ -16,7 +16,7 @@ import { entityConfig, prependEntity, upsertEntities, withEntities } from '@ngrx
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { exhaustMap, map, pipe, tap } from 'rxjs';
 import { AuditApi } from './audit-api';
-import { AuditEntry } from './audit-entry';
+import { AuditEntry, formatWhen, isLive } from './audit-entry';
 import { toAuditEntry } from './to-audit-entry';
 
 const auditConfig = entityConfig({
@@ -26,10 +26,23 @@ const auditConfig = entityConfig({
 
 const newestFirst = (a: AuditEntry, b: AuditEntry): number => Date.parse(b.at) - Date.parse(a.at);
 
+/**
+ * Everything a row shows, plus the raw timestamp its title holds. If an operator
+ * can read it in the row, typing it has to find the row: `2026` and `live` used to
+ * come back empty above rows that plainly said so.
+ */
+const searchable = (entry: AuditEntry): string[] => [
+  entry.at,
+  formatWhen(entry.at),
+  entry.actor,
+  entry.action,
+  entry.detail ?? '',
+  entry.target,
+  isLive(entry) ? 'live' : '',
+];
+
 const matches = (entry: AuditEntry, query: string): boolean =>
-  entry.actor.toLowerCase().includes(query) ||
-  entry.action.toLowerCase().includes(query) ||
-  entry.target.toLowerCase().includes(query);
+  searchable(entry).some((field) => field.toLowerCase().includes(query));
 
 /** The entries a filter keeps; a blank filter keeps them all. */
 export function filterEntries(entries: AuditEntry[], query: string): AuditEntry[] {

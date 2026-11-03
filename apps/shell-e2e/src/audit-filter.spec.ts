@@ -62,3 +62,34 @@ test('results are announced by a region that was already there', async ({ page }
   await page.getByTestId('audit-filter').fill('');
   await expect(results).toHaveText('');
 });
+
+test('a date and the word live both find the rows that show them', async ({ page }) => {
+  await openAudit(page);
+  const rows = page.getByTestId('audit-row');
+  const total = await rows.count();
+  const filter = page.getByTestId('audit-filter');
+
+  // The year as the When column prints it, whichever year this runs in.
+  const shown = (await rows.first().locator('td').first().textContent())?.trim() ?? '';
+  expect(shown).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/);
+  await filter.fill(shown.slice(0, 16));
+  await expect(rows.first()).toBeVisible();
+  await expect(page.getByTestId('audit-filter-results')).toHaveText(/^[1-9]\d* of \d+ events? match/);
+
+  await filter.fill('live');
+  await expect(rows).toHaveCount(0);
+  await expect(page.getByTestId('audit-live-count')).toHaveText(`0 of ${total} events · 0 live`);
+});
+
+test('the badge follows the filter and comes back without it', async ({ page }) => {
+  await openAudit(page);
+  const badge = page.getByTestId('audit-live-count');
+  const total = await page.getByTestId('audit-row').count();
+  await expect(badge).toHaveText(`${total} events · 0 live`);
+
+  await page.getByTestId('audit-filter').fill('grace');
+  await expect(badge).toHaveText(`1 of ${total} events · 0 live`);
+
+  await page.getByTestId('audit-filter').fill('');
+  await expect(badge).toHaveText(`${total} events · 0 live`);
+});

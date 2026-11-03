@@ -15,6 +15,7 @@ import { DOCUMENT, DestroyRef, Directive, ElementRef, afterNextRender, inject, i
  */
 @Directive({
   selector: '[uiScrollRegion]',
+  exportAs: 'uiScrollRegion',
   host: {
     class: 'overflow-x-auto',
     '[attr.tabindex]': 'overflowing() ? 0 : null',
@@ -26,7 +27,8 @@ import { DOCUMENT, DestroyRef, Directive, ElementRef, afterNextRender, inject, i
 export class UiScrollRegion {
   readonly label = input.required<string>({ alias: 'uiScrollRegion' });
 
-  protected readonly overflowing = signal(false);
+  /** Readable from the template, so a screen can say there is more to pan to. */
+  readonly overflowing = signal(false);
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly window = inject(DOCUMENT).defaultView;
