@@ -13,6 +13,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UiBadge, UiButton, UiBadgeTone } from '@atlas/shared-ui';
 import { ATLAS_MANIFEST } from '../manifest.token';
 import {
+  REMOTE_STATUS_LABEL,
   RemoteHealth,
   RemoteHealthStore,
   RemoteStatus,
@@ -55,7 +56,10 @@ const STATUS_TONE: Record<RemoteStatus, UiBadgeTone> = {
       <section class="p-6" data-testid="remote-unavailable" [attr.data-remote]="name">
         <div class="mb-2 flex items-center gap-3">
           <h1 class="text-2xl font-semibold">{{ displayName() }} is unavailable</h1>
-          <ui-badge [tone]="tone()">{{ health().status }}</ui-badge>
+          <!-- While it is failed the heading has already said so; a retry is what is news. -->
+          @if (health().status !== 'down') {
+            <ui-badge [tone]="tone()">{{ statusLabel() }}</ui-badge>
+          }
         </div>
         <p class="max-w-prose text-text-muted">
           This part of the platform could not be loaded right now. The rest of Atlas keeps
@@ -142,6 +146,7 @@ export class ModuleUnavailable {
   });
 
   protected readonly tone = computed(() => STATUS_TONE[this.health().status]);
+  protected readonly statusLabel = computed(() => REMOTE_STATUS_LABEL[this.health().status]);
 
   protected readonly reasonLabel = computed(() => {
     switch (this.health().reason) {

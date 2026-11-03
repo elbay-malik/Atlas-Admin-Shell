@@ -45,7 +45,7 @@ function mapKnown(event: AtlasEvent): AuditAction | null {
         return {
           action: 'user.role.changed',
           target: event.payload.email,
-          detail: `${event.payload.from} -> ${event.payload.to}`,
+          detail: `${event.payload.from} to ${event.payload.to}`,
         };
       }
       break;

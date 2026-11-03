@@ -246,6 +246,18 @@ describe('IamUsersStore', () => {
     expect(store.pendingIds()).toEqual([]);
   });
 
+  it('words a role change with the right article for each role', async () => {
+    const { store } = track(await loaded());
+
+    store.changeRole({ id: 'u-3', role: 'admin' });
+    await vi.advanceTimersByTimeAsync(WRITE_MS);
+    expect(store.lastChange()?.message).toBe('Alan Turing is now an admin.');
+
+    store.changeRole({ id: 'u-3', role: 'viewer' });
+    await vi.advanceTimersByTimeAsync(WRITE_MS);
+    expect(store.lastChange()?.message).toBe('Alan Turing is now a viewer.');
+  });
+
   describe('the active-admin count', () => {
     it('drops when an admin is deactivated, and says so in one number', async () => {
       const { store } = track(await loaded());

@@ -29,13 +29,21 @@ test.describe('a remote that will not load', () => {
     await page.goto('/');
     await expect(page.locator('shell-layout')).toBeVisible();
 
-    // seeded from the federation registry, so it reads as offline before anyone clicks
+    // seeded from the federation registry, so it reads as unavailable before anyone clicks
     await expect(page.getByTestId('nav-audit-logs')).toHaveAttribute('data-health', 'down');
+
+    // One failure, one name, on all three surfaces that report it.
+    await expect(page.getByTestId('nav-audit-logs')).toContainText('unavailable');
+    await expect(
+      page.locator('[data-testid="overview-remote"][data-remote="audit-logs"]:visible')
+    ).toContainText('unavailable');
 
     await page.click('a[href="/audit"]');
     await expect(page.getByTestId('remote-unavailable')).toBeVisible();
     await expect(page).toHaveURL(/\/unavailable\/audit-logs/);
-    await expect(page.getByTestId('remote-unavailable')).toContainText('Audit Logs');
+    await expect(page.getByTestId('remote-unavailable')).toContainText('Audit Logs is unavailable');
+    await waitForAutoRetriesToStop(page);
+    await expect(page.locator('body')).not.toContainText(/\b(offline|unreachable|down)\b/);
 
     // one bad remote must not take the console down
     await page.click('a[href="/flags"]');

@@ -215,7 +215,7 @@ foreground ink — never as a solid fill behind body text, and never to set a mo
   event, an admin role.
 - **Attention Amber** (`status-warning`): a remote mid-load, and the `demo` badge.
   Both say the same thing: what is on screen is not the settled, real state.
-- **Fault Red** (`status-danger`): an offline remote, a failed request, a destructive
+- **Fault Red** (`status-danger`): an unavailable remote, a failed request, a destructive
   action. **Fault Red Deep** (`status-danger-strong`) is its hover step and doubles as
   the light-mode danger ink.
 
@@ -435,7 +435,7 @@ route, or a reported state.
   destructive action that has already been asked about.
 - **Quiet danger:** `surface` fill with `on-danger` border and ink; hover takes the Fault
   Red fill. It offers a destructive action that repeats down a list. "Deactivate" × 40 in
-  solid red would spend the colour ration on what is only an option, and an offline badge
+  solid red would spend the colour ration on what is only an option, and an `unavailable` badge
   would stop being impossible to miss. A refused one goes back to Secondary: it is a fact
   about the row, not an action on offer.
 - **Transition:** `transition-colors` only — colour moves, geometry never does. No
@@ -613,6 +613,9 @@ has stopped responding to one. A reason shared by every control on a screen is w
 above them: "Only admins can change feature flags." on `/flags`, and the session line for
 being signed out.
 
+The verb and the status are one word: `Deactivate` leaves a user `deactivated`, in the row's
+status badge, the action message and the audit trail.
+
 The IAM header counts **active admins**, and the refusals use that same number. It is what
 `wouldRemoveLastAdmin` counts at the edge (ADR-0011): a deactivated admin cannot cover for
 a working one, and demoting one removes nobody's access, so it is never refused as the last.
@@ -641,7 +644,12 @@ Its design thesis: **the claim and its receipt in the same frame.** The product'
 uncopyable property is that domains are composed at runtime from separate origins;
 every other screen can only assert that. The `resolved` state is the detail that earns
 it — it means the entry was fetched at boot but the code has not loaded yet, so lazy
-federation is legible at rest instead of only when something fails.
+federation is legible at rest instead of only when something fails. Its meaning is written
+under the registry at every width, because the badge's `title` never reaches a phone.
+
+A failed remote is called `unavailable` everywhere it is reported: this table, the nav and
+the boundary's heading, matching the `remote.unavailable` audit row. `down` is the code's
+name for that state and is not shown.
 
 Every remote is listed before sign-in, including ones the visitor may not open. That
 is not a leak: the registry is fetched before authentication and publishes every

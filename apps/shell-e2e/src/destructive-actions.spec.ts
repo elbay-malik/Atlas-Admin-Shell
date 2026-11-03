@@ -101,7 +101,7 @@ test('deactivating a user is announced, and can be undone', async ({ page }) => 
 
   const region = page.getByTestId('action-status');
   await expect(region).toContainText('Alan Turing deactivated.');
-  await expect(row.getByTestId('user-status')).toHaveText('disabled');
+  await expect(row.getByTestId('user-status')).toHaveText('deactivated');
 
   await region.getByRole('button', { name: /Undo/ }).click();
   await expect(row.getByTestId('user-status')).toHaveText('active');

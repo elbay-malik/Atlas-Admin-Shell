@@ -82,6 +82,9 @@ function isSelf(user: IamUser, context: RefusalContext): boolean {
   );
 }
 
+/** A table, not a vowel check: a third role fails to compile until it is written here. */
+const ROLE_WITH_ARTICLE: Record<AtlasRole, string> = { admin: 'an admin', viewer: 'a viewer' };
+
 export function refuseRoleChange(
   user: IamUser,
   role: AtlasRole,
@@ -237,7 +240,7 @@ export const IamUsersStore = signalStore(
                           id,
                           field: 'role',
                           role: previous,
-                          message: `${user.name} is now a ${role}.`,
+                          message: `${user.name} is now ${ROLE_WITH_ARTICLE[role]}.`,
                         },
                         undoOf
                       ),

@@ -26,9 +26,11 @@ import { FlagsStore } from '../data/flags.store';
             Was "Toggle features per environment", which promised a control
             this screen does not have. The environment is chosen at deploy time
             by which manifest ships (ADR-0010), so it is not the operator's to
-            pick here.
+            pick here. A viewer's line says what they can do with it: read it.
           -->
-          <p class="text-text-muted">Toggle features for this deployment.</p>
+          <p class="text-text-muted" data-testid="flags-intro">
+            {{ canEdit() ? 'Toggle features for this deployment.' : 'See which features are on for this deployment.' }}
+          </p>
           @if (!canEdit()) {
             <p id="flags-readonly-reason" data-testid="flags-readonly-reason" class="text-sm text-text-muted">
               Only admins can change feature flags.

@@ -71,6 +71,38 @@ test('the registry is visible before signing in, because it is fetched before au
   await expect(page.getByTestId('overview-signed-out')).toBeVisible();
 });
 
+test('the overview counts the shell and its remotes, not "origins"', async ({ page }) => {
+  await open(page, null);
+  const count = Object.keys((await manifest(page)).remotes).length;
+
+  await expect(page.locator('shell-overview header')).toContainText(
+    `from a shell and ${count} independently deployed remotes`
+  );
+});
+
+for (const [width, height] of [
+  [1440, 900],
+  [390, 844],
+]) {
+  test(`"resolved" is explained in visible text at ${width}px, not only in a title`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await open(page, 'admin');
+
+    const note = page.getByTestId('overview-state-note');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText("resolved: the remote's entry file was fetched at boot");
+  });
+}
+
+test('the Nhost wake note stays away from a deployment on the mock', async ({ page }) => {
+  await open(page, null);
+
+  await expect(page.getByTestId('overview-signed-out')).toBeVisible();
+  await expect(page.getByTestId('overview-signin-note')).toHaveCount(0);
+});
+
 test('every domain appears in the nav; the ones you may not open are disabled', async ({
   page,
 }) => {

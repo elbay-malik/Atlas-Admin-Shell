@@ -189,6 +189,14 @@ const seedRefreshToken = (page: Page) =>
   });
 
 test.describe('on the real client, with a faked provider', () => {
+  test('the signed-out overview warns that Nhost may be asleep', async ({ page }) => {
+    await withProvider(page, (route) => respond(route, 500));
+
+    await page.goto('/');
+
+    await expect(page.getByTestId('overview-signin-note')).toContainText('free Nhost project');
+  });
+
   test('a provider error shows a notice, leaves the URL, and writes no free text', async ({
     page,
   }) => {
