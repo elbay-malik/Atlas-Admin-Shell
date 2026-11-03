@@ -61,6 +61,15 @@ async function fakeProvider(page: Page): Promise<void> {
   });
 }
 
+/** Every request that carries a credential, for as long as the page lives. */
+function watchCredentials(page: Page): string[] {
+  const credentialed: string[] = [];
+  page.on('request', (request) => {
+    if (request.headers()['authorization']) credentialed.push(request.url());
+  });
+  return credentialed;
+}
+
 test.describe('with real auth configured and apiMode mock', () => {
   test.beforeEach(async ({ page }) => {
     await bootOn(page, { apiMode: 'mock', auth: REAL_AUTH });
@@ -156,6 +165,113 @@ test.describe('with real auth configured and apiMode mock', () => {
     await expect(page.locator('[data-testid="nav-iam"]')).toHaveAttribute('data-allowed', 'false');
   });
 
+  test('the failure screen and an unknown route are labelled too, on a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route('**/remoteEntry.json', (route) =>
+      route.request().url().includes(':4201') ? route.abort() : route.continue()
+    );
+    const expectLabelled = async () => {
+      await expect(page.getByTestId('header-demo')).toBeVisible();
+      await expect(page.getByTestId('header-mock-data')).toBeVisible();
+      await expect(page.getByTestId('demo-strip')).toContainText('edge BFF is not exercised');
+      await expect(page.getByRole('button', { name: 'Exit demo' })).toBeVisible();
+    };
+
+    await page.goto('/');
+    await page.getByRole('button', { name: EXPLORE }).click();
+
+    await page.getByTestId('overview-demo-running').getByRole('link').first().click();
+    await expect(page.getByTestId('remote-unavailable')).toBeVisible();
+    await expectLabelled();
+
+    await page.evaluate(() => {
+      history.pushState({}, '', '/no-such-route');
+      dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await expect(page).toHaveURL(/no-such-route/);
+    await expectLabelled();
+  });
+
+  test('a refused redirect leaves a working demo, and nothing of itself behind', async ({ page }) => {
+    await page.route(`${AUTH_BASE}/token`, (route) =>
+      route.fulfill({ status: 401, headers: CORS, json: {} })
+    );
+    const credentialed = watchCredentials(page);
+
+    await page.goto('/?refreshToken=refused');
+    await expect(page.getByTestId('shell-notice')).toContainText('could not be completed');
+    await page.getByRole('button', { name: EXPLORE }).click();
+    await page.click('a[href="/flags"]');
+    await expect(page.locator('flags-home')).toBeVisible({ timeout: FIRST_FEDERATED_LOAD });
+    await expect(page.getByTestId('header-demo')).toHaveText('demo');
+
+    await page.getByRole('button', { name: 'Exit demo' }).click();
+    await expect(page.getByRole('button', { name: 'Sign in with GitHub' })).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('atlas.auth'))).toBeNull();
+    expect(credentialed).toEqual([]);
+  });
+
+  test('a demo while the provider sleeps keeps the real session for the next load', async ({
+    page,
+  }) => {
+    let awake = false;
+    await fakeProvider(page);
+    await page.route(`${AUTH_BASE}/token`, async (route) => {
+      if (awake) await route.fallback();
+      else await route.fulfill({ status: 503, headers: CORS, json: {} });
+    });
+    const credentialed = watchCredentials(page);
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('seeded')) {
+        sessionStorage.setItem('seeded', '1');
+        localStorage.setItem('atlas.auth', 'stored-session');
+      }
+    });
+
+    await page.goto('/');
+    await page.getByRole('button', { name: EXPLORE }).click();
+    await expect(page.getByTestId('header-demo')).toHaveText('demo');
+    await page.getByRole('button', { name: 'Exit demo' }).click();
+    await expect(page.getByTestId('header-demo')).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem('atlas.auth'))).toBe('stored-session');
+    expect(credentialed).toEqual([]);
+
+    awake = true;
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expect(page.getByRole('button', { name: EXPLORE })).toHaveCount(0);
+  });
+
+  test('a real session in a second tab does not reach a demo in the first', async ({
+    context,
+    page,
+  }) => {
+    const credentialed = watchCredentials(page);
+    await page.goto('/');
+    await page.getByRole('button', { name: EXPLORE }).click();
+    await page.click('a[href="/flags"]');
+    await expect(page.locator('flags-home')).toBeVisible({ timeout: FIRST_FEDERATED_LOAD });
+
+    const second = await context.newPage();
+    await bootOn(second, { apiMode: 'mock', auth: REAL_AUTH });
+    await fakeProvider(second);
+    await second.goto('/?refreshToken=from-provider');
+    await expect(second.getByRole('button', { name: 'Sign out' })).toBeVisible();
+
+    // The first tab holds no session of its own, so it stays what it says it is.
+    await expect(page.getByTestId('header-demo')).toHaveText('demo');
+    await page.click('a[href="/audit"]');
+    await expect(page.locator('audit-home')).toBeVisible({ timeout: FIRST_FEDERATED_LOAD });
+    await expect(page.getByTestId('header-demo')).toHaveText('demo');
+    expect(credentialed).toEqual([]);
+
+    // Its next load finds the stored session, and the demo is gone with the memory.
+    await fakeProvider(page);
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expect(page.getByTestId('header-demo')).toHaveCount(0);
+  });
+
   test('a phone reaches the demo and its label without panning', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
@@ -222,6 +338,14 @@ test.describe('fail closed', () => {
     await expect(page.getByRole('button', { name: EXPLORE })).toHaveCount(0);
   });
 
+  test('an absent apiMode is mock, so it offers the demo and says mock data', async ({ page }) => {
+    // Undefined does not survive JSON, so the manifest served has no apiMode at all.
+    await bootOn(page, { apiMode: undefined, auth: REAL_AUTH });
+    await page.goto('/');
+    await expect(page.getByTestId('header-mock-data')).toHaveText('mock data');
+    await expect(page.getByRole('button', { name: EXPLORE })).toBeVisible();
+  });
+
   test('a manifest naming an unknown provider still refuses to boot', async ({ page }) => {
     // Passes the contract, so it keeps its remotes: the dangerous case (ADR-0014).
     await bootOn(page, {
@@ -248,7 +372,29 @@ test.describe('fail closed', () => {
   });
 });
 
+test.describe('leftovers in storage', () => {
+  test('under real auth a stored persona or demo flag starts nothing', async ({ page }) => {
+    await bootOn(page, { apiMode: 'mock', auth: REAL_AUTH });
+    await page.addInitScript(() => {
+      localStorage.setItem('atlas.auth.persona', 'admin');
+      localStorage.setItem('atlas.demo', '1');
+      sessionStorage.setItem('atlas.demo', '1');
+    });
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: EXPLORE })).toBeVisible();
+    await expect(page.getByTestId('header-demo')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Sign in with GitHub' })).toBeVisible();
+    await expect(page.locator('[data-testid="nav-iam"]')).toHaveAttribute('data-allowed', 'false');
+  });
+});
+
 test.describe('on the local mock personas', () => {
+  test('a phone keeps "Sign in" in the name of the persona button', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: 'Sign in as admin' })).toBeVisible();
+  });
+
   test('the personas and the demo both work, and the persona ends the demo', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: EXPLORE }).click();
