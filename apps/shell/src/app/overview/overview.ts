@@ -63,7 +63,7 @@ const STATE: Record<RemoteStatus, { tone: UiBadgeTone; hint: string }> = {
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 class="mb-1 text-2xl font-semibold">Atlas Admin</h1>
-          <p class="max-w-prose text-text-muted">
+          <p class="max-w-measure text-pretty text-text-muted">
             One console, composed in the browser from a shell and
             {{ remotes().length }} independently deployed
             {{ remotes().length === 1 ? 'remote' : 'remotes' }}. The table below is the
@@ -89,7 +89,7 @@ const STATE: Record<RemoteStatus, { tone: UiBadgeTone; hint: string }> = {
       -->
       @if (demo; as session) {
         @if (session.active()) {
-          <p class="mb-6 max-w-prose text-sm" data-testid="overview-demo-running">
+          <p class="mb-6 max-w-measure text-sm text-pretty" data-testid="overview-demo-running">
             Open
             @for (remote of remotes(); track remote.name; let last = $last) {
               @if (last && !$first) {
@@ -103,9 +103,9 @@ const STATE: Record<RemoteStatus, { tone: UiBadgeTone; hint: string }> = {
             loaded.
           </p>
         } @else if (!auth.user()) {
-          <div class="mb-6 flex max-w-prose flex-col items-start gap-2" data-testid="overview-demo">
+          <div class="mb-6 flex flex-col items-start gap-2" data-testid="overview-demo">
             <ui-button (pressed)="exploreDemo()">Explore with demo data (no account)</ui-button>
-            <p class="text-sm text-text-muted">
+            <p class="max-w-measure text-sm text-pretty text-text-muted">
               Loads the real remotes on mock data, labelled as a demo on every screen. It is not a
               sign-in: no token exists, so the edge BFF is not exercised.
             </p>
@@ -199,7 +199,7 @@ const STATE: Record<RemoteStatus, { tone: UiBadgeTone; hint: string }> = {
         never shows, and "resolved" is the word on this screen a visitor can least guess.
       -->
       @if (remotes().length) {
-        <p class="mt-3 max-w-prose text-sm text-text-muted" data-testid="overview-state-note">
+        <p class="mt-3 max-w-measure text-sm text-pretty text-text-muted" data-testid="overview-state-note">
           <span class="block">
             <span class="font-medium text-text">resolved</span>: the remote's entry file was fetched
             at boot, and its code loads on the first visit.
@@ -211,13 +211,13 @@ const STATE: Record<RemoteStatus, { tone: UiBadgeTone; hint: string }> = {
       }
 
       @if (!auth.user()) {
-        <p class="mt-4 max-w-prose text-sm text-text-muted" data-testid="overview-signed-out">
+        <p class="mt-4 max-w-measure text-sm text-pretty text-text-muted" data-testid="overview-signed-out">
           Every domain is listed before anyone signs in, because the shell fetches this registry
           before authenticating and it names each remote's required role. Opening one needs that
           role — sign in from the header{{ demo ? ', or explore with demo data above' : '' }}.
         </p>
         @if (nhost) {
-          <p class="mt-2 max-w-prose text-sm text-text-muted" data-testid="overview-signin-note">
+          <p class="mt-2 max-w-measure text-sm text-pretty text-text-muted" data-testid="overview-signin-note">
             Sign-in runs on a free Nhost project that sleeps when idle, so it may need the project to
             be woken up first. If the sign-in page does not load, the console on this page still shows
             the composition.

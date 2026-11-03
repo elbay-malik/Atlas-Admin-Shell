@@ -133,6 +133,8 @@ StyleDictionary.registerFormat({
         continue;
       } else if (group === 'radius') {
         entries.push(`  --radius-${rest.join('-')}: var(${cssVar(t)});`);
+      } else if (group === 'container') {
+        entries.push(`  --container-${rest.join('-')}: var(${cssVar(t)});`);
       }
     }
     for (const key of SEMANTIC_KEYS) {

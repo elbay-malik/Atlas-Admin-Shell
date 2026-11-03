@@ -61,7 +61,7 @@ const STATUS_TONE: Record<RemoteStatus, UiBadgeTone> = {
             <ui-badge [tone]="tone()">{{ statusLabel() }}</ui-badge>
           }
         </div>
-        <p class="max-w-prose text-text-muted">
+        <p class="max-w-measure text-text-muted">
           This part of the platform could not be loaded right now. The rest of Atlas keeps
           working — try again in a moment.
         </p>
@@ -105,7 +105,7 @@ const STATUS_TONE: Record<RemoteStatus, UiBadgeTone> = {
         </div>
 
         @if (health().reason === 'module') {
-          <p class="mt-3 max-w-prose text-xs text-text-muted">
+          <p class="mt-3 max-w-measure text-xs text-text-muted">
             The module's own code failed to download. The browser's module loader remembers that
             failure for the lifetime of the page, so this one needs a reload rather than a retry.
           </p>
@@ -114,7 +114,7 @@ const STATUS_TONE: Record<RemoteStatus, UiBadgeTone> = {
     } @else {
       <section class="p-6" data-testid="route-not-found">
         <h1 class="mb-1 text-2xl font-semibold">Page not found</h1>
-        <p class="max-w-prose text-text-muted">
+        <p class="max-w-measure text-text-muted">
           No domain in this platform owns that address. Pick one from the navigation, or
           <a class="underline hover:text-text" routerLink="/">go back to the overview</a>.
         </p>

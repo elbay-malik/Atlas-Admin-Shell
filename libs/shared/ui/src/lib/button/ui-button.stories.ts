@@ -65,6 +65,19 @@ export const AllVariantsDark: Story = {
   }),
 };
 
+/** A flag's control: off is an ordinary secondary button, on takes the fill. */
+export const Toggle: Story = {
+  render: () => ({
+    template: `
+      <div class="flex gap-2 p-4">
+        <ui-button variant="secondary" [toggled]="false">Off</ui-button>
+        <ui-button variant="secondary" [toggled]="true">On</ui-button>
+      </div>`,
+  }),
+};
+
+export const ToggleDark: Story = { ...Toggle, parameters: { theme: 'dark' } };
+
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvasElement }) => {

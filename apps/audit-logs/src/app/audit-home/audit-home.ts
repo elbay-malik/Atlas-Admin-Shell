@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { UiBadge, UiButton, UiScrollRegion } from '@atlas/shared-ui';
+import { UiBadge, UiButton, UiPageHeader, UiScrollRegion } from '@atlas/shared-ui';
 import { ATLAS_API_MODE } from '@atlas/shared-util';
 import { AuditEntry } from '../data/audit-entry';
 import { AuditStore, filterEntries } from '../data/audit.store';
@@ -19,21 +19,16 @@ const FILTER_SETTLE_MS = 300;
 @Component({
   selector: 'audit-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiBadge, UiButton, UiScrollRegion],
+  imports: [UiBadge, UiButton, UiPageHeader, UiScrollRegion],
   template: `
     <section class="p-6">
-      <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 class="mb-1 text-2xl font-semibold">Audit Logs</h1>
-          <p class="text-text-muted">
-            Searchable trail of platform events, live from every domain.
+      <ui-page-header heading="Audit Logs">
+        <p>Searchable trail of platform events, live from every domain.</p>
+        @if (inMemory) {
+          <p uiPageNote data-testid="audit-in-memory">
+            This trail lives in this tab and clears on reload, back to its seeded rows.
           </p>
-          @if (inMemory) {
-            <p data-testid="audit-in-memory" class="mt-1 text-sm text-text-muted">
-              This trail lives in this tab and clears on reload, back to its seeded rows.
-            </p>
-          }
-        </div>
+        }
         <!--
           The count used to read "0 live" above four seeded rows, which parses
           as "there are no events". Naming the total first makes the second
@@ -42,7 +37,7 @@ const FILTER_SETTLE_MS = 300;
         <ui-badge data-testid="audit-live-count" [tone]="liveCount() > 0 ? 'success' : 'neutral'">
           {{ store.entities().length }} events · {{ liveCount() }} live
         </ui-badge>
-      </header>
+      </ui-page-header>
 
       @if (store.error(); as message) {
         <div
@@ -63,8 +58,8 @@ const FILTER_SETTLE_MS = 300;
           type="search"
           data-testid="audit-filter"
           placeholder="Filter by actor, action or target…"
-          class="min-h-11 w-full rounded border border-border-strong bg-surface px-3 py-2 text-sm
-                 placeholder:text-text-muted md:min-h-0"
+          class="min-h-11 w-full rounded border border-border-strong bg-surface px-3 py-1.5 text-sm
+                 placeholder:text-text-muted md:min-h-9"
           [value]="store.query()"
           (input)="onFilter($event)"
         />

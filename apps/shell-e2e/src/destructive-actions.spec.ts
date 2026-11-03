@@ -44,7 +44,7 @@ test('the live region exists before anything happens, so it can be announced', a
 test('toggling a flag is announced, and can be undone', async ({ page }) => {
   await open(page, '/flags', 'flags-home', '[data-testid="flag-row"]');
 
-  const toggle = page.getByTestId('flag-toggle').first();
+  const toggle = page.getByTestId('flag-toggle').locator('button').first();
   const before = (await toggle.textContent())?.trim();
   const key = await page
     .locator('[data-testid="flag-row"]')
@@ -155,7 +155,7 @@ test('a flag that reaches every tenant asks first, and a smaller one does not', 
   await open(page, '/flags', 'flags-home', '[data-testid="flag-row"]');
 
   const sso = page.locator('[data-testid="flag-row"][data-flag-key="sso-enforced"]');
-  const toggle = sso.getByTestId('flag-toggle');
+  const toggle = sso.getByTestId('flag-toggle').locator('button');
   await toggle.click();
 
   await expect(sso.getByTestId('flag-confirm')).toContainText('every tenant');
@@ -173,9 +173,9 @@ test('a flag that reaches every tenant asks first, and a smaller one does not', 
   await expect(page.getByTestId('action-status')).toContainText('sso-enforced turned on.');
 
   const bulk = page.locator('[data-testid="flag-row"][data-flag-key="bulk-export"]');
-  await bulk.getByTestId('flag-toggle').click();
+  await bulk.getByTestId('flag-toggle').locator('button').click();
   await expect(bulk.getByTestId('flag-confirm')).toHaveCount(0);
-  await expect(bulk.getByTestId('flag-toggle')).toHaveAttribute('aria-pressed', 'true');
+  await expect(bulk.getByTestId('flag-toggle').locator('button')).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('a viewer reads why flags are locked, without hovering anything', async ({ page }) => {
@@ -184,7 +184,7 @@ test('a viewer reads why flags are locked, without hovering anything', async ({ 
   await expect(page.locator('flags-home')).toBeVisible({ timeout: FIRST_FEDERATED_LOAD });
 
   await expect(page.getByTestId('flags-readonly-reason')).toBeVisible();
-  await expect(page.getByTestId('flag-toggle').first()).toHaveAttribute(
+  await expect(page.getByTestId('flag-toggle').locator('button').first()).toHaveAttribute(
     'aria-describedby',
     'flags-readonly-reason'
   );

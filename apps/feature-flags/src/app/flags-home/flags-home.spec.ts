@@ -22,7 +22,7 @@ function rows(fixture: ComponentFixture<FlagsHome>): HTMLLIElement[] {
 }
 
 function toggleIn(row: HTMLLIElement): HTMLButtonElement {
-  const button = row.querySelector<HTMLButtonElement>('[data-testid="flag-toggle"]');
+  const button = row.querySelector<HTMLButtonElement>('[data-testid="flag-toggle"] button');
   if (!button) throw new Error('flag row is missing its toggle');
   return button;
 }
@@ -93,7 +93,7 @@ describe('FlagsHome', () => {
 
     expect(toggleIn(second).getAttribute('aria-pressed')).toBe('true');
     expect(toggleIn(second).textContent?.trim()).toBe('On');
-    expect(toggleIn(second).getAttribute('data-pending')).toBe('true');
+    expect(toggleIn(second).parentElement?.getAttribute('data-pending')).toBe('true');
     // busy, NOT disabled: disabling the control the user just activated would
     // throw keyboard focus to <body> and lose their place in the list
     expect(toggleIn(second).getAttribute('aria-busy')).toBe('true');
@@ -104,7 +104,7 @@ describe('FlagsHome', () => {
     await TestBed.tick();
 
     expect(toggleIn(second).getAttribute('aria-pressed')).toBe('true');
-    expect(toggleIn(second).getAttribute('data-pending')).toBe('false');
+    expect(toggleIn(second).parentElement?.getAttribute('data-pending')).toBe('false');
     expect(toggleIn(second).getAttribute('aria-busy')).toBe('false');
     expect(query(fixture, '[data-testid="flags-summary"]')?.textContent).toContain('2 of 3 enabled');
   });

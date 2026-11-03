@@ -61,7 +61,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.locator('shell-layout')).toBeVisible();
     await assertFocusRings(page);
 
-    // The flag toggle is a bare <button> that FILLS with brand-primary when
+    // The flag toggle is a <ui-button> that FILLS with brand-primary when
     // pressed — the adjacency a ring drawn without an offset would land on.
     await page.click('a[href="/flags"]');
     await expect(page.locator('flags-home')).toBeVisible();

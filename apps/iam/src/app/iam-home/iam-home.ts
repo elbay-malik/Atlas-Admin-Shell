@@ -8,7 +8,14 @@ import {
 } from '@angular/core';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { AtlasRole } from '@atlas/shared-contracts';
-import { UiActionStatus, UiBadge, UiButton, UiScrollRegion, UiShortId } from '@atlas/shared-ui';
+import {
+  UiActionStatus,
+  UiBadge,
+  UiButton,
+  UiPageHeader,
+  UiScrollRegion,
+  UiShortId,
+} from '@atlas/shared-ui';
 import { IamUser } from '../data/iam-api';
 import {
   IamUsersStore,
@@ -20,53 +27,47 @@ import {
 @Component({
   selector: 'iam-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiActionStatus, UiBadge, UiButton, UiScrollRegion, UiShortId],
+  imports: [UiActionStatus, UiBadge, UiButton, UiPageHeader, UiScrollRegion, UiShortId],
   template: `
     <section class="p-6">
-      <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div class="min-w-0 grow basis-[20rem]">
-          <h1 class="mb-1 text-2xl font-semibold">Identity &amp; Access</h1>
-          <p class="text-text-muted">Users, roles and access management.</p>
-          <ui-action-status
-            [status]="store.lastChange()"
-            (undo)="undo()"
-            (expired)="store.dismissLastChange()"
-          />
-        </div>
-        <div class="flex items-center gap-2">
-          <!--
-            Active admins, not admin roles: the same number the refusals below use,
-            and the one that decides who can still administer anything.
-          -->
-          <ui-badge tone="success" data-testid="admin-count">
-            {{ store.activeAdminCount() }} active {{ store.activeAdminCount() === 1 ? 'admin' : 'admins' }}
-          </ui-badge>
-          <ui-badge data-testid="active-count">
-            {{ store.activeCount() }} active {{ store.activeCount() === 1 ? 'user' : 'users' }}
-          </ui-badge>
-        </div>
-      </header>
-
-      <!--
-        What this line proves: the remote holds no identity of its own, and this
-        is the shell's auth singleton read across the federation boundary. The
-        name is a raw id when the token has no name or email, so that case gets
-        the short form rather than a blank or a 36-character string.
-      -->
-      <p class="mb-6 flex flex-wrap items-center gap-x-1.5 text-sm" data-testid="session-info">
-        @if (auth.user(); as user) {
-          <span class="text-text-muted">Session from the shell, across the federation boundary:</span>
-          @if (user.email || user.name !== user.id) {
-            <strong class="min-w-0 break-words font-semibold">{{ user.email || user.name }}</strong>
+      <ui-page-header heading="Identity &amp; Access">
+        <p>Users, roles and access management.</p>
+        <!--
+          What this line proves: the remote holds no identity of its own, and this
+          is the shell's auth singleton read across the federation boundary. The
+          name is a raw id when the token has no name or email, so that case gets
+          the short form rather than a blank or a 36-character string.
+        -->
+        <p uiPageNote class="flex flex-wrap items-center gap-x-1.5" data-testid="session-info">
+          @if (auth.user(); as user) {
+            <span>Session from the shell, across the federation boundary:</span>
+            @if (user.email || user.name !== user.id) {
+              <strong class="min-w-0 break-words font-semibold text-text">{{ user.email || user.name }}</strong>
+            } @else {
+              <span>account</span>
+              <ui-short-id class="text-text" [value]="user.id" label="account ID" />
+            }
+            <span class="text-text">({{ user.role }})</span>
           } @else {
-            <span class="text-text-muted">account</span>
-            <ui-short-id [value]="user.id" label="account ID" />
+            <span>Signed out, so changes are disabled.</span>
           }
-          <span>({{ user.role }})</span>
-        } @else {
-          <span class="text-text-muted">Signed out, so changes are disabled.</span>
-        }
-      </p>
+        </p>
+        <!--
+          Active admins, not admin roles: the same number the refusals below use,
+          and the one that decides who can still administer anything.
+        -->
+        <ui-badge tone="success" data-testid="admin-count">
+          {{ store.activeAdminCount() }} active {{ store.activeAdminCount() === 1 ? 'admin' : 'admins' }}
+        </ui-badge>
+        <ui-badge data-testid="active-count">
+          {{ store.activeCount() }} active {{ store.activeCount() === 1 ? 'user' : 'users' }}
+        </ui-badge>
+        <ui-action-status
+          [status]="store.lastChange()"
+          (undo)="undo()"
+          (expired)="store.dismissLastChange()"
+        />
+      </ui-page-header>
 
       @if (store.error(); as message) {
         <div
@@ -136,7 +137,7 @@ import {
                   data-testid="role-select"
                   class="min-h-11 w-full rounded-md border border-border-strong bg-surface px-3 py-1.5
                          text-sm text-text disabled:cursor-not-allowed disabled:opacity-50
-                         md:min-h-0 md:w-auto"
+                         md:min-h-9 md:w-auto"
                   [value]="user.role"
                   [disabled]="!!roleRefusal(user)"
                   [attr.aria-describedby]="visibleReason(roleRefusal(user)) ? 'role-reason-' + user.id : null"

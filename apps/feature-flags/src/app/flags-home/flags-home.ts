@@ -9,57 +9,46 @@ import {
   signal,
 } from '@angular/core';
 import { AtlasAuth } from '@atlas/shared-auth';
-import { UiActionStatus, UiBadge, UiButton } from '@atlas/shared-ui';
+import { UiActionStatus, UiBadge, UiButton, UiPageHeader } from '@atlas/shared-ui';
 import { FeatureFlag } from '../data/flags-api';
 import { FlagsStore } from '../data/flags.store';
 
 @Component({
   selector: 'flags-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiActionStatus, UiBadge, UiButton],
+  imports: [UiActionStatus, UiBadge, UiButton, UiPageHeader],
   template: `
     <section class="p-6">
-      <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div class="min-w-0 grow basis-[20rem]">
-          <h1 class="mb-1 text-2xl font-semibold">Feature Flags</h1>
-          <!--
-            Was "Toggle features per environment", which promised a control
-            this screen does not have. The environment is chosen at deploy time
-            by which manifest ships (ADR-0010), so it is not the operator's to
-            pick here. A viewer's line says what they can do with it: read it.
-          -->
-          <p class="text-text-muted" data-testid="flags-intro">
-            {{ canEdit() ? 'Toggle features for this deployment.' : 'See which features are on for this deployment.' }}
+      <ui-page-header heading="Feature Flags">
+        <!--
+          Was "Toggle features per environment", which promised a control
+          this screen does not have. The environment is chosen at deploy time
+          by which manifest ships (ADR-0010), so it is not the operator's to
+          pick here. A viewer's line says what they can do with it: read it.
+        -->
+        <p data-testid="flags-intro">
+          {{ canEdit() ? 'Toggle features for this deployment.' : 'See which features are on for this deployment.' }}
+        </p>
+        @if (!canEdit()) {
+          <p uiPageNote id="flags-readonly-reason" data-testid="flags-readonly-reason">
+            Only admins can change feature flags.
           </p>
-          @if (!canEdit()) {
-            <p id="flags-readonly-reason" data-testid="flags-readonly-reason" class="text-sm text-text-muted">
-              Only admins can change feature flags.
-            </p>
-          }
-          <!--
-            Inside the header, not floating between the header and the list.
-            The region reserves its height so an arriving message cannot shift
-            the rows under it, and reserved space that belongs to a block reads
-            as rhythm; the same space between two blocks reads as a hole.
-          -->
-          <ui-action-status
-            [status]="store.lastToggle()"
-            (undo)="undo()"
-            (expired)="store.dismissLastToggle()"
-          />
-        </div>
-        <div class="flex items-center gap-2">
-          @if (!canEdit()) {
-            <ui-badge data-testid="flags-readonly">read-only</ui-badge>
-          }
-          <ui-badge
-            data-testid="flags-summary"
-            [tone]="store.enabledCount() > 0 ? 'success' : 'neutral'"
-          >
-            {{ store.enabledCount() }} of {{ total() }} enabled
-          </ui-badge>
-        </div>
-      </header>
+        }
+        @if (!canEdit()) {
+          <ui-badge data-testid="flags-readonly">read-only</ui-badge>
+        }
+        <ui-badge
+          data-testid="flags-summary"
+          [tone]="store.enabledCount() > 0 ? 'success' : 'neutral'"
+        >
+          {{ store.enabledCount() }} of {{ total() }} enabled
+        </ui-badge>
+        <ui-action-status
+          [status]="store.lastToggle()"
+          (undo)="undo()"
+          (expired)="store.dismissLastToggle()"
+        />
+      </ui-page-header>
 
       @if (store.error(); as message) {
         <div
@@ -95,24 +84,20 @@ import { FlagsStore } from '../data/flags.store';
               activated moves focus to <body> and loses their place in the list.
               The store's in-flight guard swallows a duplicate write instead.
             -->
-            <button
-              type="button"
+            <ui-button
               data-testid="flag-toggle"
+              variant="secondary"
               [disabled]="!canEdit()"
-              [attr.aria-describedby]="canEdit() ? null : 'flags-readonly-reason'"
-              [attr.aria-expanded]="flag.blastRadius ? confirming() === flag.key : null"
-              class="min-h-11 rounded-md border border-border-strong px-4 py-1 text-sm font-medium
-                     transition-colors hover:border-brand-primary disabled:cursor-not-allowed
-                     disabled:opacity-50 aria-pressed:border-brand-primary
-                     aria-pressed:bg-brand-primary aria-pressed:text-white md:min-h-0 md:px-3"
-              [attr.aria-pressed]="flag.enabled"
-              [attr.aria-label]="(flag.enabled ? 'On' : 'Off') + ', toggle ' + flag.key"
+              [describedBy]="canEdit() ? null : 'flags-readonly-reason'"
+              [expanded]="flag.blastRadius ? confirming() === flag.key : null"
+              [toggled]="flag.enabled"
+              [ariaLabel]="(flag.enabled ? 'On' : 'Off') + ', toggle ' + flag.key"
               [attr.data-pending]="isPending(flag.key)"
-              [attr.aria-busy]="isPending(flag.key)"
-              (click)="pressToggle(flag)"
+              [busy]="isPending(flag.key)"
+              (pressed)="pressToggle(flag)"
             >
               {{ flag.enabled ? 'On' : 'Off' }}
-            </button>
+            </ui-button>
             <!--
               Undo answers a mistake only the operator has seen. A flag marked
               with a blast radius reaches other people the moment it flips, so it
@@ -223,7 +208,7 @@ export class FlagsHome {
 
   private focusToggle(key: string): void {
     this.afterRender(() =>
-      this.row(key)?.querySelector<HTMLElement>('[data-testid="flag-toggle"]')?.focus()
+      this.row(key)?.querySelector<HTMLElement>('[data-testid="flag-toggle"] button')?.focus()
     );
   }
 

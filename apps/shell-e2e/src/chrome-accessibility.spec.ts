@@ -73,7 +73,7 @@ test('the flag toggle satisfies WCAG 2.5.3 label in name', async ({ page }) => {
   await signIn(page, '/flags');
   await expect(page.locator('flags-home')).toBeVisible();
 
-  const toggle = page.getByTestId('flag-toggle').first();
+  const toggle = page.getByTestId('flag-toggle').locator('button').first();
   const { visible, accessible } = await toggle.evaluate((element) => ({
     visible: (element.textContent ?? '').trim(),
     accessible: element.getAttribute('aria-label') ?? '',
