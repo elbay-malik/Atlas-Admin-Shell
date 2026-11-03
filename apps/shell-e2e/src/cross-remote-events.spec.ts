@@ -55,6 +55,8 @@ test.describe('cross-remote events', () => {
     await page.click('a[href="/flags"]');
     const row = page.locator('[data-testid="flag-row"][data-flag-key="sso-enforced"]');
     await row.getByTestId('flag-toggle').click();
+    // This one is marked as reaching every tenant, so it asks first.
+    await row.getByTestId('flag-confirm-commit').locator('button').click();
     await expect(row.getByTestId('flag-toggle')).toHaveAttribute('aria-pressed', 'true');
 
     await page.click('a[href="/audit"]');

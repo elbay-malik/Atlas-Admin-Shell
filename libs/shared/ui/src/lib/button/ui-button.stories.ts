@@ -14,8 +14,9 @@ const meta: Meta<UiButton> = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['primary', 'secondary', 'danger'],
-      description: 'Visual weight. `danger` is reserved for destructive actions.',
+      options: ['primary', 'secondary', 'danger', 'danger-quiet'],
+      description:
+        'Visual weight. `danger` commits a destructive action; `danger-quiet` offers one that repeats down a list.',
     },
     disabled: { control: 'boolean' },
     pressed: { action: 'pressed', description: 'Emitted on click.' },
@@ -42,6 +43,14 @@ export const Danger: Story = {
   }),
 };
 
+export const DangerQuiet: Story = {
+  args: { variant: 'danger-quiet' },
+  render: (args) => ({
+    props: args,
+    template: `<ui-button ${argsToTemplate(args)}>Deactivate</ui-button>`,
+  }),
+};
+
 /** All variants in dark mode; the fills are theme-invariant, the page is not. */
 export const AllVariantsDark: Story = {
   parameters: { theme: 'dark' },
@@ -51,6 +60,7 @@ export const AllVariantsDark: Story = {
         <ui-button>Save changes</ui-button>
         <ui-button variant="secondary">Cancel</ui-button>
         <ui-button variant="danger">Delete tenant</ui-button>
+        <ui-button variant="danger-quiet">Deactivate</ui-button>
       </div>`,
   }),
 };

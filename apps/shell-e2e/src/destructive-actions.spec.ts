@@ -70,14 +70,16 @@ test('an administrator cannot demote or deactivate themselves', async ({ page })
   await expect(self).toContainText('Ada Lovelace');
 
   await expect(self.getByTestId('role-select')).toBeDisabled();
-  await expect(self.getByTestId('role-select')).toHaveAttribute('title', /your own admin role/);
+  // Written out beside the control: a tooltip on a disabled control is out of
+  // reach of a keyboard or a touch screen.
+  await expect(self.getByTestId('role-refusal')).toBeVisible();
+  await expect(self.getByTestId('role-refusal')).toContainText('your own admin role');
 
   const deactivate = self.getByTestId('toggle-active');
   await expect(deactivate.locator('button')).toBeDisabled();
-  // The reason is on the host, because a disabled button stops receiving the
-  // mouse events that would surface its own tooltip.
-  await expect(deactivate).toHaveAttribute('title', /signed in with/);
-  // …and in the accessible name, for someone who never sees a tooltip.
+  await expect(self.getByTestId('active-refusal')).toBeVisible();
+  await expect(self.getByTestId('active-refusal')).toContainText('signed in with');
+  // …and in the accessible name, so it travels with the control in a rotor.
   await expect(deactivate.locator('button')).toHaveAttribute('aria-label', /signed in with/);
 });
 
@@ -103,4 +105,87 @@ test('deactivating a user is announced, and can be undone', async ({ page }) => 
 
   await region.getByRole('button', { name: /Undo/ }).click();
   await expect(row.getByTestId('user-status')).toHaveText('active');
+});
+
+test('Undo hands focus back to the row and stops being offered', async ({ page }) => {
+  await open(page, '/iam', 'iam-home', '[data-testid="user-row"]');
+
+  const row = page.locator('[data-testid="user-row"]', { hasText: 'Alan Turing' });
+  const toggle = row.getByTestId('toggle-active').locator('button');
+  await toggle.click();
+
+  const region = page.getByTestId('action-status');
+  const undo = region.getByRole('button', { name: /Undo/ });
+  await undo.focus();
+  await page.keyboard.press('Enter');
+
+  await expect(toggle).toBeFocused();
+  await expect(region).toContainText('Undone: Alan Turing deactivated.');
+  await expect(undo).toHaveCount(0);
+  await expect(page.getByTestId('action-status-undo-slot')).toBeAttached();
+});
+
+test('the header and the refusals agree once an administrator is deactivated', async ({ page }) => {
+  await open(page, '/iam', 'iam-home', '[data-testid="user-row"]');
+  await expect(page.getByTestId('admin-count')).toHaveText('2 active admins');
+
+  const grace = page.locator('[data-testid="user-row"]', { hasText: 'Grace Hopper' });
+  await grace.getByTestId('toggle-active').locator('button').click();
+
+  await expect(page.getByTestId('admin-count')).toHaveText('1 active admin');
+  await expect(grace.getByTestId('role-select')).toBeEnabled();
+  await expect(grace).not.toContainText('last administrator');
+});
+
+test('a second change says it took over from the first Undo', async ({ page }) => {
+  await open(page, '/iam', 'iam-home', '[data-testid="user-row"]');
+
+  const alan = page.locator('[data-testid="user-row"]', { hasText: 'Alan Turing' });
+  const katherine = page.locator('[data-testid="user-row"]', { hasText: 'Katherine Johnson' });
+  await alan.getByTestId('toggle-active').locator('button').click();
+  await expect(page.getByTestId('action-status')).toContainText('Alan Turing deactivated.');
+  await katherine.getByTestId('toggle-active').locator('button').click();
+
+  await expect(page.getByTestId('action-status-superseded')).toHaveText(
+    '"Alan Turing deactivated" can no longer be undone here; reverse it in its row.'
+  );
+});
+
+test('a flag that reaches every tenant asks first, and a smaller one does not', async ({ page }) => {
+  await open(page, '/flags', 'flags-home', '[data-testid="flag-row"]');
+
+  const sso = page.locator('[data-testid="flag-row"][data-flag-key="sso-enforced"]');
+  const toggle = sso.getByTestId('flag-toggle');
+  await toggle.click();
+
+  await expect(sso.getByTestId('flag-confirm')).toContainText('every tenant');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(sso.getByTestId('flag-confirm-cancel').locator('button')).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(sso.getByTestId('flag-confirm')).toHaveCount(0);
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+  await toggle.click();
+  await sso.getByTestId('flag-confirm-commit').locator('button').click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('action-status')).toContainText('sso-enforced turned on.');
+
+  const bulk = page.locator('[data-testid="flag-row"][data-flag-key="bulk-export"]');
+  await bulk.getByTestId('flag-toggle').click();
+  await expect(bulk.getByTestId('flag-confirm')).toHaveCount(0);
+  await expect(bulk.getByTestId('flag-toggle')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('a viewer reads why flags are locked, without hovering anything', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('atlas.auth.persona', 'viewer'));
+  await page.goto('/flags');
+  await expect(page.locator('flags-home')).toBeVisible({ timeout: FIRST_FEDERATED_LOAD });
+
+  await expect(page.getByTestId('flags-readonly-reason')).toBeVisible();
+  await expect(page.getByTestId('flag-toggle').first()).toHaveAttribute(
+    'aria-describedby',
+    'flags-readonly-reason'
+  );
 });

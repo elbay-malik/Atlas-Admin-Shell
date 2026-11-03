@@ -1,6 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { UiActionStatus, UiBadge, UiButton } from '@atlas/shared-ui';
+import { FeatureFlag } from '../data/flags-api';
 import { FlagsStore } from '../data/flags.store';
 
 @Component({
@@ -10,7 +20,7 @@ import { FlagsStore } from '../data/flags.store';
   template: `
     <section class="p-6">
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div class="min-w-0 grow basis-[20rem]">
           <h1 class="mb-1 text-2xl font-semibold">Feature Flags</h1>
           <!--
             Was "Toggle features per environment", which promised a control
@@ -19,6 +29,11 @@ import { FlagsStore } from '../data/flags.store';
             pick here.
           -->
           <p class="text-text-muted">Toggle features for this deployment.</p>
+          @if (!canEdit()) {
+            <p id="flags-readonly-reason" data-testid="flags-readonly-reason" class="text-sm text-text-muted">
+              Only admins can change feature flags.
+            </p>
+          }
           <!--
             Inside the header, not floating between the header and the list.
             The region reserves its height so an arriving message cannot shift
@@ -26,8 +41,9 @@ import { FlagsStore } from '../data/flags.store';
             as rhythm; the same space between two blocks reads as a hole.
           -->
           <ui-action-status
-            [message]="store.lastToggle()?.message ?? null"
-            (undo)="store.undoLastToggle()"
+            [status]="store.lastToggle()"
+            (undo)="undo()"
+            (expired)="store.dismissLastToggle()"
           />
         </div>
         <div class="flex items-center gap-2">
@@ -66,9 +82,9 @@ import { FlagsStore } from '../data/flags.store';
           <li
             data-testid="flag-row"
             [attr.data-flag-key]="flag.key"
-            class="flex items-center justify-between gap-4 border-b border-border pb-3"
+            class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-border pb-3"
           >
-            <div>
+            <div class="min-w-0 flex-1">
               <code class="text-sm">{{ flag.key }}</code>
               <p class="text-sm text-text-muted">{{ flag.description }}</p>
             </div>
@@ -81,7 +97,8 @@ import { FlagsStore } from '../data/flags.store';
               type="button"
               data-testid="flag-toggle"
               [disabled]="!canEdit()"
-              [attr.title]="canEdit() ? null : 'Only admins can change feature flags'"
+              [attr.aria-describedby]="canEdit() ? null : 'flags-readonly-reason'"
+              [attr.aria-expanded]="flag.blastRadius ? confirming() === flag.key : null"
               class="min-h-11 rounded-md border border-border-strong px-4 py-1 text-sm font-medium
                      transition-colors hover:border-brand-primary disabled:cursor-not-allowed
                      disabled:opacity-50 aria-pressed:border-brand-primary
@@ -90,10 +107,46 @@ import { FlagsStore } from '../data/flags.store';
               [attr.aria-label]="(flag.enabled ? 'On' : 'Off') + ', toggle ' + flag.key"
               [attr.data-pending]="isPending(flag.key)"
               [attr.aria-busy]="isPending(flag.key)"
-              (click)="store.toggle(flag.key)"
+              (click)="pressToggle(flag)"
             >
               {{ flag.enabled ? 'On' : 'Off' }}
             </button>
+            <!--
+              Undo answers a mistake only the operator has seen. A flag marked
+              with a blast radius reaches other people the moment it flips, so it
+              asks first: in the row, where the consequence can be read, and with
+              focus on the choice that changes nothing.
+            -->
+            @if (confirming() === flag.key && canEdit()) {
+              <div
+                role="group"
+                data-testid="flag-confirm"
+                class="flex w-full flex-wrap items-center gap-x-4 gap-y-2"
+                [attr.aria-labelledby]="'flag-confirm-' + flag.key"
+                (keydown.escape)="cancelConfirm(flag.key)"
+              >
+                <p [attr.id]="'flag-confirm-' + flag.key" class="min-w-0 text-sm">
+                  Turn {{ flag.enabled ? 'off' : 'on' }} {{ flag.key }}?
+                  <span class="text-text-muted">{{ flag.blastRadius }}</span>
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <ui-button
+                    data-testid="flag-confirm-cancel"
+                    variant="secondary"
+                    (pressed)="cancelConfirm(flag.key)"
+                  >
+                    Keep it {{ flag.enabled ? 'on' : 'off' }}
+                  </ui-button>
+                  <ui-button
+                    data-testid="flag-confirm-commit"
+                    variant="danger"
+                    (pressed)="commitConfirm(flag.key)"
+                  >
+                    Turn {{ flag.enabled ? 'off' : 'on' }} {{ flag.key }}
+                  </ui-button>
+                </div>
+              </div>
+            }
           </li>
         }
       </ul>
@@ -104,6 +157,11 @@ export class FlagsHome {
   private readonly auth = inject(AtlasAuth);
   protected readonly store = inject(FlagsStore);
   protected readonly total = computed(() => this.store.entities().length);
+  /** The flag whose extra confirm step is open; only one at a time. */
+  protected readonly confirming = signal<string | null>(null);
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   /**
    * Flag writes are admin-only. This screen is viewer-visible per the manifest,
@@ -119,5 +177,62 @@ export class FlagsHome {
   /** True while this row's write is in flight — only that row is disabled. */
   protected isPending(key: string): boolean {
     return this.store.pendingKeys().includes(key);
+  }
+
+  protected pressToggle(flag: FeatureFlag): void {
+    if (this.confirming() === flag.key) {
+      this.confirming.set(null);
+      return;
+    }
+    if (!flag.blastRadius) {
+      this.confirming.set(null);
+      this.store.toggle(flag.key);
+      return;
+    }
+    // Its write would be swallowed by the in-flight guard after the second step.
+    if (this.isPending(flag.key)) return;
+    this.confirming.set(flag.key);
+    this.afterRender(() =>
+      this.row(flag.key)?.querySelector<HTMLElement>('[data-testid="flag-confirm-cancel"] button')?.focus()
+    );
+  }
+
+  protected cancelConfirm(key: string): void {
+    this.confirming.set(null);
+    this.focusToggle(key);
+  }
+
+  protected commitConfirm(key: string): void {
+    this.confirming.set(null);
+    this.store.toggle(key);
+    this.focusToggle(key);
+  }
+
+  /**
+   * Undo leaves with the offer, and focus would fall to <body> with it. The
+   * row's toggle is where the operator was before they reached up to undo.
+   */
+  protected undo(): void {
+    const key = this.store.lastToggle()?.key;
+    if (!key) return;
+    this.store.undoLastToggle();
+    this.focusToggle(key);
+  }
+
+  private focusToggle(key: string): void {
+    this.afterRender(() =>
+      this.row(key)?.querySelector<HTMLElement>('[data-testid="flag-toggle"]')?.focus()
+    );
+  }
+
+  /** After the render, so the target's state, and the Undo it replaces, are current. */
+  private afterRender(read: () => void): void {
+    afterNextRender({ read }, { injector: this.injector });
+  }
+
+  private row(key: string): HTMLElement | undefined {
+    return Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLElement>('[data-testid="flag-row"]')
+    ).find((row) => row.dataset['flagKey'] === key);
   }
 }

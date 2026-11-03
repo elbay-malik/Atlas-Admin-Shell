@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 
-export type UiButtonVariant = 'primary' | 'secondary' | 'danger';
+export type UiButtonVariant = 'primary' | 'secondary' | 'danger' | 'danger-quiet';
 
 @Component({
   selector: 'ui-button',
@@ -45,6 +45,12 @@ export class UiButton {
         return 'border border-border-strong bg-surface text-text hover:border-brand-primary';
       case 'danger':
         return 'bg-status-danger text-white hover:bg-status-danger-strong';
+      case 'danger-quiet':
+        // For a destructive action that repeats down a list. A row of solid red
+        // would spend the colour ration and make a real fault harder to spot, so
+        // the fill waits for hover. on-danger, not status-danger: Fault Red
+        // itself falls short of 3:1 against the dark surface.
+        return 'border border-on-danger bg-surface text-on-danger hover:border-status-danger hover:bg-status-danger hover:text-white';
       default:
         return 'bg-brand-primary text-white hover:bg-brand-primary-strong';
     }

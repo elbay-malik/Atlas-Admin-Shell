@@ -1,5 +1,5 @@
 import { IamUser } from './iam-api';
-import { RefusalContext, refuseDeactivate, refuseRoleChange } from './iam-users.store';
+import { RefusalContext, countActiveAdmins, refuseDeactivate, refuseRoleChange } from './iam-users.store';
 
 /**
  * These are error prevention, not security. ADR-0011 is explicit that the edge
@@ -25,7 +25,7 @@ const user = (over: Partial<IamUser> = {}): IamUser => ({
 const context = (over: Partial<RefusalContext> = {}): RefusalContext => ({
   actorId: 'u-actor',
   actorEmail: 'ada@atlas.dev',
-  adminCount: 2,
+  activeAdminCount: 2,
   ...over,
 });
 
@@ -70,24 +70,31 @@ describe('refuseRoleChange', () => {
     const self = user({ email: 'ada@atlas.dev' });
     // Even with five admins: losing your own access mid-task is its own
     // failure, not a quorum question.
-    expect(refuseRoleChange(self, 'viewer', context({ adminCount: 5 }))).toMatch(/your own admin/);
+    expect(refuseRoleChange(self, 'viewer', context({ activeAdminCount: 5 }))).toMatch(/your own admin/);
   });
 
   it('refuses removing the last administrator', () => {
-    expect(refuseRoleChange(user(), 'viewer', context({ adminCount: 1 }))).toMatch(
+    expect(refuseRoleChange(user(), 'viewer', context({ activeAdminCount: 1 }))).toMatch(
       /last administrator/
     );
+  });
+
+  it('allows demoting a deactivated admin, who is not the last of anything', () => {
+    // The false refusal: Grace deactivated, Ada the one active admin, and Grace's
+    // role locked as "the last administrator".
+    const deactivated = user({ active: false });
+    expect(refuseRoleChange(deactivated, 'viewer', context({ activeAdminCount: 1 }))).toBeNull();
   });
 
   it('never blocks a promotion', () => {
     // The guard is about losing admin, not gaining it; blocking promotion would
     // make the last-admin state unescapable.
     const viewer = user({ role: 'viewer' });
-    expect(refuseRoleChange(viewer, 'admin', context({ adminCount: 1 }))).toBeNull();
+    expect(refuseRoleChange(viewer, 'admin', context({ activeAdminCount: 1 }))).toBeNull();
   });
 
   it('ignores a change that does not touch admin at all', () => {
-    expect(refuseRoleChange(user({ role: 'viewer' }), 'viewer', context({ adminCount: 1 }))).toBeNull();
+    expect(refuseRoleChange(user({ role: 'viewer' }), 'viewer', context({ activeAdminCount: 1 }))).toBeNull();
   });
 });
 
@@ -102,14 +109,23 @@ describe('refuseDeactivate', () => {
   });
 
   it('refuses deactivating the last administrator', () => {
-    expect(refuseDeactivate(user(), false, context({ adminCount: 1 }))).toMatch(
+    expect(refuseDeactivate(user(), false, context({ activeAdminCount: 1 }))).toMatch(
       /last administrator/
     );
+  });
+
+  it('counts the same admins as the edge does', () => {
+    const users = [
+      user({ id: 'a' }),
+      user({ id: 'b', active: false }),
+      user({ id: 'c', role: 'viewer' }),
+    ];
+    expect(countActiveAdmins(users)).toBe(1);
   });
 
   it('never blocks reactivation', () => {
     // Activating cannot reduce access, so there is nothing to protect against.
     const self = user({ email: 'ada@atlas.dev', active: false });
-    expect(refuseDeactivate(self, true, context({ adminCount: 1 }))).toBeNull();
+    expect(refuseDeactivate(self, true, context({ activeAdminCount: 1 }))).toBeNull();
   });
 });

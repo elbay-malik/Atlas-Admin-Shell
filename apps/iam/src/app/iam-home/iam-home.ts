@@ -1,9 +1,21 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  inject,
+} from '@angular/core';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { AtlasRole } from '@atlas/shared-contracts';
 import { UiActionStatus, UiBadge, UiButton, UiShortId } from '@atlas/shared-ui';
 import { IamUser } from '../data/iam-api';
-import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-users.store';
+import {
+  IamUsersStore,
+  SIGNED_OUT_REFUSAL,
+  refuseDeactivate,
+  refuseRoleChange,
+} from '../data/iam-users.store';
 
 @Component({
   selector: 'iam-home',
@@ -12,19 +24,26 @@ import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-u
   template: `
     <section class="p-6">
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div class="min-w-0 grow basis-[20rem]">
           <h1 class="mb-1 text-2xl font-semibold">Identity &amp; Access</h1>
           <p class="text-text-muted">Users, roles and access management.</p>
           <ui-action-status
-            [message]="store.lastChange()?.message ?? null"
-            (undo)="store.undoLastChange()"
+            [status]="store.lastChange()"
+            (undo)="undo()"
+            (expired)="store.dismissLastChange()"
           />
         </div>
         <div class="flex items-center gap-2">
+          <!--
+            Active admins, not admin roles: the same number the refusals below use,
+            and the one that decides who can still administer anything.
+          -->
           <ui-badge tone="success" data-testid="admin-count">
-            {{ store.adminCount() }} admins
+            {{ store.activeAdminCount() }} active {{ store.activeAdminCount() === 1 ? 'admin' : 'admins' }}
           </ui-badge>
-          <ui-badge data-testid="active-count">{{ store.activeCount() }} active</ui-badge>
+          <ui-badge data-testid="active-count">
+            {{ store.activeCount() }} active {{ store.activeCount() === 1 ? 'user' : 'users' }}
+          </ui-badge>
         </div>
       </header>
 
@@ -107,7 +126,7 @@ import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-u
                          md:min-h-0"
                   [value]="user.role"
                   [disabled]="!!roleRefusal(user)"
-                  [attr.title]="roleRefusal(user)"
+                  [attr.aria-describedby]="visibleReason(roleRefusal(user)) ? 'role-reason-' + user.id : null"
                   [attr.aria-busy]="isPending(user.id)"
                   [attr.aria-label]="'Role for ' + user.name"
                   (change)="onRoleChange(user, $event)"
@@ -115,6 +134,15 @@ import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-u
                   <option value="admin">admin</option>
                   <option value="viewer">viewer</option>
                 </select>
+                @if (visibleReason(roleRefusal(user)); as reason) {
+                  <p
+                    data-testid="role-refusal"
+                    [attr.id]="'role-reason-' + user.id"
+                    class="mt-1 max-w-[28ch] text-xs text-text-muted"
+                  >
+                    {{ reason }}
+                  </p>
+                }
               </td>
               <!--
                 Status and action used to share one cell, which grouped a report
@@ -137,16 +165,17 @@ import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-u
                   out. The store refuses it too, because a hidden control is not
                   the same as an impossible change.
 
-                  The title goes on the HOST element, which is never disabled —
-                  a disabled <button> does not reliably surface its own tooltip,
-                  since it stops receiving the mouse events that trigger one.
-                  The reason is appended to the accessible name as well, so it
-                  reaches someone who never sees a tooltip at all.
+                  The reason is written beside the control, because a tooltip on a
+                  disabled control depends on a pointer and on hovering something
+                  that has stopped responding. It is appended to the accessible
+                  name as well, so it travels with the control in a rotor.
+
+                  Quiet red, and only when the action is actually on offer: a
+                  refused Deactivate is not a destructive action, it is a fact.
                 -->
                 <ui-button
                   data-testid="toggle-active"
-                  variant="secondary"
-                  [attr.title]="activeRefusal(user)"
+                  [variant]="user.active && !activeRefusal(user) ? 'danger-quiet' : 'secondary'"
                   [disabled]="!!activeRefusal(user)"
                   [ariaLabel]="
                     (user.active ? 'Deactivate ' : 'Activate ') +
@@ -158,6 +187,11 @@ import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-u
                 >
                   {{ user.active ? 'Deactivate' : 'Activate' }}
                 </ui-button>
+                @if (visibleReason(activeRefusal(user)); as reason) {
+                  <p data-testid="active-refusal" class="mt-1 max-w-[28ch] text-xs text-text-muted">
+                    {{ reason }}
+                  </p>
+                }
               </td>
             </tr>
           }
@@ -171,21 +205,25 @@ export class IamHome {
   protected readonly auth = inject(AtlasAuth);
   protected readonly store = inject(IamUsersStore);
 
-  /** Context the refusals need, recomputed as the table changes. */
-  private readonly guardContext = computed(() => ({
-    actorId: this.auth.user()?.id ?? null,
-    actorEmail: this.auth.user()?.email ?? '',
-    adminCount: this.store.entities().filter((u) => u.role === 'admin' && u.active).length,
-  }));
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   /** Why this row's role cannot be changed to viewer, or null when it can. */
   protected roleRefusal(user: IamUser): string | null {
-    return refuseRoleChange(user, 'viewer', this.guardContext());
+    return refuseRoleChange(user, 'viewer', this.store.refusalContext());
   }
 
   /** Why this row's active state cannot be flipped, or null when it can. */
   protected activeRefusal(user: IamUser): string | null {
-    return refuseDeactivate(user, !user.active, this.guardContext());
+    return refuseDeactivate(user, !user.active, this.store.refusalContext());
+  }
+
+  /**
+   * The reason to print beside a control. Being signed out is the same reason on
+   * every control in the table, and the session line above already says it.
+   */
+  protected visibleReason(refusal: string | null): string | null {
+    return refusal === SIGNED_OUT_REFUSAL ? null : refusal;
   }
 
   /** True while this row's write is in flight — only that row is disabled. */
@@ -196,5 +234,31 @@ export class IamHome {
   protected onRoleChange(user: IamUser, event: Event): void {
     const role = (event.target as HTMLSelectElement).value as AtlasRole;
     this.store.changeRole({ id: user.id, role });
+  }
+
+  /**
+   * Undo leaves with the offer, and focus would fall to <body> with it. The
+   * control that made the change is where the operator was before they reached
+   * up to undo. After the render, so its disabled state is current: if the undo
+   * left it refused, the row's other control is the nearest place to stand.
+   */
+  protected undo(): void {
+    const change = this.store.lastChange();
+    if (!change) return;
+    this.store.undoLastChange();
+    afterNextRender(
+      {
+        read: () => {
+          const row = Array.from(
+            this.host.nativeElement.querySelectorAll<HTMLElement>('[data-testid="user-row"]')
+          ).find((candidate) => candidate.dataset['userId'] === change.id);
+          const select = row?.querySelector<HTMLSelectElement>('[data-testid="role-select"]');
+          const toggle = row?.querySelector<HTMLButtonElement>('[data-testid="toggle-active"] button');
+          const inOrder = change.field === 'role' ? [select, toggle] : [toggle, select];
+          inOrder.find((control) => control && !control.disabled)?.focus();
+        },
+      },
+      { injector: this.injector }
+    );
   }
 }
