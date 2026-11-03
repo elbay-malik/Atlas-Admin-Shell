@@ -18,6 +18,7 @@ import {
   AtlasManifest,
   isAtlasManifest,
 } from '@atlas/shared-contracts';
+import { IdentityFlow } from './app/auth/identity-flow';
 import { provideNhostAtlasAuth } from './app/auth/provide-nhost-auth';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { App } from './app/app';
@@ -67,7 +68,10 @@ export function buildRoutes(manifest: AtlasManifest): Route[] {
     // What actually protects the domain is elsewhere and unaffected: `canMatch`
     // means the remote is never downloaded, and the edge BFF refuses the data
     // regardless of what the browser believes (ADR-0011).
-    { path: def.route, redirectTo: '' },
+    //
+    // The redirect is a function so the visitor is told why they landed there:
+    // going silently to the overview read as the console being broken.
+    { path: def.route, redirectTo: () => inject(IdentityFlow).routeDeclined(def) },
   ]);
 
   return [

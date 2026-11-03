@@ -1,9 +1,11 @@
+import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
-import { AtlasAuth, MockAtlasAuth } from '@atlas/shared-auth';
+import { AtlasAuth, AuthUser, MockAtlasAuth } from '@atlas/shared-auth';
 import { AtlasManifest } from '@atlas/shared-contracts';
 import { App } from './app';
 import { ATLAS_MANIFEST } from './manifest.token';
+import { ShellNotice } from './notice/shell-notice';
 
 const manifest: AtlasManifest = {
   version: 1,
@@ -80,5 +82,76 @@ describe('App', () => {
     // a link that would bounce the viewer back to the overview.
     expect(item?.hasAttribute('href')).toBe(false);
     expect(item?.textContent).toContain('admin');
+  });
+
+  describe('the shell notice', () => {
+    const region = (el: HTMLElement) => el.querySelector('[data-testid="shell-notice"]');
+
+    it('is in the DOM and silent before anything has happened', async () => {
+      const fixture = TestBed.createComponent(App);
+      await fixture.whenStable();
+      const live = region(fixture.nativeElement);
+
+      expect(live?.getAttribute('role')).toBe('status');
+      expect(live?.getAttribute('aria-live')).toBe('polite');
+      expect(live?.textContent).toBe('');
+      expect(fixture.nativeElement.querySelector('[data-testid="shell-notice-dismiss"]')).toBeNull();
+    });
+
+    it('shows a message in the same element, which keeps it announceable', async () => {
+      const fixture = TestBed.createComponent(App);
+      await fixture.whenStable();
+      const live = region(fixture.nativeElement);
+
+      TestBed.inject(ShellNotice).show('Signed out.');
+      await fixture.whenStable();
+
+      expect(region(fixture.nativeElement)).toBe(live);
+      expect(live?.textContent).toBe('Signed out.');
+    });
+
+    it('can be dismissed, moving focus somewhere real', async () => {
+      const fixture = TestBed.createComponent(App);
+      document.body.appendChild(fixture.nativeElement);
+      TestBed.inject(ShellNotice).show('Signed out.');
+      await fixture.whenStable();
+
+      fixture.nativeElement.querySelector('[data-testid="shell-notice-dismiss"]').click();
+      await fixture.whenStable();
+
+      expect(region(fixture.nativeElement)?.textContent).toBe('');
+      expect(document.activeElement?.id).toBe('main-content');
+      fixture.nativeElement.remove();
+    });
+  });
+
+  describe('the identity in the header', () => {
+    /** What toAuthUser produces for a token with no display name and no email. */
+    const RAW_ID = '3f6c2a10-7d4e-4b8a-9c21-5e0f7a2c91c6';
+
+    function signedInAs(name: string) {
+      const user = signal<AuthUser>({ id: RAW_ID, name, email: '', role: 'viewer' });
+      Object.defineProperty(TestBed.inject(AtlasAuth), 'user', { value: user });
+    }
+
+    it('labels a raw id rather than printing it', async () => {
+      signedInAs(RAW_ID);
+      const fixture = TestBed.createComponent(App);
+      await fixture.whenStable();
+      const header = fixture.nativeElement.querySelector('[data-testid="identity-fallback"]');
+
+      expect(header?.textContent).toContain('Account');
+      expect(header?.textContent).toContain('3f6c…91c6');
+      expect(fixture.nativeElement.querySelector('header')?.textContent).not.toContain(RAW_ID);
+    });
+
+    it('shows a real name as it is', async () => {
+      signedInAs('Grace Hopper');
+      const fixture = TestBed.createComponent(App);
+      await fixture.whenStable();
+
+      expect(fixture.nativeElement.querySelector('[data-testid="identity-fallback"]')).toBeNull();
+      expect(fixture.nativeElement.querySelector('header')?.textContent).toContain('Grace Hopper');
+    });
   });
 });

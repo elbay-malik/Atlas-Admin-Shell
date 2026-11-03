@@ -1,5 +1,5 @@
 import { IamUser } from './iam-api';
-import { refuseDeactivate, refuseRoleChange } from './iam-users.store';
+import { RefusalContext, refuseDeactivate, refuseRoleChange } from './iam-users.store';
 
 /**
  * These are error prevention, not security. ADR-0011 is explicit that the edge
@@ -22,10 +22,43 @@ const user = (over: Partial<IamUser> = {}): IamUser => ({
   ...over,
 });
 
-const context = (over: Partial<{ actorEmail: string; adminCount: number }> = {}) => ({
+const context = (over: Partial<RefusalContext> = {}): RefusalContext => ({
+  actorId: 'u-actor',
   actorEmail: 'ada@atlas.dev',
   adminCount: 2,
   ...over,
+});
+
+describe('who counts as yourself', () => {
+  it('recognises you by id when the token has no email', () => {
+    const self = user({ id: 'u-actor', email: 'someone@atlas.dev' });
+    const noEmail = context({ actorEmail: '' });
+    expect(refuseRoleChange(self, 'viewer', noEmail)).toMatch(/your own admin/);
+    expect(refuseDeactivate(self, false, noEmail)).toMatch(/signed in with/);
+  });
+
+  it('does not treat a blank email as a match', () => {
+    // Two missing addresses are not the same person.
+    const other = user({ email: '' });
+    const noEmail = context({ actorEmail: '' });
+    expect(refuseRoleChange(other, 'viewer', noEmail)).toBeNull();
+    expect(refuseDeactivate(other, false, noEmail)).toBeNull();
+  });
+});
+
+describe('with nobody signed in', () => {
+  const signedOut = context({ actorId: null, actorEmail: '' });
+
+  it('refuses every direction of every change', () => {
+    expect(refuseRoleChange(user(), 'viewer', signedOut)).toBe('Sign in to make changes.');
+    expect(refuseRoleChange(user({ role: 'viewer' }), 'admin', signedOut)).toBe(
+      'Sign in to make changes.'
+    );
+    expect(refuseDeactivate(user(), false, signedOut)).toBe('Sign in to make changes.');
+    expect(refuseDeactivate(user({ active: false }), true, signedOut)).toBe(
+      'Sign in to make changes.'
+    );
+  });
 });
 
 describe('refuseRoleChange', () => {

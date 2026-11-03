@@ -122,6 +122,18 @@ edge verifies RS256 tokens against Nhost's JWKS.
   - The refresh token is rotated on every exchange.
   - Refresh runs 60s before expiry, never sooner than 5s from now.
   - Concurrent refreshes are merged into one request.
+  - One token exchange may take 8 seconds, because the app initializer awaits it at boot and a
+    sleeping provider would otherwise leave a blank page. A timeout, a network failure or a 5xx is
+    "no verdict": at boot the token is kept, in storage even if it came from the redirect, so a
+    reload can retry. A 4xx clears it. During a background refresh, any failure ends the session.
+  - A provider error on the redirect (`error`, `errorDescription`, `error_description`, in the query
+    or the hash) is read and stripped like the token. Only a short machine code reaches the screen:
+    anyone can craft that URL, so its free text goes to the console only.
+  - `redirectTo` stays the bare origin, which is what the allow-list holds. The route to return to is
+    kept in `sessionStorage`, re-validated as a same-origin path when read, and re-gated by `canMatch`
+    when followed.
+  - No test here has observed the real provider's error redirect. The parameter names come from
+    reading its behaviour, not from a failed sign-in on the live project.
   - The rotated refresh token, and only that, is stored in `localStorage` under `atlas.auth`. The
     access token, its expiry and its claims are held in memory.
 - `provideNhostAtlasAuth` has no dynamic import. There is no SDK, so the lazy boundary the previous

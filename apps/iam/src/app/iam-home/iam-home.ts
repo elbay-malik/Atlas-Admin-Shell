@@ -1,14 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { AtlasAuth } from '@atlas/shared-auth';
 import { AtlasRole } from '@atlas/shared-contracts';
-import { UiActionStatus, UiBadge, UiButton } from '@atlas/shared-ui';
+import { UiActionStatus, UiBadge, UiButton, UiShortId } from '@atlas/shared-ui';
 import { IamUser } from '../data/iam-api';
 import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-users.store';
 
 @Component({
   selector: 'iam-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiActionStatus, UiBadge, UiButton],
+  imports: [UiActionStatus, UiBadge, UiButton, UiShortId],
   template: `
     <section class="p-6">
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -28,13 +28,24 @@ import { IamUsersStore, refuseDeactivate, refuseRoleChange } from '../data/iam-u
         </div>
       </header>
 
-      <!-- reads the SHELL's auth singleton across the federation boundary -->
-      <p class="mb-6 text-sm" data-testid="session-info">
-        Session:
+      <!--
+        What this line proves: the remote holds no identity of its own, and this
+        is the shell's auth singleton read across the federation boundary. The
+        name is a raw id when the token has no name or email, so that case gets
+        the short form rather than a blank or a 36-character string.
+      -->
+      <p class="mb-6 flex flex-wrap items-center gap-x-1.5 text-sm" data-testid="session-info">
         @if (auth.user(); as user) {
-          <strong>{{ user.email }}</strong> ({{ user.role }})
+          <span class="text-text-muted">Session from the shell, across the federation boundary:</span>
+          @if (user.email || user.name !== user.id) {
+            <strong class="min-w-0 break-words font-semibold">{{ user.email || user.name }}</strong>
+          } @else {
+            <span class="text-text-muted">account</span>
+            <ui-short-id [value]="user.id" label="account ID" />
+          }
+          <span>({{ user.role }})</span>
         } @else {
-          anonymous
+          <span class="text-text-muted">Signed out, so changes are disabled.</span>
         }
       </p>
 
@@ -162,6 +173,7 @@ export class IamHome {
 
   /** Context the refusals need, recomputed as the table changes. */
   private readonly guardContext = computed(() => ({
+    actorId: this.auth.user()?.id ?? null,
     actorEmail: this.auth.user()?.email ?? '',
     adminCount: this.store.entities().filter((u) => u.role === 'admin' && u.active).length,
   }));
@@ -171,9 +183,9 @@ export class IamHome {
     return refuseRoleChange(user, 'viewer', this.guardContext());
   }
 
-  /** Why this row cannot be deactivated, or null when it can. */
+  /** Why this row's active state cannot be flipped, or null when it can. */
   protected activeRefusal(user: IamUser): string | null {
-    return user.active ? refuseDeactivate(user, false, this.guardContext()) : null;
+    return refuseDeactivate(user, !user.active, this.guardContext());
   }
 
   /** True while this row's write is in flight — only that row is disabled. */

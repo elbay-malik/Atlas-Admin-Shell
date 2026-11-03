@@ -1,5 +1,6 @@
+import { signal, Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { AtlasAuth, MockAtlasAuth } from '@atlas/shared-auth';
+import { AtlasAuth, AuthUser, MockAtlasAuth } from '@atlas/shared-auth';
 import { AtlasEvent } from '@atlas/shared-contracts';
 import { AtlasEventBus, provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { Subscription } from 'rxjs';
@@ -19,12 +20,18 @@ interface Harness {
   subscription: Subscription;
 }
 
+/** A real token with no email claim: `name` falls back to the id, `email` is ''. */
+const NO_EMAIL: AuthUser = { id: '3f6c-91c6', name: '3f6c-91c6', email: '', role: 'admin' };
+class NoEmailAuth extends MockAtlasAuth {
+  override readonly user = signal<AuthUser | null>(NO_EMAIL).asReadonly();
+}
+
 /** Builds the store with the real API + bus; onInit's load() is left in flight. */
-function setup(): Harness {
+function setup(auth: Type<AtlasAuth> = MockAtlasAuth): Harness {
   TestBed.configureTestingModule({
     providers: [
       provideAtlasEventBus(),
-      { provide: AtlasAuth, useClass: MockAtlasAuth },
+      { provide: AtlasAuth, useClass: auth },
       { provide: FlagsApi, useClass: FlagsMockApi },
       FlagsStore,
     ],
@@ -130,14 +137,39 @@ describe('FlagsStore', () => {
     });
   });
 
-  it("falls back to actor 'system' when nobody is signed in", async () => {
-    const harness = track(setup());
+  it('refuses a toggle when nobody is signed in, and reports no success', async () => {
+    const { store, published } = track(setup());
     await vi.advanceTimersByTimeAsync(GET_FLAGS_MS);
+    const before = store.entityMap()['sso-enforced'].enabled;
 
-    harness.store.toggle('sso-enforced');
+    store.toggle('sso-enforced');
     await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
 
-    expect(harness.published[0].actor).toBe('system');
+    expect(store.entityMap()['sso-enforced'].enabled).toBe(before);
+    expect(store.lastToggle()).toBeNull();
+    expect(store.error()).toBe('Sign in to make changes.');
+    expect(published).toEqual([]);
+  });
+
+  it('keeps the actor of a toggle that a session end interrupts', async () => {
+    const { store, published } = track(await loaded());
+
+    store.toggle('bulk-export');
+    await TestBed.inject(AtlasAuth).logout();
+    await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+
+    expect(published[0].actor).toBe('ada@atlas.dev');
+  });
+
+  it('names the user id as the actor when the token has no email', async () => {
+    const { store, published } = track(setup(NoEmailAuth));
+    await vi.advanceTimersByTimeAsync(GET_FLAGS_MS);
+
+    store.toggle('bulk-export');
+    await vi.advanceTimersByTimeAsync(SET_ENABLED_MS);
+
+    // Blank was the bug: isAtlasEvent rejects an event with no actor.
+    expect(published[0].actor).toBe(NO_EMAIL.id);
   });
 
   it('rolls the row back, records the error and publishes nothing when the write fails', async () => {

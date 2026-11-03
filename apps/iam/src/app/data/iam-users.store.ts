@@ -1,6 +1,6 @@
 import { computed, inject } from '@angular/core';
 import { AtlasAuth } from '@atlas/shared-auth';
-import { AtlasRole, userRoleChanged, userStatusChanged } from '@atlas/shared-contracts';
+import { AtlasRole, toAtlasActor, userRoleChanged, userStatusChanged } from '@atlas/shared-contracts';
 import { AtlasEventBus } from '@atlas/shared-event-bus';
 import { setError, setFulfilled, setPending, withRequestStatus } from '@atlas/shared-util';
 import { tapResponse } from '@ngrx/operators';
@@ -45,13 +45,35 @@ const initialState: IamState = { pendingIds: [], lastChange: null };
  * admin demote themselves out of the screen they are standing in, which reads
  * as a bug rather than as a deliberate boundary.
  */
+export interface RefusalContext {
+  /** The signed-in user's id, or null when nobody is signed in. */
+  actorId: string | null;
+  /** '' when the identity project mints no email claim. */
+  actorEmail: string;
+  adminCount: number;
+}
+
+export const SIGNED_OUT_REFUSAL = 'Sign in to make changes.';
+
+/**
+ * Id first. Email is also checked because the mock directory's ids are its own,
+ * not the signed-in user's, and only when non-empty: without that, an account
+ * with no email claim would match every directory row with a blank address.
+ */
+function isSelf(user: IamUser, context: RefusalContext): boolean {
+  return (
+    user.id === context.actorId || (context.actorEmail !== '' && user.email === context.actorEmail)
+  );
+}
+
 export function refuseRoleChange(
   user: IamUser,
   role: AtlasRole,
-  context: { actorEmail: string; adminCount: number }
+  context: RefusalContext
 ): string | null {
+  if (context.actorId === null) return SIGNED_OUT_REFUSAL;
   if (user.role !== 'admin' || role === 'admin') return null;
-  if (user.email === context.actorEmail) {
+  if (isSelf(user, context)) {
     return 'You cannot remove your own admin role — ask another administrator.';
   }
   if (context.adminCount <= 1) {
@@ -63,10 +85,11 @@ export function refuseRoleChange(
 export function refuseDeactivate(
   user: IamUser,
   active: boolean,
-  context: { actorEmail: string; adminCount: number }
+  context: RefusalContext
 ): string | null {
+  if (context.actorId === null) return SIGNED_OUT_REFUSAL;
   if (active) return null;
-  if (user.email === context.actorEmail) {
+  if (isSelf(user, context)) {
     return 'You cannot deactivate the account you are signed in with.';
   }
   if (user.role === 'admin' && context.adminCount <= 1) {
@@ -95,9 +118,6 @@ export const IamUsersStore = signalStore(
   })),
   withMethods(
     (store, api = inject(IamApi), bus = inject(AtlasEventBus), auth = inject(AtlasAuth)) => {
-      /** Who is making the change — the shell's auth singleton, across the boundary. */
-      const actor = () => auth.user()?.email ?? 'system';
-
       const begin = (id: string) =>
         patchState(store, (state) => ({ pendingIds: [...state.pendingIds, id] }));
 
@@ -107,7 +127,8 @@ export const IamUsersStore = signalStore(
         }));
 
       /** Context both refusals need, read fresh at the moment of the write. */
-      const guardContext = () => ({
+      const guardContext = (): RefusalContext => ({
+        actorId: auth.user()?.id ?? null,
         actorEmail: auth.user()?.email ?? '',
         adminCount: store.entities().filter((u) => u.role === 'admin' && u.active).length,
       });
@@ -132,6 +153,16 @@ export const IamUsersStore = signalStore(
           // mergeMap: independent rows may be in flight at the same time
           pipe(
             mergeMap(({ id, role }) => {
+              // Who is making the change, from the shell's auth singleton. Read
+              // once, here: a session ending mid-write must not blank the actor
+              // of a change that session started, and with no user there is no
+              // write at all, whatever a stale screen still offers.
+              const actor = auth.user();
+              if (!actor) {
+                patchState(store, setError(SIGNED_OUT_REFUSAL));
+                return EMPTY;
+              }
+
               const user = store.entityMap()[id];
               if (!user || user.role === role) return EMPTY;
               // Rows stay focusable while their write is in flight (disabling
@@ -164,7 +195,7 @@ export const IamUsersStore = signalStore(
                     bus.publish(
                       userRoleChanged(
                         { userId: id, email: user.email, from: previous, to: role },
-                        { source: 'iam', actor: actor() }
+                        { source: 'iam', actor: toAtlasActor(actor) }
                       )
                     );
                   },
@@ -184,6 +215,12 @@ export const IamUsersStore = signalStore(
         setActive: rxMethod<{ id: string; active: boolean }>(
           pipe(
             mergeMap(({ id, active }) => {
+              const actor = auth.user();
+              if (!actor) {
+                patchState(store, setError(SIGNED_OUT_REFUSAL));
+                return EMPTY;
+              }
+
               const user = store.entityMap()[id];
               if (!user || user.active === active) return EMPTY;
               if (store.pendingIds().includes(id)) return EMPTY;
@@ -210,7 +247,7 @@ export const IamUsersStore = signalStore(
                     bus.publish(
                       userStatusChanged(
                         { userId: id, email: user.email, active },
-                        { source: 'iam', actor: actor() }
+                        { source: 'iam', actor: toAtlasActor(actor) }
                       )
                     );
                   },

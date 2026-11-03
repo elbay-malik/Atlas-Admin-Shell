@@ -528,6 +528,36 @@ under the subtitle.
   publication — so the audit trail shows the flag going on and then off, rather than an
   edit silently vanishing from the record.
 
+### Shell Notice
+
+One line the shell uses to say what happened to the visitor's identity: a failed
+sign-in, a provider that did not answer, a route that declined them, a session that
+ended. It sits at the top of `main`, on `surface` with a hairline under it, aligned to
+the screens' `p-6` edge.
+
+- **Always in the DOM, like Action Status, but it does not reserve height.** A silent
+  region collapses to nothing. It is rare, so a permanent empty strip on every screen
+  would cost more than the shift when one arrives. A region with `display: none` is not
+  watched by assistive tech, so it collapses by having no padding and no border.
+- **One at a time, and it retires itself.** The newest message explains the screen, and
+  navigating on clears it. It can also be dismissed, which moves focus to `main` rather
+  than dropping it to `<body>`.
+- **Two tones.** Normal `text` for something to know ("Signed out."), `on-danger` for
+  something that failed. No fill and no coloured edge, per The Rationed Colour Rule.
+- **It never shows text from the URL.** A provider error reaches the screen only as a
+  short machine code, because anyone can craft that link. The free-text description
+  goes to the console.
+
+### Short ID
+
+A long identifier as `3f6c…91c6`, in mono under The Literal Value Rule, used when an
+account has no name or email. It is a button, because a `title` is out of reach of a
+keyboard or a touch screen. Pressing it opens the full value; Escape or moving focus
+away closes it. The panel floats but stays flat (`surface`, Control Edge border, no
+shadow), the same treatment as the skip link, so it adds nothing to an elevation
+vocabulary the system does not have yet. Beside it goes a label saying what the id
+belongs to, such as "GitHub account".
+
 ### Refusals
 
 Some actions are not undoable because they would remove the ability to undo them:
@@ -540,6 +570,11 @@ surface its own tooltip, so the reason has to live somewhere that is not disable
 (ADR-0011) and the same invariants live there; the client only hides things. They exist
 here because production runs `apiMode: 'mock'`, where nothing else would stop an
 administrator demoting themselves out of the screen they are standing in.
+
+With nobody signed in, every write is refused, in the store as well as on the control.
+The shell also leaves a protected route when a session ends, but the store does not
+rely on that having happened yet. "Yourself" is matched on user id first, then on email
+when there is one, since two blank addresses are not the same person.
 
 ### Signature Component — the Overview Registry
 
@@ -649,6 +684,7 @@ outright — including the ring forced-colors mode synthesises.
   dark fails.
 - **Do** draw a new icon into the shared set at the same 1.5 stroke weight on the
   20px grid, in `currentColor`, and give the manifest its name.
+- **Do** report identity problems in the shell notice, not only in the console.
 - **Do** acknowledge every write in the screen's action status, and offer Undo unless
   the action is one of the refusals.
 - **Do** leave focus to the shared ring. It already covers `<button>`, `<a>`,

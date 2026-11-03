@@ -1,4 +1,4 @@
-import { NhostIdentityClient } from './nhost-identity.client';
+import { NhostIdentityClient, TOKEN_EXCHANGE_TIMEOUT_MS } from './nhost-identity.client';
 
 const BASE = 'https://project.auth.eu-central-1.nhost.run/v1';
 const STORAGE_KEY = 'atlas.auth';
@@ -245,5 +245,207 @@ describe('NhostIdentityClient — change notification', () => {
     off();
     await c.initialize();
     expect(seen.length).toBe(2);
+  });
+});
+
+describe('NhostIdentityClient — a provider that does not answer', () => {
+  /** A fetch that only ever settles by being aborted, like a sleeping provider. */
+  const hang = (_url: string, init: RequestInit) =>
+    new Promise<Response>((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () =>
+        reject(new DOMException('aborted', 'AbortError'))
+      );
+    });
+
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.useFakeTimers();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('gives up on the exchange, so boot cannot hang', async () => {
+    localStorage.setItem(STORAGE_KEY, 'stored');
+    fetchMock.mockImplementation(hang);
+
+    const c = client();
+    const done = c.initialize();
+    await vi.advanceTimersByTimeAsync(TOKEN_EXCHANGE_TIMEOUT_MS);
+    await done;
+
+    expect(c.claims()).toBeNull();
+    expect(c.takeIssue()).toEqual({ kind: 'provider-unreachable', during: 'restore' });
+  });
+
+  it('also bounds a response whose body never finishes', async () => {
+    localStorage.setItem(STORAGE_KEY, 'stored');
+    fetchMock.mockImplementation(async (url: string, init: RequestInit) => ({
+      ok: true,
+      status: 200,
+      json: () => hang(url, init),
+    }));
+
+    const c = client();
+    const done = c.initialize();
+    await vi.advanceTimersByTimeAsync(TOKEN_EXCHANGE_TIMEOUT_MS);
+    await done;
+
+    expect(c.takeIssue()).toEqual({ kind: 'provider-unreachable', during: 'restore' });
+  });
+
+  it('keeps a stored token, because nothing said it was bad', async () => {
+    localStorage.setItem(STORAGE_KEY, 'stored');
+    fetchMock.mockImplementation(hang);
+
+    const done = client().initialize();
+    await vi.advanceTimersByTimeAsync(TOKEN_EXCHANGE_TIMEOUT_MS);
+    await done;
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('stored');
+  });
+
+  it('keeps a redirect token for the reload, and still takes it out of the URL', async () => {
+    atUrl('?refreshToken=from-redirect');
+    fetchMock.mockImplementation(hang);
+
+    const c = client();
+    const done = c.initialize();
+    await vi.advanceTimersByTimeAsync(TOKEN_EXCHANGE_TIMEOUT_MS);
+    await done;
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('from-redirect');
+    expect(location.href).not.toContain('from-redirect');
+    expect(c.takeIssue()).toEqual({ kind: 'provider-unreachable', during: 'sign-in' });
+  });
+
+  it.each([
+    ['a network failure', () => Promise.reject(new TypeError('Failed to fetch'))],
+    ['a provider 5xx', () => Promise.resolve(fail(503))],
+  ])('treats %s the same way', async (_name, respond) => {
+    localStorage.setItem(STORAGE_KEY, 'stored');
+    fetchMock.mockImplementation(respond);
+
+    const c = client();
+    await c.initialize();
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('stored');
+    expect(c.takeIssue()).toEqual({ kind: 'provider-unreachable', during: 'restore' });
+  });
+
+  it('clears the timer when the exchange succeeds in time', async () => {
+    localStorage.setItem(STORAGE_KEY, 'stored');
+    fetchMock.mockResolvedValue(ok(sessionBody()));
+
+    const c = client();
+    await c.initialize();
+    await vi.advanceTimersByTimeAsync(TOKEN_EXCHANGE_TIMEOUT_MS);
+
+    expect(c.claims()).not.toBeNull();
+    expect(c.takeIssue()).toBeNull();
+  });
+
+  it('bounds a background refresh too, ending the session', async () => {
+    localStorage.setItem(STORAGE_KEY, 'stored');
+    const nearlyExpired = jwt({ sub: 'u-1', exp: Math.floor((Date.now() + 10 * SECONDS) / 1000) });
+    fetchMock.mockResolvedValueOnce(ok(sessionBody({ accessToken: nearlyExpired })));
+    const c = client();
+    await c.initialize();
+
+    fetchMock.mockImplementation(hang);
+    const token = c.accessToken();
+    await vi.advanceTimersByTimeAsync(TOKEN_EXCHANGE_TIMEOUT_MS);
+
+    expect(await token).toBeNull();
+    expect(c.claims()).toBeNull();
+  });
+});
+
+describe('NhostIdentityClient — a sign-in that failed', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('reports the provider error from the redirect and strips it from the URL', async () => {
+    atUrl('?error=access_denied&errorDescription=The+user+said+no&route=flags');
+
+    const c = client();
+    await c.initialize();
+
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: 'access_denied' });
+    expect(location.search).toBe('?route=flags');
+  });
+
+  it('finds it in the fragment too', async () => {
+    history.replaceState(null, '', '/#error=access_denied&error_description=no');
+
+    const c = client();
+    await c.initialize();
+
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: 'access_denied' });
+    expect(location.hash).toBe('');
+  });
+
+  /** The URL is attacker-writable: a crafted link must not write into the console. */
+  it('never carries free text from the URL towards the screen', async () => {
+    atUrl(`?error=${encodeURIComponent('Call 555-0100 to restore access')}&errorDescription=Pay+up`);
+
+    const c = client();
+    await c.initialize();
+
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: null });
+    expect(location.search).toBe('');
+  });
+
+  it('reports a description that arrived with no code', async () => {
+    atUrl('?errorDescription=nope');
+
+    const c = client();
+    await c.initialize();
+
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: null });
+    expect(location.search).toBe('');
+  });
+
+  it('reports a redirect token the provider refuses', async () => {
+    atUrl('?refreshToken=from-redirect');
+    fetchMock.mockResolvedValue(fail());
+
+    const c = client();
+    await c.initialize();
+
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: null });
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('says the session ended when a stored token is refused', async () => {
+    localStorage.setItem(STORAGE_KEY, 'expired');
+    fetchMock.mockResolvedValue(fail());
+
+    const c = client();
+    await c.initialize();
+
+    expect(c.takeIssue()).toEqual({ kind: 'session-expired' });
+  });
+
+  it('reports each issue once, and nothing for an ordinary boot', async () => {
+    atUrl('?error=access_denied');
+    const c = client();
+    await c.initialize();
+
+    expect(c.takeIssue()).not.toBeNull();
+    expect(c.takeIssue()).toBeNull();
+
+    atUrl('');
+    const quiet = client();
+    await quiet.initialize();
+    expect(quiet.takeIssue()).toBeNull();
+  });
+
+  it('leaves an unrelated fragment alone', async () => {
+    history.replaceState(null, '', '/?error=access_denied#main-content');
+
+    await client().initialize();
+
+    expect(location.hash).toBe('#main-content');
   });
 });
