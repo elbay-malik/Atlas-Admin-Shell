@@ -124,8 +124,8 @@ Durable technical constraints future design work must respect:
 Explicitly undecided / not yet true:
 
 - The repository is public (`gh repo view` said so on 2026-11-04) and the console links
-  to it. It ran out of CI minutes while private, and the gates still run locally via
-  `pnpm run ci:local` (ADR-0013). There is no green check on a pull request.
+  to it. It ran out of CI minutes while private, Actions is still off, and the gates run
+  locally via `pnpm run ci:local` (ADR-0013). There is no green check on a pull request.
 - `apiMode` is `'mock'` in production today, so flag data is not real and nothing
   exercises the edge's real HTTP path in production. Sign-in itself is real: on
   2026-10-25 a GitHub sign-in completed on the live console, by hand (ADR-0014).

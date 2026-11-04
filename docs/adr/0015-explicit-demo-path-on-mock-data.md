@@ -101,7 +101,7 @@ labelled control on the signed-out Overview.
 - Negative: writes during a demo stay in the remote's in-memory mock until a reload. Re-entering the demo
   shows them. So does a mock persona signed in afterwards, which only local dev has: a real sign-in on
   production reloads the page.
-- Negative: the strip costs about 115px of height on a phone, on every route.
+- Negative: the strip costs about 130px of height on a phone, and 149px at 320px wide, on every route.
 - Negative: `mock` as the default for an absent `apiMode` now decides something else as well. A manifest
   that omits it offers the demo. `production` writes the value out (`deploy/manifests/README.md`).
 

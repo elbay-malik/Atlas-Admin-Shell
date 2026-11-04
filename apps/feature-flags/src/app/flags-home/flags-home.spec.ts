@@ -224,6 +224,15 @@ describe('FlagsHome', () => {
       expect(inRow(row, 'flag-confirm')).toBeNull();
       expect(document.activeElement).toBe(toggleIn(row));
 
+      // Shift+Tab from the choice lands on the toggle, which is still part of the step.
+      toggleIn(row).click();
+      await TestBed.tick();
+      toggleIn(row).focus();
+      toggleIn(row).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await TestBed.tick();
+      expect(inRow(row, 'flag-confirm')).toBeNull();
+      expect(document.activeElement).toBe(toggleIn(row));
+
       toggleIn(row).click();
       await TestBed.tick();
       toggleIn(row).click();
