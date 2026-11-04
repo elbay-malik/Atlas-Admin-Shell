@@ -463,9 +463,9 @@ export class ShellLayout {
     const first = stops[0];
     const last = stops[stops.length - 1];
     const backwards = (event as KeyboardEvent).shiftKey;
-    const leaving = backwards
-      ? this.document.activeElement === first
-      : this.document.activeElement === last;
+    const active = this.document.activeElement as HTMLElement | null;
+    // A click on the panel's plain text leaves focus on <body>, outside every stop.
+    const leaving = !active || !stops.includes(active) || active === (backwards ? first : last);
     if (!leaving) return;
     event.preventDefault();
     (backwards ? last : first)?.focus();

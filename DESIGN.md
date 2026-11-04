@@ -728,8 +728,10 @@ is not a leak: the registry is fetched before authentication and publishes every
 ### Signature Component — the Unavailable Boundary
 
 The shell-owned screen for a remote that would not load, and the component where this
-system's point of view is clearest. It is a full screen, not a toast: headline plus a
-status badge, a `max-w-prose` explanation, then a `8rem 1fr` definition grid of exactly
+system's point of view is clearest. It opens only for a remote that has failed; a healthy
+one's address goes to the domain, and a name the manifest does not declare is not found.
+It is a full screen, not a toast: a headline, joined by a status badge only while a retry
+is running, a `max-w-measure` explanation, then a `8rem 1fr` definition grid of exactly
 what is known — attempts, failure class, the origin it was fetched from, and the raw
 error in mono. Below that, a
 `role="status"` line counting down an automatic retry (3 attempts at 1s/2s/4s), then

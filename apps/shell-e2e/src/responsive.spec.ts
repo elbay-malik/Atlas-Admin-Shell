@@ -192,6 +192,25 @@ test('the open drawer takes focus, keeps Tab inside itself and gives focus back'
   await expect(page.getByTestId('console-column')).toHaveJSProperty('inert', false);
 });
 
+test('Tab stays in the drawer after a click on its plain text drops focus', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize(PHONE);
+  await page.goto('/');
+  await expect(page.locator('shell-layout')).toBeVisible();
+  await page.getByTestId('nav-toggle').click();
+
+  const wordmark = page.locator('#primary-nav').getByText('Atlas Admin', { exact: true });
+  const insideDrawer = () =>
+    page.evaluate(() => !!document.activeElement?.closest('#primary-nav'));
+
+  for (const key of ['Shift+Tab', 'Tab']) {
+    await wordmark.click();
+    await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe('BODY');
+    await page.keyboard.press(key);
+    expect(await insideDrawer(), `${key} left the drawer`).toBe(true);
+  }
+});
+
 test('the drawer closes from its own button, and navigating leaves focus on the screen', async ({
   page,
 }) => {

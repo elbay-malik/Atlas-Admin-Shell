@@ -95,6 +95,7 @@ import { FlagsStore } from '../data/flags.store';
               [attr.data-pending]="isPending(flag.key)"
               [busy]="isPending(flag.key)"
               (pressed)="pressToggle(flag)"
+              (keydown.escape)="confirming() === flag.key && cancelConfirm(flag.key)"
             >
               {{ flag.enabled ? 'On' : 'Off' }}
             </ui-button>

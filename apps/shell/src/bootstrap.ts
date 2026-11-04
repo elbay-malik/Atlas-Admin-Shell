@@ -8,11 +8,13 @@ import {
 } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import {
+  ActivatedRouteSnapshot,
   NavigationError,
   RedirectCommand,
   Route,
   Router,
   TitleStrategy,
+  UrlMatcher,
   UrlSegment,
   provideRouter,
   withNavigationErrorHandler,
@@ -39,6 +41,20 @@ import { ModuleUnavailable } from './app/module-unavailable/module-unavailable';
 import { Overview } from './app/overview/overview';
 import { RemoteHealthStore } from './app/remotes/remote-health.store';
 import { RemoteLoader, RemoteUnavailableError } from './app/remotes/remote-loader';
+
+/**
+ * Matches `/unavailable/<name>` only for a remote the manifest really declares. An
+ * own-key check, because the name comes from the URL and `remotes['constructor']` is
+ * truthy. A matcher, because the redirect below cannot carry a canMatch guard.
+ */
+function declaredRemoteBoundary(manifest: AtlasManifest): UrlMatcher {
+  return (segments) => {
+    const [root, remote] = segments;
+    return segments.length === 2 && root.path === 'unavailable' && Object.hasOwn(manifest.remotes, remote.path)
+      ? { consumed: segments, posParams: { remote } }
+      : null;
+  };
+}
 
 /**
  * Routes are derived from the manifest — adding a domain is a manifest edit,
@@ -84,6 +100,8 @@ export function buildRoutes(manifest: AtlasManifest): Route[] {
     { path: def.route, redirectTo: () => inject(IdentityFlow).routeDeclined(def) },
   ]);
 
+  const boundary = declaredRemoteBoundary(manifest);
+
   return [
     { path: '', pathMatch: 'full', title: 'Overview', component: Overview },
     ...remoteRoutes,
@@ -91,19 +109,31 @@ export function buildRoutes(manifest: AtlasManifest): Route[] {
     // not stay on it: a session ending here would otherwise have its retry declined
     // by the route above, which reads as someone trying to open that domain. canMatch,
     // because the re-check after a session ends reuses this route and skips canActivate.
+    // A name the manifest does not declare falls through to the catch-all.
     {
-      path: 'unavailable/:remote',
+      matcher: boundary,
       title: 'Unavailable',
       component: ModuleUnavailable,
       canMatch: [
-        (_route: Route, segments: UrlSegment[]) => {
-          const def = manifest.remotes[segments[1]?.path ?? ''];
-          return !def || inject(AtlasAuth).hasRole(def.requiredRole);
+        (_route: Route, segments: UrlSegment[]) =>
+          inject(AtlasAuth).hasRole(manifest.remotes[segments[1].path].requiredRole),
+      ],
+      // The screen says this remote failed, so it opens only when that is true. A
+      // hand-typed link, a remembered route or a reload after a failed chunk goes to
+      // the domain, and the loader sends it back here if it does fail. That cannot
+      // loop: RemoteLoader records `down` before it rejects.
+      canActivate: [
+        (route: ActivatedRouteSnapshot) => {
+          const name = route.paramMap.get('remote') ?? '';
+          const status = inject(RemoteHealthStore).remotes()[name]?.status;
+          return status === 'down' || status === 'loading'
+            ? true
+            : inject(Router).parseUrl(`/${manifest.remotes[name].route}`);
         },
       ],
     },
     {
-      path: 'unavailable/:remote',
+      matcher: boundary,
       redirectTo: ({ params }) => inject(IdentityFlow).routeDeclined(manifest.remotes[params['remote']]),
     },
     { path: '**', title: 'Page not found', component: ModuleUnavailable },

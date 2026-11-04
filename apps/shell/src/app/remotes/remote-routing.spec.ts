@@ -6,6 +6,7 @@ import { AtlasManifest } from '@atlas/shared-contracts';
 import { provideAtlasEventBus } from '@atlas/shared-event-bus';
 import { buildRoutes, remoteUnavailableRedirect } from '../../bootstrap';
 import { ATLAS_MANIFEST } from '../manifest.token';
+import { RemoteHealthStore } from './remote-health.store';
 import { RemoteLoader, RemoteUnavailableError } from './remote-loader';
 
 /** Stands in for whatever a remote exposes; the shell only cares that it activates. */
@@ -41,7 +42,11 @@ function fakeLoader(behaviour: (name: string, attempt: number) => Promise<unknow
     attempts,
     load: (name: string) => {
       attempts[name] = (attempts[name] ?? 0) + 1;
-      return behaviour(name, attempts[name]);
+      // The real loader records the failure before it rejects, and the boundary relies on that.
+      return behaviour(name, attempts[name]).catch((error: RemoteUnavailableError) => {
+        TestBed.inject(RemoteHealthStore).markDown(name, error.reason, error.message);
+        throw error;
+      });
     },
   };
 }
@@ -57,6 +62,12 @@ function setup(loader: { load: (name: string) => Promise<unknown> }) {
     ],
   });
   return TestBed.inject(Router);
+}
+
+function lastRouteTitle(router: Router): unknown {
+  let route = router.routerState.snapshot.root;
+  while (route.firstChild) route = route.firstChild;
+  return route.title;
 }
 
 describe('manifest-derived routing and the remote error boundary', () => {
@@ -136,16 +147,42 @@ describe('manifest-derived routing and the remote error boundary', () => {
     expect(router.url).toBe('/');
   });
 
-  it('keeps the boundary for a remote this visitor may enter, and an unknown one', async () => {
+  it('keeps the boundary for a failed remote this visitor may enter', async () => {
     const router = setup(fakeLoader(async () => [{ path: '', component: RemoteHome }]));
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('viewer');
+    TestBed.inject(RemoteHealthStore).markDown('feature-flags', 'entry', 'down');
+
+    await router.navigateByUrl('/unavailable/feature-flags');
+
+    expect(router.url).toBe('/unavailable/feature-flags');
+    expect(lastRouteTitle(router)).toBe('Unavailable');
+  });
+
+  it('opens the domain instead of calling a healthy remote unavailable', async () => {
+    const loader = fakeLoader(async () => [{ path: '', component: RemoteHome }]);
+    const router = setup(loader);
     await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('viewer');
 
     await router.navigateByUrl('/unavailable/feature-flags');
-    expect(router.url).toBe('/unavailable/feature-flags');
 
-    await router.navigateByUrl('/unavailable/no-such-remote');
-    expect(router.url).toBe('/unavailable/no-such-remote');
+    expect(router.url).toBe('/flags');
+    expect(loader.attempts['feature-flags']).toBe(1);
   });
+
+  it.each(['no-such-remote', 'constructor', '__proto__', 'toString'])(
+    'treats /unavailable/%s as an address nobody owns, signed in or not',
+    async (name) => {
+      const router = setup(fakeLoader(async () => []));
+
+      await router.navigateByUrl(`/unavailable/${name}`);
+      expect(router.url).toBe(`/unavailable/${name}`);
+      expect(lastRouteTitle(router)).toBe('Page not found');
+
+      await (TestBed.inject(AtlasAuth) as MockAtlasAuth).login('viewer');
+      await router.navigateByUrl(`/unavailable/${name}`, { onSameUrlNavigation: 'reload' });
+      expect(lastRouteTitle(router)).toBe('Page not found');
+    }
+  );
 
   it('keeps the rest of the platform working when one remote is down', async () => {
     const loader = fakeLoader(async (name) => {
