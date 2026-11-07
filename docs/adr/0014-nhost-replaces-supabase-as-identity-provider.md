@@ -150,6 +150,10 @@ edge verifies RS256 tokens against Nhost's JWKS.
   A `refreshToken` in the query or the hash is always stripped. It is exchanged only when the marker
   was present and less than ten minutes old; otherwise it is ignored with a console warning, and the
   stored session is restored as if the URL had held nothing.
+- A page restored from the browser's back/forward cache, which is how the visitor comes back from
+  the provider's page without signing in, removes the marker too, since that restore does not run
+  `initialize()`. A sign-in that stalls keeps it, because a slow provider may still send the tab back
+  with a token.
 - The stored token is replaced only by the rotated token of a **successful** exchange. If the
   provider refuses the redirect token, a stored token is kept and restored. If the provider does not
   answer, the stored token is kept and the sign-in is reported as unfinished; the redirect token is

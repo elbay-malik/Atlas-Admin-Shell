@@ -76,6 +76,7 @@ export class NhostIdentityClient implements AtlasIdentityClient {
   /** In flight refresh, so concurrent callers await one request, not several. */
   private pending: Promise<void> | null = null;
   private issue: IdentityIssue | null = null;
+  private watchingReturn = false;
 
   constructor(config: NhostIdentityConfig) {
     this.base = config.url.replace(/\/$/, '');
@@ -195,6 +196,7 @@ export class NhostIdentityClient implements AtlasIdentityClient {
       // Storage refused: the return from the provider will be ignored, which
       // costs this sign-in and nothing else.
     }
+    this.forgetMarkerOnBackNavigation();
     location.assign(target.toString());
   }
 
@@ -236,6 +238,26 @@ export class NhostIdentityClient implements AtlasIdentityClient {
     if (token === null) return null;
     this.stripParams([REDIRECT_PARAM]);
     return token || null;
+  }
+
+  /**
+   * Back from the provider's page via the browser's cache means this sign-in
+   * did not come back through the redirect, and a cached page does not run
+   * initialize() again. So the marker goes here, rather than waiting out its
+   * TTL. A stalled sign-in keeps it: a provider that is slow to open may still
+   * return to this tab with a token.
+   */
+  private forgetMarkerOnBackNavigation(): void {
+    if (this.watchingReturn) return;
+    this.watchingReturn = true;
+    window.addEventListener('pageshow', (event) => {
+      if (!event.persisted) return;
+      try {
+        sessionStorage.removeItem(SIGN_IN_MARKER_KEY);
+      } catch {
+        // Nothing to remove if storage is refused.
+      }
+    });
   }
 
   /**

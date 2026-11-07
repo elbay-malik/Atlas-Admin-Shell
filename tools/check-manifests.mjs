@@ -11,6 +11,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getStaticJSONValue, parseJSON } from 'jsonc-eslint-parser';
 
 /** Anchored to the repo, not the caller's cwd — the deploy target runs inside apps/<app>. */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -69,16 +70,24 @@ function issuerMismatch(manifest) {
  * The shell's Worker is assets-only while the manifest says apiMode "mock": no
  * request runs Worker code. A manifest that switches to "http" would send the
  * console to /api, which would then answer with index.html. So the switch is
- * refused until apps/shell/wrangler.jsonc names the BFF entry again (an
- * uncommented top-level "main" key), scopes it with run_worker_first and binds
- * the assets the Worker falls through to.
+ * refused until apps/shell/wrangler.jsonc names the BFF entry again (a
+ * top-level "main"), scopes it with assets.run_worker_first and binds the
+ * assets the Worker falls through to (assets.binding).
  */
 function workerMismatch(manifest) {
   if (manifest?.apiMode !== 'http' || !existsSync(WRANGLER)) return null;
-  const config = readFileSync(WRANGLER, 'utf8');
-  const hasMain = /^\s*"main"\s*:/m.test(config);
-  const scoped = /^\s*"run_worker_first"\s*:/m.test(config);
-  const bound = /^\s*"binding"\s*:/m.test(config);
+  // Parsed, not matched by line: each key has to sit where wrangler reads it, so
+  // another binding elsewhere in the file cannot stand in for assets.binding.
+  let config;
+  try {
+    config = getStaticJSONValue(parseJSON(readFileSync(WRANGLER, 'utf8')));
+  } catch (error) {
+    return `apps/shell/wrangler.jsonc could not be parsed: ${error.message}`;
+  }
+  const firstOnly = config?.assets?.run_worker_first;
+  const hasMain = typeof config?.main === 'string' && config.main.length > 0;
+  const scoped = Array.isArray(firstOnly) || firstOnly === true;
+  const bound = typeof config?.assets?.binding === 'string' && config.assets.binding.length > 0;
   return hasMain && scoped && bound
     ? null
     : 'apiMode is "http" but apps/shell/wrangler.jsonc is assets-only — re-add "main", ' +

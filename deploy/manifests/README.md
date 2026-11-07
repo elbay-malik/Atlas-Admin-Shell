@@ -15,8 +15,8 @@ it went stale once already, and the failure mode is a console that boots with ze
 ## Why production says `apiMode: "mock"`
 
 The edge BFF verifies real tokens against a JWKS endpoint, and is built and tested to do so. It is
-not deployed while this says `mock`: the shell's Worker is assets-only, so no production request
-runs Worker code (Update, 2026-11-07, ADR-0011). Moving to `http` therefore means re-adding
+left out of the shell's deploy while this says `mock`: the shell's Worker is configured assets-only,
+so from the next shell deploy no production request runs Worker code (Update, 2026-11-07, ADR-0011). Moving to `http` therefore means re-adding
 `"main"`, `assets.run_worker_first` and `assets.binding` to `apps/shell/wrangler.jsonc` first;
 `manifest:check` refuses `http` while any is missing. The reason first recorded here — no identity provider, so every request would answer
 401 — no longer holds: the manifest's `auth` block now names a real Nhost project, and the

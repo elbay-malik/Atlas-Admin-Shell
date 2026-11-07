@@ -195,19 +195,20 @@ shell sets `not_found_handling: "single-page-application"` because it owns route
 deliberately do not, so a missing chunk 404s and the shell's error boundary can classify it rather
 than receiving HTML with a 200.
 
-All four are **assets-only** in production, the shell included: while the production manifest says
-`apiMode: "mock"` no request runs Worker code, because nothing calls `/api`. The edge BFF is built
-and tested (ADR-0011) but not deployed. Switching to `apiMode: "http"` means re-adding the Worker to
+All four are configured **assets-only**, the shell included: while the production manifest says
+`apiMode: "mock"` nothing calls `/api`, so no request needs to run Worker code. The edge BFF is built
+and tested (ADR-0011) but left out of the shell's deploy. Production takes this shape at the next
+shell deploy; the shell Worker deployed on 2026-10-25 still carries the BFF on `/api/*` until then. Switching to `apiMode: "http"` means re-adding the Worker to
 `apps/shell/wrangler.jsonc`: `"main": "../shell-bff/src/worker.ts"`,
 `assets.run_worker_first: ["/api/*"]` and `assets.binding: "ASSETS"` (wrangler refuses a binding on
 an assets-only Worker, so it left with the other two). `manifest:check` refuses the switch until
 they are back.
 
 The shell's response headers live in `apps/shell/public/_headers`: HSTS for this host only (no
-`includeSubDomains`, no preload), `nosniff`, a `strict-origin-when-cross-origin` referrer policy and
-`frame-ancestors 'none'`, plus the cache rules for the manifest and the hashed chunks. Redirecting
-plain HTTP to HTTPS is a zone setting (Always Use HTTPS) in the Cloudflare dashboard, not part of the
-repository.
+`includeSubDomains`, no preload), `nosniff`, a `strict-origin-when-cross-origin` referrer policy,
+`frame-ancestors 'none'` and `Cross-Origin-Opener-Policy: same-origin`, plus the cache rules for the
+manifest and the hashed chunks. Redirecting plain HTTP to HTTPS is a zone setting (Always Use HTTPS)
+in the Cloudflare dashboard, not part of the repository.
 
 Deploys run from a developer machine: Actions is off for the repository (ADR-0013), so nothing
 publishes on merge. The environment lives in the **manifest**, never
@@ -277,8 +278,8 @@ rebuild, no shell redeploy.
     by hand. No automated test drives it, and token refresh in production is not yet shown.
   - [x] Edge BFF for the shell's origin (`/api/*`), verifying tokens and enforcing authorization
     server-side — including invariants the client cannot, such as refusing to demote the last admin.
-    Closed a real hole: a viewer could toggle a feature flag (ADR-0011). Built and tested, not
-    deployed: production serves assets only while `apiMode` is `mock` (see Deploying).
+    Closed a real hole: a viewer could toggle a feature flag (ADR-0011). Built and tested; from the
+    next shell deploy, production serves assets only while `apiMode` is `mock` (see Deploying).
   - [x] Remotes call the BFF over HTTP behind a contract, selected by the manifest's `apiMode`;
     the mock stays the default so the console runs with no backend.
   - [ ] PR previews. Not built; they need a workflow to run in, and Actions is disabled (ADR-0013).

@@ -276,9 +276,9 @@ Still not demonstrated:
 ## Update, 2026-11-07: production serves assets only while `apiMode` is `mock`
 
 The Decision Outcome above describes the shell's Worker with `main` and
-`assets.run_worker_first: ["/api/*"]`. Production no longer deploys that way. While the production
-manifest says `apiMode: "mock"` the console never calls `/api`, so `apps/shell/wrangler.jsonc` now
-names neither key and no production request runs Worker code; the shell is an assets-only Worker
+`assets.run_worker_first: ["/api/*"]`. The repository no longer configures it that way. While the
+production manifest says `apiMode: "mock"` the console never calls `/api`, so `apps/shell/wrangler.jsonc`
+now names neither key, and from the next shell deploy no production request runs Worker code; the shell is an assets-only Worker
 like the three remotes. The `ASSETS` binding went with them, because wrangler refuses an assets
 binding on a Worker with no script. Nothing in the BFF changed.
 
@@ -291,7 +291,9 @@ binding on a Worker with no script. Nothing in the BFF changed.
   manifest that says `http` while `apps/shell/wrangler.jsonc` lacks any of them.
 - The vars `ATLAS_JWKS_URL` and `ATLAS_JWT_ISSUER` stay in the shell's config, so the switch is three
   lines and `manifest:check` can keep comparing the issuer with the manifest's `auth.url`.
-- "Still not demonstrated" above stands, and more plainly: no BFF runs in production today.
+- Until that deploy, the shell Worker deployed on 2026-10-25 still answers `/api/*` with the BFF.
+- "Still not demonstrated" above stands, and more plainly: after that deploy no BFF runs in
+  production.
 
 ## References
 

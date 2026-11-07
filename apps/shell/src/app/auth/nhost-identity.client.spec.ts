@@ -563,6 +563,31 @@ describe('NhostIdentityClient — a token only from a sign-in this tab started',
     expect(assign).toHaveBeenCalledTimes(1);
   });
 
+  /** The page as the browser's back/forward cache hands it back, or a fresh load. */
+  function pageshow(persisted: boolean) {
+    const event = new Event('pageshow');
+    Object.defineProperty(event, 'persisted', { value: persisted });
+    window.dispatchEvent(event);
+  }
+
+  it('a page restored from the back/forward cache drops the marker', async () => {
+    vi.stubGlobal('location', { origin: 'https://atlas.test', assign: vi.fn() });
+    await client().signIn('github');
+
+    pageshow(true);
+
+    expect(sessionStorage.getItem(SIGN_IN_MARKER_KEY)).toBeNull();
+  });
+
+  it('an ordinary page show keeps the marker for the redirect', async () => {
+    vi.stubGlobal('location', { origin: 'https://atlas.test', assign: vi.fn() });
+    await client().signIn('github');
+
+    pageshow(false);
+
+    expect(sessionStorage.getItem(SIGN_IN_MARKER_KEY)).not.toBeNull();
+  });
+
   it('replaces the stored token only once the new sign-in has succeeded', async () => {
     localStorage.setItem(STORAGE_KEY, 'stored-token');
     returnedWith('?refreshToken=from-redirect');
@@ -624,6 +649,30 @@ describe('NhostIdentityClient — a token only from a sign-in this tab started',
 
     const c = client();
     await c.initialize();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('stored-token');
+    expect(location.href).not.toContain('from-redirect');
+    expect(c.takeIssue()).toEqual({ kind: 'provider-unreachable', during: 'sign-in' });
+  });
+
+  it('a timed-out exchange during sign-in never writes over a stored token', async () => {
+    vi.useFakeTimers();
+    localStorage.setItem(STORAGE_KEY, 'stored-token');
+    returnedWith('?refreshToken=from-redirect');
+    fetchMock.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError'))
+          );
+        })
+    );
+
+    const c = client();
+    const done = c.initialize();
+    await vi.advanceTimersByTimeAsync(TOKEN_EXCHANGE_TIMEOUT_MS);
+    await done;
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem(STORAGE_KEY)).toBe('stored-token');
