@@ -118,17 +118,20 @@ edge verifies RS256 tokens against Nhost's JWKS.
 - What the SDK would have provided, written deliberately:
   - The redirect's `refreshToken` is read from the query or the hash and stripped with
     `history.replaceState` **before** the exchange, so a failed exchange does not leave it in the
-    address bar.
+    address bar. Since 2026-11-07 it is used only on the return from a sign-in this tab started
+    (see the update below).
   - The refresh token is rotated on every exchange.
   - Refresh runs 60s before expiry, never sooner than 5s from now.
   - Concurrent refreshes are merged into one request.
   - One token exchange may take 8 seconds, because the app initializer awaits it at boot and a
     sleeping provider would otherwise leave a blank page. A timeout, a network failure or a 5xx is
-    "no verdict": at boot the token is kept, in storage even if it came from the redirect, so a
-    reload can retry. A 4xx clears it. During a background refresh, any failure ends the session.
+    "no verdict": at boot the token is kept, so a reload can retry. A redirect token is stored for
+    that retry only when no other token is stored. A 4xx clears a stored token; a refused redirect
+    token leaves the stored one alone. During a background refresh, any failure ends the session.
   - A provider error on the redirect (`error`, `errorDescription`, `error_description`, in the query
-    or the hash) is read and stripped like the token. Only a short machine code reaches the screen:
-    anyone can craft that URL, so its free text goes to the console only.
+    or the hash) is read and stripped like the token. Nothing from it reaches the screen: anyone can
+    craft that URL, so the notice is one generic sentence and the code and description go to the
+    console only.
   - `redirectTo` stays the bare origin, which is what the allow-list holds. The route to return to is
     kept in `sessionStorage`, re-validated as a same-origin path when read, and re-gated by `canMatch`
     when followed.
@@ -138,6 +141,25 @@ edge verifies RS256 tokens against Nhost's JWKS.
     access token, its expiry and its claims are held in memory.
 - `provideNhostAtlasAuth` has no dynamic import. There is no SDK, so the lazy boundary the previous
   provider needed has no cost left to avoid.
+
+**Update, 2026-11-07: a redirect token is accepted only from this tab's own sign-in.**
+
+- `signIn()` writes a one-time marker, the current time, to `sessionStorage` under
+  `atlas.auth.signin` just before it leaves for the provider.
+- `initialize()` reads and removes that marker on every boot, whether or not the URL holds a token.
+  A `refreshToken` in the query or the hash is always stripped. It is exchanged only when the marker
+  was present and less than ten minutes old; otherwise it is ignored with a console warning, and the
+  stored session is restored as if the URL had held nothing.
+- The stored token is replaced only by the rotated token of a **successful** exchange. If the
+  provider refuses the redirect token, a stored token is kept and restored. If the provider does not
+  answer, the stored token is kept and the sign-in is reported as unfinished; the redirect token is
+  written to storage only when nothing else is stored, so a reload can finish that sign-in.
+- The sign-in notice for a provider error is always the generic sentence. The provider's code is
+  logged, not shown.
+- `signOut()` still clears local state first and unconditionally, and now logs a warning when the
+  provider answers with an error rather than recording the sign-out.
+- A browser that refuses `sessionStorage` cannot complete a GitHub sign-in: the return carries no
+  marker and is ignored. A stored session still restores.
 
 **Manifest** (`libs/shared/contracts/src/lib/manifest.ts`, `tools/check-manifests.mjs`)
 

@@ -1,29 +1,37 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // The shell IS a page, so unmatched navigations fall back to index.html.
-  // Assets-only for now; the edge BFF adds "main" + "run_worker_first" here.
+  //
+  // Assets-only while the production manifest's apiMode is "mock": no request
+  // runs Worker code, because the console never calls /api in that mode. The
+  // edge BFF (apps/shell-bff, ADR-0011) is still built and tested against
+  // apps/shell-bff/wrangler.test.jsonc. Switching apiMode to "http" re-adds the
+  // Worker entry and its scope (plus the ASSETS binding the Worker reads, which
+  // wrangler refuses on an assets-only Worker), and manifest:check refuses that
+  // switch until they are back:
+  //   "main": "../shell-bff/src/worker.ts"           (top level)
+  //   "binding": "ASSETS"                            (inside "assets")
+  //   "run_worker_first": ["/api/*"]                 (inside "assets")
+  // run_worker_first scopes the Worker to /api/* only, so every other path keeps
+  // asset routing and the SPA fallback below.
   "name": "atlas-shell",
   "routes": [{ "pattern": "atlas.elbaymalik.com", "custom_domain": true }],
   // Keep the old address answering: routes turn workers.dev off by default.
   "workers_dev": true,
   "compatibility_date": "2026-09-05",
-  // The edge BFF. run_worker_first scopes the Worker to /api/* ONLY, so every
-  // other path is served by asset routing exactly as before — the SPA fallback
-  // for deep links is untouched and those requests never invoke the Worker.
-  "main": "../shell-bff/src/worker.ts",
   "assets": {
     "directory": "../../dist/apps/shell/browser",
-    "binding": "ASSETS",
-    "run_worker_first": ["/api/*"],
     // Serves index.html with a 200 for ANY unmatched path, not only navigations.
     // The shell owns client-side routes so it needs this, but be aware of the
     // trade-off when debugging: after a partial deploy a missing .js chunk comes
-    // back as HTML with a 200 rather than a 404. That is why the remotes below
+    // back as HTML with a 200 rather than a 404. That is why the remotes
     // deliberately do NOT enable it.
     "not_found_handling": "single-page-application"
   },
-  // Not secrets: a JWKS endpoint and the issuer it mints for are public. No
-  // admin secret appears here and none ever reaches the edge.
+  // Read by the edge BFF once it is deployed again, and by manifest:check now,
+  // which compares the issuer with the manifest's auth.url. Not secrets: a JWKS
+  // endpoint and the issuer it mints for are public. No admin secret appears
+  // here and none ever reaches the edge.
   //
   // There is no ATLAS_JWT_AUDIENCE: this provider mints no `aud` claim, and
   // passing one to jose would reject every token. See verify.ts.

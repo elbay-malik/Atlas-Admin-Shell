@@ -43,6 +43,20 @@ const STATUS_TONE: Record<RemoteStatus, UiBadgeTone> = {
 };
 
 /**
+ * The name to show for a remote: its manifest displayName when the manifest
+ * itself declares that remote, otherwise 'This module'. Never the name passed
+ * in, because that comes from the address bar.
+ */
+export function manifestDisplayName(
+  remotes: Record<string, { displayName?: string } | undefined>,
+  name: string | null
+): string {
+  const entry = name !== null && Object.hasOwn(remotes, name) ? remotes[name] : undefined;
+  const declared = entry?.displayName;
+  return typeof declared === 'string' && declared.trim() !== '' ? declared : 'This module';
+}
+
+/**
  * The shell-owned error boundary for a remote that would not load, reached by
  * the navigation error handler (ADR-0007). Everything it shows is a signal:
  * the shell is zoneless, so a setTimeout that does not write a signal would
@@ -148,10 +162,10 @@ export class ModuleUnavailable {
     return (name ? this.healthStore.remotes()[name] : undefined) ?? UNKNOWN_REMOTE_HEALTH;
   });
 
-  protected readonly displayName = computed(() => {
-    const name = this.remote();
-    return (name && this.manifest.remotes[name]?.displayName) || (name ?? 'This module');
-  });
+  /** From the manifest only: the route parameter is URL text and is never shown. */
+  protected readonly displayName = computed(() =>
+    manifestDisplayName(this.manifest.remotes, this.remote())
+  );
 
   /** Where the shell tried to fetch it from, which is the next thing to go and check. */
   protected readonly origin = computed(() => {

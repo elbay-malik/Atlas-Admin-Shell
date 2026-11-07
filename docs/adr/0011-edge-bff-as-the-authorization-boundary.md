@@ -273,6 +273,26 @@ Still not demonstrated:
 - Until 2026-10-25 this list also asked whether production ran the Nhost manifest. It did not; the
   Workers had last deployed before #38. All four were redeployed that day (ADR-0014).
 
+## Update, 2026-11-07: production serves assets only while `apiMode` is `mock`
+
+The Decision Outcome above describes the shell's Worker with `main` and
+`assets.run_worker_first: ["/api/*"]`. Production no longer deploys that way. While the production
+manifest says `apiMode: "mock"` the console never calls `/api`, so `apps/shell/wrangler.jsonc` now
+names neither key and no production request runs Worker code; the shell is an assets-only Worker
+like the three remotes. The `ASSETS` binding went with them, because wrangler refuses an assets
+binding on a Worker with no script. Nothing in the BFF changed.
+
+- The BFF is still built and tested: `apps/shell-bff` runs against `wrangler.test.jsonc` with
+  `run_worker_first: ["/api/*"]`, under the same compatibility date and `not_found_handling`, so the
+  routing it was designed for is still what its tests exercise.
+- `config-parity.spec.ts` accepts the assets-only shape, requires `main`, `run_worker_first` and the
+  binding to come back together, and holds them to the tested values when they do.
+- Switching production to `apiMode: "http"` re-adds the three keys. `manifest:check` refuses a
+  manifest that says `http` while `apps/shell/wrangler.jsonc` lacks any of them.
+- The vars `ATLAS_JWKS_URL` and `ATLAS_JWT_ISSUER` stay in the shell's config, so the switch is three
+  lines and `manifest:check` can keep comparing the issuer with the manifest's `auth.url`.
+- "Still not demonstrated" above stands, and more plainly: no BFF runs in production today.
+
 ## References
 
 - https://developers.cloudflare.com/workers/static-assets/routing/worker-script/

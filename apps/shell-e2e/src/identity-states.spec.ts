@@ -207,6 +207,19 @@ const seedRefreshToken = (page: Page) =>
     }
   });
 
+/**
+ * What signIn() leaves in this tab before it goes to the provider, for tests
+ * that arrive straight at the redirect. Set on the first load only, as a real
+ * sign-in leaves it once.
+ */
+const markSignInStarted = (page: Page) =>
+  page.addInitScript(() => {
+    if (!sessionStorage.getItem('e2e.marked')) {
+      sessionStorage.setItem('e2e.marked', '1');
+      sessionStorage.setItem('atlas.auth.signin', String(Date.now()));
+    }
+  });
+
 test.describe('on the real client, with a faked provider', () => {
   test('the signed-out overview warns that Nhost may be asleep', async ({ page }) => {
     await withProvider(page, (route) => respond(route, 500));
@@ -216,21 +229,25 @@ test.describe('on the real client, with a faked provider', () => {
     await expect(page.getByTestId('overview-signin-note')).toContainText('free Nhost project');
   });
 
-  test('a provider error shows a notice, leaves the URL, and writes no free text', async ({
+  test('a provider error shows a notice, leaves the URL, and writes nothing from it', async ({
     page,
   }) => {
     await withProvider(page, (route) => respond(route, 500));
 
-    await page.goto('/?error=access_denied&errorDescription=Call+555-0100+to+restore+access');
+    await page.goto(
+      '/?error=see-example.test-for-help&errorDescription=Call+555-0100+to+restore+access'
+    );
 
     await expect(page.getByTestId(NOTICE)).toHaveText(
-      'Sign-in with GitHub failed: access_denied. Try again.'
+      'Sign-in with GitHub could not be completed. Try again.'
     );
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator('body')).not.toContainText('555-0100');
+    await expect(page.locator('body')).not.toContainText('example.test');
   });
 
   test('a redirect token the provider refuses is reported, not just logged', async ({ page }) => {
+    await markSignInStarted(page);
     await withProvider(page, (route) => respond(route, 401));
 
     await page.goto('/?refreshToken=spent');
@@ -305,12 +322,48 @@ test.describe('on the real client, with a faked provider', () => {
     await page.addInitScript(() =>
       sessionStorage.setItem('atlas.auth.intended', '//evil.example/phish')
     );
+    await markSignInStarted(page);
     await withProvider(page, (route) => respond(route, 200, session()));
 
     await page.goto('/?refreshToken=from-provider');
 
     await expect(page.locator('shell-overview')).toBeVisible();
     await expect(page).toHaveURL(/^http:\/\/localhost:\d+\/$/);
+  });
+
+  test('a token in a link with no sign-in started changes nothing, and leaves the URL', async ({
+    page,
+  }) => {
+    await seedRefreshToken(page);
+    const exchanged: string[] = [];
+    await withProvider(page, (route) => {
+      exchanged.push(route.request().postDataJSON().refreshToken);
+      return respond(route, 200, session());
+    });
+
+    await page.goto('/?refreshToken=from-a-link');
+
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    expect(exchanged).toEqual(['stored-token']);
+    expect(await page.evaluate(() => localStorage.getItem('atlas.auth'))).toBe('rotated');
+    await expect(page.getByTestId(NOTICE)).toHaveText('');
+  });
+
+  test('signed out, the same link leaves the console signed out', async ({ page }) => {
+    let calls = 0;
+    await withProvider(page, (route) => {
+      calls += 1;
+      return respond(route, 200, session());
+    });
+
+    await page.goto('/#refreshToken=from-a-link');
+
+    await expect(page.getByRole('button', { name: 'Sign in with GitHub' })).toBeVisible();
+    expect(page.url()).not.toContain('from-a-link');
+    expect(calls).toBe(0);
+    expect(await page.evaluate(() => localStorage.getItem('atlas.auth'))).toBeNull();
+    await expect(page.getByTestId(NOTICE)).toHaveText('');
   });
 
   test.describe('a token with no name and no email', () => {

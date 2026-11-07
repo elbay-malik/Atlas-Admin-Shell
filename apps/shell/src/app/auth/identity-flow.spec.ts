@@ -415,15 +415,9 @@ describe('IdentityFlow', () => {
   describe('what the identity client reports from boot', () => {
     it.each<[string, IdentityIssue, RegExp, string]>([
       [
-        'a coded rejection',
-        { kind: 'sign-in-rejected', code: 'access_denied' },
-        /Sign-in with GitHub failed: access_denied\. Try again\./,
-        'problem',
-      ],
-      [
-        'an uncoded rejection',
-        { kind: 'sign-in-rejected', code: null },
-        /Sign-in with GitHub could not be completed/,
+        'a rejection',
+        { kind: 'sign-in-rejected' },
+        /^Sign-in with GitHub could not be completed\. Try again\.$/,
         'problem',
       ],
       [

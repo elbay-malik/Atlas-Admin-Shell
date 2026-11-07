@@ -195,20 +195,37 @@ shell sets `not_found_handling: "single-page-application"` because it owns route
 deliberately do not, so a missing chunk 404s and the shell's error boundary can classify it rather
 than receiving HTML with a 200.
 
+All four are **assets-only** in production, the shell included: while the production manifest says
+`apiMode: "mock"` no request runs Worker code, because nothing calls `/api`. The edge BFF is built
+and tested (ADR-0011) but not deployed. Switching to `apiMode: "http"` means re-adding the Worker to
+`apps/shell/wrangler.jsonc`: `"main": "../shell-bff/src/worker.ts"`,
+`assets.run_worker_first: ["/api/*"]` and `assets.binding: "ASSETS"` (wrangler refuses a binding on
+an assets-only Worker, so it left with the other two). `manifest:check` refuses the switch until
+they are back.
+
+The shell's response headers live in `apps/shell/public/_headers`: HSTS for this host only (no
+`includeSubDomains`, no preload), `nosniff`, a `strict-origin-when-cross-origin` referrer policy and
+`frame-ancestors 'none'`, plus the cache rules for the manifest and the hashed chunks. Redirecting
+plain HTTP to HTTPS is a zone setting (Always Use HTTPS) in the Cloudflare dashboard, not part of the
+repository.
+
 Deploys run from a developer machine: Actions is off for the repository (ADR-0013), so nothing
 publishes on merge. The environment lives in the **manifest**, never
 in the build (ADR-0010). With `CLOUDFLARE_API_TOKEN` set in the shell:
 
 ```bash
 pnpm run manifest:check                       # validate every environment manifest
-for app in iam feature-flags audit-logs shell; do
+for app in shell iam feature-flags audit-logs; do
   ATLAS_ENV=production pnpm exec nx run $app:deploy
 done
 ```
 
-Deploy all four from the same commit, remotes first and the shell last. Shell and remotes share
-singletons at runtime, so a new shell in front of old remotes risks a version mismatch; the shell
-goes last because it carries the manifest that points browsers at the remotes. A merge does not
+Deploy all four from the same commit, **the shell first** and then the remotes. The shared libraries
+(`sharedMappings`) and packages are shared as singletons, and a remote takes the shell's copy rather
+than its own. So when a shared library gains an export that the remotes use, a new remote in front
+of the old shell fails as soon as it asks for that export; the new shell in front of old remotes only
+offers more than they need. The remotes stay at fixed URLs, so the shell's manifest still points at
+them during the minute in between. A merge does not
 deploy anything: on 2026-10-25 production turned out to be missing #38–#44 and was still serving
 the mock personas. After deploying, check the live manifest rather than the deploy log:
 `curl -s https://atlas-shell.eleo-666.workers.dev/federation.manifest.json`.
@@ -258,9 +275,10 @@ rebuild, no shell redeploy.
     run on the mock. **Production sign-in shown 2026-10-25**, after the redirect URL was
     allow-listed and all four Workers were redeployed: a GitHub sign-in on the live console, done
     by hand. No automated test drives it, and token refresh in production is not yet shown.
-  - [x] Edge BFF on the shell's Worker (`/api/*`), verifying tokens and enforcing authorization
+  - [x] Edge BFF for the shell's origin (`/api/*`), verifying tokens and enforcing authorization
     server-side — including invariants the client cannot, such as refusing to demote the last admin.
-    Closed a real hole: a viewer could toggle a feature flag (ADR-0011).
+    Closed a real hole: a viewer could toggle a feature flag (ADR-0011). Built and tested, not
+    deployed: production serves assets only while `apiMode` is `mock` (see Deploying).
   - [x] Remotes call the BFF over HTTP behind a contract, selected by the manifest's `apiMode`;
     the mock stays the default so the console runs with no backend.
   - [ ] PR previews. Not built; they need a workflow to run in, and Actions is disabled (ADR-0013).

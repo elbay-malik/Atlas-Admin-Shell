@@ -635,9 +635,9 @@ the screens' `p-6` edge.
   than dropping it to `<body>`.
 - **Two tones.** Normal `text` for something to know ("Signed out."), `on-danger` for
   something that failed. No fill and no coloured edge, per The Rationed Colour Rule.
-- **It never shows text from the URL.** A provider error reaches the screen only as a
-  short machine code, because anyone can craft that link. The free-text description
-  goes to the console.
+- **It never shows text from the URL.** A provider error reaches the screen as one
+  generic sentence, "Sign-in with GitHub could not be completed. Try again.", because
+  anyone can craft that link. The provider's code and description go to the console.
 
 ### Demo Session
 

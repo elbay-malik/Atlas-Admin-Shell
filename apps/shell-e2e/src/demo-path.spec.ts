@@ -36,6 +36,15 @@ async function bootOn(page: Page, overrides: Record<string, unknown>): Promise<v
 
 const REAL_AUTH = { kind: 'nhost', url: AUTH_BASE, provider: 'github' };
 
+/** What signIn() leaves in the tab before it goes to the provider; first load only. */
+const markSignInStarted = (page: Page) =>
+  page.addInitScript(() => {
+    if (!sessionStorage.getItem('e2e.marked')) {
+      sessionStorage.setItem('e2e.marked', '1');
+      sessionStorage.setItem('atlas.auth.signin', String(Date.now()));
+    }
+  });
+
 /** Answers the token endpoint with a viewer, as the provider would after a redirect. */
 async function fakeProvider(page: Page): Promise<void> {
   await page.route(`${AUTH_BASE}/token`, async (route) => {
@@ -217,6 +226,7 @@ test.describe('with real auth configured and apiMode mock', () => {
       route.fulfill({ status: 401, headers: CORS, json: {} })
     );
     const credentialed = watchCredentials(page);
+    await markSignInStarted(page);
 
     await page.goto('/?refreshToken=refused');
     await expect(page.getByTestId('shell-notice')).toContainText('could not be completed');
@@ -275,6 +285,7 @@ test.describe('with real auth configured and apiMode mock', () => {
     const second = await context.newPage();
     await bootOn(second, { apiMode: 'mock', auth: REAL_AUTH });
     await fakeProvider(second);
+    await markSignInStarted(second);
     await second.goto('/?refreshToken=from-provider');
     await expect(second.getByRole('button', { name: 'Sign out' })).toBeVisible();
 

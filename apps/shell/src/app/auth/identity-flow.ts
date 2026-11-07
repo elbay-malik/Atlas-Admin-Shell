@@ -199,12 +199,7 @@ export class IdentityFlow {
     const name = this.provider || 'the provider';
     switch (issue.kind) {
       case 'sign-in-rejected':
-        this.notice.show(
-          issue.code
-            ? `Sign-in with ${name} failed: ${issue.code}. Try again.`
-            : `Sign-in with ${name} could not be completed. Try again.`,
-          'problem'
-        );
+        this.notice.show(`Sign-in with ${name} could not be completed. Try again.`, 'problem');
         return;
       case 'provider-unreachable':
         this.notice.show(

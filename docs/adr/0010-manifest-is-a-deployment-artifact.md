@@ -236,6 +236,10 @@ unchanged — absent already meant mock — but the edge BFF is deployed on the 
 reader was entitled to assume production talks to it. It does not, and cannot, until an identity
 provider exists (ADR-0006). Writing it down turns a default into a decision.
 
+Since 2026-11-07 the edge BFF is not deployed at all while this value is `mock`: the shell's Worker
+serves assets only, and `manifest:check` refuses `http` until the BFF keys are back in
+`apps/shell/wrangler.jsonc` (ADR-0011, Update 2026-11-07).
+
 ## References
 
 - https://developers.cloudflare.com/workers/static-assets/

@@ -65,6 +65,26 @@ function issuerMismatch(manifest) {
         'the browser would sign in and the edge would refuse every resulting token';
 }
 
+/**
+ * The shell's Worker is assets-only while the manifest says apiMode "mock": no
+ * request runs Worker code. A manifest that switches to "http" would send the
+ * console to /api, which would then answer with index.html. So the switch is
+ * refused until apps/shell/wrangler.jsonc names the BFF entry again (an
+ * uncommented top-level "main" key), scopes it with run_worker_first and binds
+ * the assets the Worker falls through to.
+ */
+function workerMismatch(manifest) {
+  if (manifest?.apiMode !== 'http' || !existsSync(WRANGLER)) return null;
+  const config = readFileSync(WRANGLER, 'utf8');
+  const hasMain = /^\s*"main"\s*:/m.test(config);
+  const scoped = /^\s*"run_worker_first"\s*:/m.test(config);
+  const bound = /^\s*"binding"\s*:/m.test(config);
+  return hasMain && scoped && bound
+    ? null
+    : 'apiMode is "http" but apps/shell/wrangler.jsonc is assets-only — re-add "main", ' +
+        'assets.binding and assets.run_worker_first so /api/* reaches the edge BFF';
+}
+
 // Mirrors isAtlasManifest from @atlas/shared-contracts, plus deployment-only
 // rules the runtime guard has no reason to enforce. Duplicated deliberately:
 // this script must run before, and without, a TypeScript build.
@@ -299,6 +319,8 @@ function main() {
     // must stay a pure function of the manifest for the parity suite.
     const mismatch = issuerMismatch(parsed);
     if (mismatch) found.push(mismatch);
+    const worker = workerMismatch(parsed);
+    if (worker) found.push(worker);
     if (found.length) {
       console.error(`✖ ${env}:`);
       for (const p of found) console.error(`    ${p}`);

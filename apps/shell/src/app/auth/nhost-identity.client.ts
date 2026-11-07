@@ -12,9 +12,16 @@ const REDIRECT_PARAM = 'refreshToken';
 /** How the provider reports a failed sign-in on the same redirect. */
 const ERROR_CODE_PARAM = 'error';
 const ERROR_DETAIL_PARAMS = ['errorDescription', 'error_description'];
-/** The only shape of provider code the console will show; see readProviderError. */
-const SAFE_ERROR_CODE = /^[A-Za-z0-9_.-]{1,64}$/;
 const DEFAULT_STORAGE_KEY = 'atlas.auth';
+/**
+ * Set by signIn() just before the tab leaves for the provider, and read once by
+ * the next initialize(). A redirect token is accepted only while it is present,
+ * so a token arrives only on the return from a sign-in this tab started.
+ * sessionStorage, because it belongs to this tab and survives the round trip.
+ */
+export const SIGN_IN_MARKER_KEY = 'atlas.auth.signin';
+/** A sign-in that took longer than this to come back is treated as not started. */
+export const SIGN_IN_MARKER_TTL_MS = 10 * 60_000;
 /** Refresh this far before expiry, so a request never races the clock. */
 const REFRESH_SKEW_MS = 60_000;
 /** Never schedule a timer tighter than this, even for a very short-lived token. */
@@ -77,23 +84,70 @@ export class NhostIdentityClient implements AtlasIdentityClient {
 
   async initialize(): Promise<void> {
     this.issue = this.readProviderError();
-    const fromRedirect = this.takeRedirectToken();
+    // Both read on every boot: the marker is spent and the URL token leaves the
+    // address bar whether or not either one is used.
+    const started = this.takeSignInMarker();
+    const inUrl = this.takeRedirectToken();
+    if (inUrl && !started) {
+      // Not a return from this tab's own sign-in, so it is not used at all and
+      // the stored session carries on as if the URL had held nothing.
+      console.warn('[atlas-auth] ignored a sign-in token this tab did not ask for');
+    }
+    const fromRedirect = started ? inUrl : null;
     const stored = this.readStored();
-    const token = fromRedirect ?? stored;
-    if (!token) return;
 
+    if (fromRedirect) {
+      const outcome = await this.completeSignIn(fromRedirect, stored);
+      if (outcome !== 'rejected' || !stored) return;
+      // The new sign-in failed, but the session already here is untouched by
+      // that and still gets its chance. The sign-in notice stays the one shown.
+      const reported = this.issue;
+      await this.restore(stored);
+      this.issue = reported;
+      return;
+    }
+    if (stored) await this.restore(stored);
+  }
+
+  /**
+   * Exchanges the token the provider just sent back.
+   *
+   * The stored token is never overwritten or removed on account of the redirect
+   * until an exchange has succeeded: exchange() writes the rotated token only on
+   * success. The one write without a success is the provider-unreachable case
+   * with nothing stored, where keeping the redirect token is the only way a
+   * reload can finish this sign-in. With a token already stored, that token is
+   * kept as it is and the sign-in is simply not finished.
+   */
+  private async completeSignIn(
+    token: string,
+    stored: string | null
+  ): Promise<'signed-in' | 'unreachable' | 'rejected'> {
     try {
       await this.exchange(token);
+      return 'signed-in';
+    } catch (error) {
+      if (error instanceof ProviderUnreachable) {
+        if (!stored) this.writeStored(token);
+        this.issue = { kind: 'provider-unreachable', during: 'sign-in' };
+        console.warn('[atlas-auth] the identity provider did not answer', error);
+        return 'unreachable';
+      }
+      this.issue = { kind: 'sign-in-rejected' };
+      console.error('[atlas-auth] sign-in could not be completed', error);
+      return 'rejected';
+    }
+  }
+
+  /** Restores the session from the stored token. */
+  private async restore(stored: string): Promise<void> {
+    try {
+      await this.exchange(stored);
     } catch (error) {
       if (error instanceof ProviderUnreachable) {
         // Keep the token: this is the provider being asleep, and clearing it
-        // would turn a slow minute into a forced sign-in. The redirect's token
-        // has already left the URL, so storage is the only way a reload retries.
-        if (fromRedirect) this.writeStored(fromRedirect);
-        this.issue = {
-          kind: 'provider-unreachable',
-          during: fromRedirect ? 'sign-in' : 'restore',
-        };
+        // would turn a slow minute into a forced sign-in.
+        this.issue = { kind: 'provider-unreachable', during: 'restore' };
         console.warn('[atlas-auth] the identity provider did not answer', error);
         return;
       }
@@ -101,12 +155,7 @@ export class NhostIdentityClient implements AtlasIdentityClient {
       // Clearing is what makes the next load a clean signed-out state rather
       // than a retry loop against a dead token.
       this.clear();
-      if (fromRedirect) {
-        this.issue = { kind: 'sign-in-rejected', code: null };
-        console.error('[atlas-auth] sign-in could not be completed', error);
-      } else {
-        this.issue = { kind: 'session-expired' };
-      }
+      this.issue = { kind: 'session-expired' };
     }
   }
 
@@ -140,6 +189,12 @@ export class NhostIdentityClient implements AtlasIdentityClient {
     // allow-list short, which is also why the intended route does not travel
     // here: the shell keeps it in sessionStorage (see intended-route.ts).
     target.searchParams.set('redirectTo', `${location.origin}/`);
+    try {
+      sessionStorage.setItem(SIGN_IN_MARKER_KEY, String(Date.now()));
+    } catch {
+      // Storage refused: the return from the provider will be ignored, which
+      // costs this sign-in and nothing else.
+    }
     location.assign(target.toString());
   }
 
@@ -150,11 +205,16 @@ export class NhostIdentityClient implements AtlasIdentityClient {
     this.clear();
     if (!refreshToken) return;
     try {
-      await fetch(`${this.base}/signout`, {
+      const response = await fetch(`${this.base}/signout`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
       });
+      if (!response.ok) {
+        console.warn(
+          `[atlas-auth] sign-out could not be recorded by the provider: ${response.status}`
+        );
+      }
     } catch (error) {
       console.warn('[atlas-auth] sign-out could not be recorded by the provider', error);
     }
@@ -173,17 +233,34 @@ export class NhostIdentityClient implements AtlasIdentityClient {
    */
   private takeRedirectToken(): string | null {
     const token = this.readParam(REDIRECT_PARAM);
-    if (!token) return null;
+    if (token === null) return null;
     this.stripParams([REDIRECT_PARAM]);
-    return token;
+    return token || null;
+  }
+
+  /**
+   * Reads and removes the marker signIn() left. True only when it is there and
+   * younger than SIGN_IN_MARKER_TTL_MS; removed in every case, so one sign-in
+   * accepts at most one redirect.
+   */
+  private takeSignInMarker(): boolean {
+    try {
+      const value = sessionStorage.getItem(SIGN_IN_MARKER_KEY);
+      sessionStorage.removeItem(SIGN_IN_MARKER_KEY);
+      if (value === null) return false;
+      const age = Date.now() - Number(value);
+      return Number.isFinite(age) && age >= 0 && age <= SIGN_IN_MARKER_TTL_MS;
+    } catch {
+      return false;
+    }
   }
 
   /**
    * Reads a failed sign-in off the redirect and removes it from the URL.
    *
-   * The URL is attacker-writable, so only a short machine code may reach the
-   * screen. The free-text description goes to the console and nowhere else;
-   * rendering it would let a crafted link put any sentence in the admin console.
+   * The URL can be written by anyone who makes a link, so nothing from it
+   * reaches the screen: the notice is always the same generic sentence, and
+   * the provider's code and description go to the console only.
    */
   private readProviderError(): IdentityIssue | null {
     const code = this.readParam(ERROR_CODE_PARAM);
@@ -192,10 +269,7 @@ export class NhostIdentityClient implements AtlasIdentityClient {
 
     this.stripParams([ERROR_CODE_PARAM, ...ERROR_DETAIL_PARAMS]);
     console.error('[atlas-auth] the provider refused the sign-in', code, detail);
-    return {
-      kind: 'sign-in-rejected',
-      code: code !== null && SAFE_ERROR_CODE.test(code) ? code : null,
-    };
+    return { kind: 'sign-in-rejected' };
   }
 
   private readParam(name: string): string | null {
