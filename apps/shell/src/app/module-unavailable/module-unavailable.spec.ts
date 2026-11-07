@@ -1,4 +1,4 @@
-import { isInternalPath } from './module-unavailable';
+import { isInternalPath, manifestDisplayName } from './module-unavailable';
 
 /**
  * `returnUrl` is attacker-controllable: anyone can hand-craft
@@ -24,5 +24,26 @@ describe('returnUrl handling', () => {
     expect(isInternalPath('iam')).toBe(false);
     expect(isInternalPath('')).toBe(false);
     expect(isInternalPath(null)).toBe(false);
+  });
+});
+
+/** The route parameter is URL text, so only the manifest may name the module. */
+describe('the name on the unavailable screen', () => {
+  const remotes = { iam: { displayName: 'Identity & Access' }, bare: {} };
+
+  it('uses the manifest displayName of a declared remote', () => {
+    expect(manifestDisplayName(remotes, 'iam')).toBe('Identity & Access');
+  });
+
+  it('never shows the route parameter', () => {
+    expect(manifestDisplayName(remotes, 'Any sentence at all')).toBe('This module');
+    expect(manifestDisplayName(remotes, 'bare')).toBe('This module');
+    expect(manifestDisplayName(remotes, null)).toBe('This module');
+  });
+
+  it('ignores names inherited from Object.prototype', () => {
+    expect(manifestDisplayName(remotes, 'constructor')).toBe('This module');
+    expect(manifestDisplayName(remotes, '__proto__')).toBe('This module');
+    expect(manifestDisplayName(remotes, 'toString')).toBe('This module');
   });
 });

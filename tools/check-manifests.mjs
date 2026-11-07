@@ -11,6 +11,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getStaticJSONValue, parseJSON } from 'jsonc-eslint-parser';
 
 /** Anchored to the repo, not the caller's cwd — the deploy target runs inside apps/<app>. */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -63,6 +64,34 @@ function issuerMismatch(manifest) {
     ? null
     : `auth.url (${origin}) and the Worker's ATLAS_JWT_ISSUER (${issuer}) name different projects — ` +
         'the browser would sign in and the edge would refuse every resulting token';
+}
+
+/**
+ * The shell's Worker is assets-only while the manifest says apiMode "mock": no
+ * request runs Worker code. A manifest that switches to "http" would send the
+ * console to /api, which would then answer with index.html. So the switch is
+ * refused until apps/shell/wrangler.jsonc names the BFF entry again (a
+ * top-level "main"), scopes it with assets.run_worker_first and binds the
+ * assets the Worker falls through to (assets.binding).
+ */
+function workerMismatch(manifest) {
+  if (manifest?.apiMode !== 'http' || !existsSync(WRANGLER)) return null;
+  // Parsed, not matched by line: each key has to sit where wrangler reads it, so
+  // another binding elsewhere in the file cannot stand in for assets.binding.
+  let config;
+  try {
+    config = getStaticJSONValue(parseJSON(readFileSync(WRANGLER, 'utf8')));
+  } catch (error) {
+    return `apps/shell/wrangler.jsonc could not be parsed: ${error.message}`;
+  }
+  const firstOnly = config?.assets?.run_worker_first;
+  const hasMain = typeof config?.main === 'string' && config.main.length > 0;
+  const scoped = Array.isArray(firstOnly) || firstOnly === true;
+  const bound = typeof config?.assets?.binding === 'string' && config.assets.binding.length > 0;
+  return hasMain && scoped && bound
+    ? null
+    : 'apiMode is "http" but apps/shell/wrangler.jsonc is assets-only — re-add "main", ' +
+        'assets.binding and assets.run_worker_first so /api/* reaches the edge BFF';
 }
 
 // Mirrors isAtlasManifest from @atlas/shared-contracts, plus deployment-only
@@ -299,6 +328,8 @@ function main() {
     // must stay a pure function of the manifest for the parity suite.
     const mismatch = issuerMismatch(parsed);
     if (mismatch) found.push(mismatch);
+    const worker = workerMismatch(parsed);
+    if (worker) found.push(worker);
     if (found.length) {
       console.error(`✖ ${env}:`);
       for (const p of found) console.error(`    ${p}`);

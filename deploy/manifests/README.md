@@ -14,8 +14,11 @@ it went stale once already, and the failure mode is a console that boots with ze
 
 ## Why production says `apiMode: "mock"`
 
-The edge BFF is deployed (it shares the shell's Worker) and verifies real tokens against a JWKS
-endpoint. The reason first recorded here — no identity provider, so every request would answer
+The edge BFF verifies real tokens against a JWKS endpoint, and is built and tested to do so. It is
+left out of the shell's deploy while this says `mock`: the shell's Worker is configured assets-only,
+so from the next shell deploy no production request runs Worker code (Update, 2026-11-07, ADR-0011). Moving to `http` therefore means re-adding
+`"main"`, `assets.run_worker_first` and `assets.binding` to `apps/shell/wrangler.jsonc` first;
+`manifest:check` refuses `http` while any is missing. The reason first recorded here — no identity provider, so every request would answer
 401 — no longer holds: the manifest's `auth` block now names a real Nhost project, and the
 Worker's `ATLAS_JWT_ISSUER` names the same one (ADR-0014; `manifest:check` fails if the two
 disagree). The value is still `mock`, and no change since records a decision on when it should
@@ -31,10 +34,11 @@ sign-in completed by hand after all four Workers were redeployed (ADR-0014).
 
 `node tools/check-manifests.mjs --require <env>` asserts that one NAMED environment exists, and the
 deploy workflow runs it before a single upload. Plain `manifest:check` validates whatever manifests
-happen to be present, which does not answer *"can this deploy proceed"* — and the workflow publishes
-the three remotes two steps later. Selecting an environment with no manifest used to publish the
-remotes and only then fail on the shell, leaving the platform half-deployed with newer remotes and
-an older shell.
+happen to be present, which does not answer *"can this deploy proceed"* — and the workflow starts
+uploading on the next step. Selecting an environment with no manifest used to publish the remotes
+and only then fail on the shell, leaving the platform half-deployed with newer remotes and an older
+shell. The workflow now publishes the shell first (see the root README, Deploying), and the
+pre-flight still runs before either.
 
 Adding an environment therefore means three things, not one: the directory here, the `options:` list
 in `.github/workflows/deploy.yml`, and a check that the shell's `deploy` target does what that

@@ -1,4 +1,9 @@
-import { NhostIdentityClient, TOKEN_EXCHANGE_TIMEOUT_MS } from './nhost-identity.client';
+import {
+  NhostIdentityClient,
+  SIGN_IN_MARKER_KEY,
+  SIGN_IN_MARKER_TTL_MS,
+  TOKEN_EXCHANGE_TIMEOUT_MS,
+} from './nhost-identity.client';
 
 const BASE = 'https://project.auth.eu-central-1.nhost.run/v1';
 const STORAGE_KEY = 'atlas.auth';
@@ -30,8 +35,20 @@ function atUrl(search: string) {
   history.replaceState(null, '', `/${search}`);
 }
 
+/** What signIn() leaves behind before the tab goes to the provider. */
+function startedSignIn(at = Date.now()) {
+  sessionStorage.setItem(SIGN_IN_MARKER_KEY, String(at));
+}
+
+/** Returning from this tab's own sign-in: the marker is set and the URL holds the token. */
+function returnedWith(search: string) {
+  startedSignIn();
+  atUrl(search);
+}
+
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   atUrl('');
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
@@ -50,7 +67,7 @@ const client = () => new NhostIdentityClient({ url: BASE });
 
 describe('NhostIdentityClient — returning from a redirect', () => {
   it('exchanges the refresh token the provider put in the URL', async () => {
-    atUrl('?refreshToken=from-redirect');
+    returnedWith('?refreshToken=from-redirect');
     fetchMock.mockResolvedValue(ok(sessionBody()));
 
     const c = client();
@@ -69,7 +86,7 @@ describe('NhostIdentityClient — returning from a redirect', () => {
    * from this page. It is single-use, but a single use mints a session.
    */
   it('removes the token from the URL', async () => {
-    atUrl('?refreshToken=from-redirect');
+    returnedWith('?refreshToken=from-redirect');
     fetchMock.mockResolvedValue(ok(sessionBody()));
 
     await client().initialize();
@@ -81,7 +98,7 @@ describe('NhostIdentityClient — returning from a redirect', () => {
   it('removes it even when the exchange FAILS', async () => {
     // Stripped before the network call, not after — otherwise a provider
     // outage leaves the credential on screen.
-    atUrl('?refreshToken=from-redirect');
+    returnedWith('?refreshToken=from-redirect');
     fetchMock.mockResolvedValue(fail());
 
     await client().initialize();
@@ -90,7 +107,7 @@ describe('NhostIdentityClient — returning from a redirect', () => {
   });
 
   it('preserves the rest of the query string', async () => {
-    atUrl('?refreshToken=from-redirect&route=flags');
+    returnedWith('?refreshToken=from-redirect&route=flags');
     fetchMock.mockResolvedValue(ok(sessionBody()));
 
     await client().initialize();
@@ -100,6 +117,7 @@ describe('NhostIdentityClient — returning from a redirect', () => {
   });
 
   it('also finds it in the fragment, where some providers put it', async () => {
+    startedSignIn();
     history.replaceState(null, '', '/#refreshToken=in-hash');
     fetchMock.mockResolvedValue(ok(sessionBody()));
 
@@ -115,7 +133,7 @@ describe('NhostIdentityClient — rotation and persistence', () => {
     // The provider invalidates a refresh token on use. Storing the spent one
     // would force a sign-in on the next load — a failure that surfaces a whole
     // session after its cause.
-    atUrl('?refreshToken=first');
+    returnedWith('?refreshToken=first');
     fetchMock.mockResolvedValue(ok(sessionBody({ refreshToken: 'second' })));
 
     await client().initialize();
@@ -304,7 +322,7 @@ describe('NhostIdentityClient — a provider that does not answer', () => {
   });
 
   it('keeps a redirect token for the reload, and still takes it out of the URL', async () => {
-    atUrl('?refreshToken=from-redirect');
+    returnedWith('?refreshToken=from-redirect');
     fetchMock.mockImplementation(hang);
 
     const c = client();
@@ -371,7 +389,7 @@ describe('NhostIdentityClient — a sign-in that failed', () => {
     const c = client();
     await c.initialize();
 
-    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: 'access_denied' });
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected' });
     expect(location.search).toBe('?route=flags');
   });
 
@@ -381,18 +399,18 @@ describe('NhostIdentityClient — a sign-in that failed', () => {
     const c = client();
     await c.initialize();
 
-    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: 'access_denied' });
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected' });
     expect(location.hash).toBe('');
   });
 
-  /** The URL is attacker-writable: a crafted link must not write into the console. */
-  it('never carries free text from the URL towards the screen', async () => {
+  /** Anyone can write the URL, so nothing from it may travel towards the screen. */
+  it('never carries text from the URL towards the screen, not even a code', async () => {
     atUrl(`?error=${encodeURIComponent('Call 555-0100 to restore access')}&errorDescription=Pay+up`);
 
     const c = client();
     await c.initialize();
 
-    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: null });
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected' });
     expect(location.search).toBe('');
   });
 
@@ -402,18 +420,18 @@ describe('NhostIdentityClient — a sign-in that failed', () => {
     const c = client();
     await c.initialize();
 
-    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: null });
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected' });
     expect(location.search).toBe('');
   });
 
   it('reports a redirect token the provider refuses', async () => {
-    atUrl('?refreshToken=from-redirect');
+    returnedWith('?refreshToken=from-redirect');
     fetchMock.mockResolvedValue(fail());
 
     const c = client();
     await c.initialize();
 
-    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected', code: null });
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected' });
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
@@ -447,5 +465,258 @@ describe('NhostIdentityClient — a sign-in that failed', () => {
     await client().initialize();
 
     expect(location.hash).toBe('#main-content');
+  });
+});
+
+describe('NhostIdentityClient — a token only from a sign-in this tab started', () => {
+  let warn: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ['the query', '?refreshToken=unasked&route=flags'],
+    ['the fragment', '#refreshToken=unasked'],
+  ])('ignores a token in %s with no sign-in started, and strips it', async (_where, url) => {
+    atUrl(url);
+
+    const c = client();
+    await c.initialize();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(c.claims()).toBeNull();
+    expect(c.takeIssue()).toBeNull();
+    expect(location.href).not.toContain('unasked');
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0])).not.toContain('unasked');
+  });
+
+  it('keeps restoring the stored session as if the URL held nothing', async () => {
+    localStorage.setItem(STORAGE_KEY, 'stored-token');
+    atUrl('?refreshToken=unasked');
+    fetchMock.mockResolvedValue(ok(sessionBody({ refreshToken: 'stored-rotated' })));
+
+    const c = client();
+    await c.initialize();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ refreshToken: 'stored-token' });
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('stored-rotated');
+    expect(location.href).not.toContain('unasked');
+  });
+
+  it('ignores a token once the sign-in is older than the limit', async () => {
+    startedSignIn(Date.now() - SIGN_IN_MARKER_TTL_MS - 1);
+    atUrl('?refreshToken=late');
+
+    const c = client();
+    await c.initialize();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(location.href).not.toContain('late');
+    expect(sessionStorage.getItem(SIGN_IN_MARKER_KEY)).toBeNull();
+  });
+
+  it.each([['not a number'], [String(Date.now() + 60_000)]])(
+    'ignores a token when the marker reads %s',
+    async (value) => {
+      sessionStorage.setItem(SIGN_IN_MARKER_KEY, value);
+      atUrl('?refreshToken=from-redirect');
+
+      await client().initialize();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it('spends the marker on every boot, token or not', async () => {
+    startedSignIn();
+
+    await client().initialize();
+    expect(sessionStorage.getItem(SIGN_IN_MARKER_KEY)).toBeNull();
+
+    atUrl('?refreshToken=after');
+    await client().initialize();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('spends it on a successful return too, so one sign-in takes one token', async () => {
+    returnedWith('?refreshToken=from-redirect');
+    fetchMock.mockResolvedValue(ok(sessionBody()));
+
+    await client().initialize();
+
+    expect(sessionStorage.getItem(SIGN_IN_MARKER_KEY)).toBeNull();
+  });
+
+  it('signIn leaves the marker before it leaves the page', async () => {
+    const assign = vi.fn(() => {
+      expect(Number(sessionStorage.getItem(SIGN_IN_MARKER_KEY))).toBeGreaterThan(0);
+    });
+    vi.stubGlobal('location', { origin: 'https://atlas.test', assign });
+
+    await client().signIn('github');
+
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  /** The page as the browser's back/forward cache hands it back, or a fresh load. */
+  function pageshow(persisted: boolean) {
+    const event = new Event('pageshow');
+    Object.defineProperty(event, 'persisted', { value: persisted });
+    window.dispatchEvent(event);
+  }
+
+  it('a page restored from the back/forward cache drops the marker', async () => {
+    vi.stubGlobal('location', { origin: 'https://atlas.test', assign: vi.fn() });
+    await client().signIn('github');
+
+    pageshow(true);
+
+    expect(sessionStorage.getItem(SIGN_IN_MARKER_KEY)).toBeNull();
+  });
+
+  it('an ordinary page show keeps the marker for the redirect', async () => {
+    vi.stubGlobal('location', { origin: 'https://atlas.test', assign: vi.fn() });
+    await client().signIn('github');
+
+    pageshow(false);
+
+    expect(sessionStorage.getItem(SIGN_IN_MARKER_KEY)).not.toBeNull();
+  });
+
+  it('replaces the stored token only once the new sign-in has succeeded', async () => {
+    localStorage.setItem(STORAGE_KEY, 'stored-token');
+    returnedWith('?refreshToken=from-redirect');
+    fetchMock.mockResolvedValue(ok(sessionBody({ refreshToken: 'new-rotated' })));
+
+    await client().initialize();
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ refreshToken: 'from-redirect' });
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('new-rotated');
+  });
+
+  it('a refused redirect token leaves a different stored token, which still restores', async () => {
+    localStorage.setItem(STORAGE_KEY, 'stored-token');
+    returnedWith('?refreshToken=refused');
+    fetchMock
+      .mockResolvedValueOnce(fail(401))
+      .mockResolvedValueOnce(ok(sessionBody({ refreshToken: 'stored-rotated' })));
+
+    const c = client();
+    await c.initialize();
+
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ refreshToken: 'stored-token' });
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('stored-rotated');
+    expect(c.claims()).not.toBeNull();
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected' });
+  });
+
+  it('a refused redirect token with no stored token leaves nothing stored', async () => {
+    returnedWith('?refreshToken=refused');
+    fetchMock.mockResolvedValue(fail(400));
+
+    const c = client();
+    await c.initialize();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected' });
+  });
+
+  it('a refused redirect token and a refused stored token: the stored one clears', async () => {
+    localStorage.setItem(STORAGE_KEY, 'stored-dead');
+    returnedWith('?refreshToken=refused');
+    fetchMock.mockResolvedValue(fail(401));
+
+    const c = client();
+    await c.initialize();
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(c.takeIssue()).toEqual({ kind: 'sign-in-rejected' });
+  });
+
+  it.each([
+    ['a provider 5xx', () => Promise.resolve(fail(503))],
+    ['a network failure', () => Promise.reject(new TypeError('Failed to fetch'))],
+  ])('%s during sign-in never writes over a stored token', async (_name, respond) => {
+    localStorage.setItem(STORAGE_KEY, 'stored-token');
+    returnedWith('?refreshToken=from-redirect');
+    fetchMock.mockImplementation(respond);
+
+    const c = client();
+    await c.initialize();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('stored-token');
+    expect(location.href).not.toContain('from-redirect');
+    expect(c.takeIssue()).toEqual({ kind: 'provider-unreachable', during: 'sign-in' });
+  });
+
+  it('a timed-out exchange during sign-in never writes over a stored token', async () => {
+    vi.useFakeTimers();
+    localStorage.setItem(STORAGE_KEY, 'stored-token');
+    returnedWith('?refreshToken=from-redirect');
+    fetchMock.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError'))
+          );
+        })
+    );
+
+    const c = client();
+    const done = c.initialize();
+    await vi.advanceTimersByTimeAsync(TOKEN_EXCHANGE_TIMEOUT_MS);
+    await done;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('stored-token');
+    expect(location.href).not.toContain('from-redirect');
+    expect(c.takeIssue()).toEqual({ kind: 'provider-unreachable', during: 'sign-in' });
+  });
+
+  it('a provider 5xx during sign-in with nothing stored keeps the redirect token for a reload', async () => {
+    returnedWith('?refreshToken=from-redirect');
+    fetchMock.mockResolvedValue(fail(502));
+
+    await client().initialize();
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('from-redirect');
+  });
+});
+
+describe('NhostIdentityClient — sign out that the provider did not record', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('clears locally first and warns when the provider answers with an error', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    localStorage.setItem(STORAGE_KEY, 'stored');
+    fetchMock.mockResolvedValueOnce(ok(sessionBody()));
+    const c = client();
+    await c.initialize();
+
+    fetchMock.mockResolvedValue(fail(500));
+    await c.signOut();
+
+    expect(c.claims()).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('500'));
+  });
+
+  it('stays quiet when the provider records it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    localStorage.setItem(STORAGE_KEY, 'stored');
+    fetchMock.mockResolvedValue(ok(sessionBody()));
+    const c = client();
+    await c.initialize();
+
+    await c.signOut();
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });

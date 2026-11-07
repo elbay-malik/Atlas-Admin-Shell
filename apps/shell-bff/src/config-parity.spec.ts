@@ -9,7 +9,7 @@ declare const __TEST_WRANGLER__: string;
 /**
  * The tests run against wrangler.test.jsonc, but production behaviour is decided
  * by apps/shell/wrangler.jsonc — which no test loads. Without this, a changed
- * compatibility_date, a dropped run_worker_first entry or a switched
+ * compatibility_date, a changed run_worker_first entry or a switched
  * not_found_handling would leave every test green while changing what deploys.
  *
  * This does not make the duplication go away; it makes it loud.
@@ -55,8 +55,25 @@ describe('the test config mirrors what actually deploys', () => {
     expect(test['compatibility_date']).toBe(shell['compatibility_date']);
   });
 
-  it('scopes the Worker to the same paths', () => {
-    expect(assetsOf(test)['run_worker_first']).toEqual(assetsOf(shell)['run_worker_first']);
+  /**
+   * While the production manifest's apiMode is "mock" the shell deploys
+   * assets-only: neither key is set and no request runs Worker code. When it
+   * switches to "http" both come back together, and this test then holds the
+   * deployed scope to the tested one.
+   */
+  it('deploys assets-only, or scopes the Worker to the same paths', () => {
+    const shellScope = assetsOf(shell)['run_worker_first'];
+    if (shell['main'] === undefined) {
+      expect(shellScope).toBeUndefined();
+      return;
+    }
+    expect(assetsOf(test)['run_worker_first']).toEqual(shellScope);
+  });
+
+  it('sets the Worker entry, its scope and its binding together or not at all', () => {
+    const absent = shell['main'] === undefined;
+    expect(assetsOf(shell)['run_worker_first'] === undefined).toBe(absent);
+    expect(assetsOf(shell)['binding'] === undefined).toBe(absent);
   });
 
   it('uses the same not_found_handling, so the SPA-fallback trap is reproduced', () => {
@@ -64,8 +81,13 @@ describe('the test config mirrors what actually deploys', () => {
   });
 
   it('binds the assets under the same name the Worker code uses', () => {
-    expect(assetsOf(test)['binding']).toBe(assetsOf(shell)['binding']);
     expect(assetsOf(test)['binding']).toBe('ASSETS');
+    // wrangler refuses an assets binding on an assets-only Worker.
+    if (shell['main'] === undefined) {
+      expect(assetsOf(shell)['binding']).toBeUndefined();
+      return;
+    }
+    expect(assetsOf(shell)['binding']).toBe(assetsOf(test)['binding']);
   });
 
   it('declares every var the Worker reads from env', () => {
@@ -98,7 +120,8 @@ describe('the test config mirrors what actually deploys', () => {
     }
   );
 
-  it('points the deployed config at this Worker source', () => {
+  it('points the deployed config at this Worker source when it runs one', () => {
+    if (shell['main'] === undefined) return;
     expect(shell['main']).toBe('../shell-bff/src/worker.ts');
   });
 
@@ -108,7 +131,6 @@ describe('the test config mirrors what actually deploys', () => {
    * never names it, so it is never bundled.
    */
   it('never ships the dev entry that trusts mock tokens', () => {
-    expect(shell['main']).not.toContain('worker.dev');
     expect(JSON.stringify(shell)).not.toContain('worker.dev');
   });
 });

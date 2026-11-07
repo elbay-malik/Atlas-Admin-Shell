@@ -16,12 +16,15 @@ import { InjectionToken } from '@angular/core';
  */
 export type IdentityIssue =
   /**
-   * The provider refused the sign-in. `code` is its short machine code when it
-   * sent one. Free text from the redirect is never carried here: anyone can
-   * craft that URL, so showing it would let a link write into the console.
+   * The provider refused the sign-in. Nothing from the redirect is carried
+   * here, not even the provider's code: anyone can craft that URL, so the
+   * screen says one generic sentence and the details go to the console.
    */
-  | { kind: 'sign-in-rejected'; code: string | null }
-  /** The provider did not answer. The token was kept, so a reload can retry. */
+  | { kind: 'sign-in-rejected' }
+  /**
+   * The provider did not answer. A stored token was kept, so a reload can
+   * retry; so was a redirect token when nothing else was stored.
+   */
   | { kind: 'provider-unreachable'; during: 'sign-in' | 'restore' }
   /** A stored session is no longer accepted. */
   | { kind: 'session-expired' };

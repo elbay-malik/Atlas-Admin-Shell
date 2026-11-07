@@ -5,9 +5,9 @@ max_score: 40
 na_heuristics: 
 p0_count: 1
 p1_count: 3
-target_identity: "file:/Users/elbaymalik/dev/eleo/atlas_admin_shell/apps/shell/src/app/layout/shell-layout.ts"
+target_identity: "file:apps/shell/src/app/layout/shell-layout.ts"
 target_fingerprint: "sha256:129b02f64df81fcd994ee960ebda2fd8cb5f516d89ac36d810b78c35d201657c"
-target_path: /Users/elbaymalik/dev/eleo/atlas_admin_shell/apps/shell/src/app/layout/shell-layout.ts
+target_path: apps/shell/src/app/layout/shell-layout.ts
 timestamp: 2026-11-03T21-11-48Z
 slug: apps-shell-src-app-layout-shell-layout-ts
 closed: true

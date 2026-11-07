@@ -2,8 +2,8 @@
   "$schema": "../../node_modules/wrangler/config-schema.json",
   // DEV/E2E ONLY — never deployed. `main` points at the dev entry, which trusts
   // the mock auth's fake token so the browser-to-BFF path can be exercised with
-  // no identity provider. apps/shell/wrangler.jsonc points at worker.ts, and
-  // config-parity.spec.ts asserts it.
+  // no identity provider. apps/shell/wrangler.jsonc names worker.ts whenever it
+  // runs the BFF at all, and config-parity.spec.ts asserts it.
   "name": "atlas-shell-dev",
   "main": "src/worker.dev.ts",
   "compatibility_date": "2026-09-05",

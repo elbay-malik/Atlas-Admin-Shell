@@ -68,16 +68,18 @@ jobs:
 
       # --require is the pre-flight: it asserts the SELECTED environment exists
       # before a single upload happens. Validating whatever manifests happen to
-      # be present does not answer "can this deploy proceed", and the remotes
-      # publish two steps below.
+      # be present does not answer "can this deploy proceed", and the uploads
+      # start on the next step.
       - run: node tools/check-manifests.mjs --require "$ATLAS_ENV"
 
-      # Remotes first: the shell's manifest points at them, so publishing the
-      # shell before its remotes exist would show every domain as offline.
-      - run: pnpm exec nx run-many -t deploy -p iam,feature-flags,audit-logs
-
+      # Shell first. Remotes take the shell's copy of every shared library, so a
+      # remote that uses a newly added export needs the new shell in place; an
+      # old remote in front of the new shell is only offered more than it needs.
+      #
       # The environment is applied to the BUILT artifact by the deploy target
       # itself, immediately before upload. It deliberately is NOT a separate step:
       # the deploy target depends on `build`, so anything run between the two
       # would be silently reverted when Nx re-ran the build (ADR-0010).
       - run: pnpm exec nx run shell:deploy
+
+      - run: pnpm exec nx run-many -t deploy -p iam,feature-flags,audit-logs

@@ -1,3 +1,21 @@
+# Every response from the shell's origin. Cloudflare applies every rule whose
+# path matches, so these combine with the narrower rules below; none of the
+# rules set the same header twice.
+#
+# HSTS without includeSubDomains or preload: it covers this host only, and the
+# zone's own HTTPS redirect is set in the Cloudflare dashboard, not here.
+# frame-ancestors is the whole policy on purpose: it stops the console being
+# framed by another site and restricts nothing else.
+# Cross-Origin-Opener-Policy keeps a page that opened the console from holding
+# on to its window. Sign-in is a full-page redirect, not a popup, so nothing
+# here needs an opener.
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: frame-ancestors 'none'
+  Cross-Origin-Opener-Policy: same-origin
+
 # The registry the whole console boots from. It must revalidate on every load,
 # or repointing a remote would not take effect until users hard-reload
 # (ADR-0010).
