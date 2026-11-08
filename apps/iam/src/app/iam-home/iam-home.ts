@@ -248,9 +248,16 @@ export class IamHome {
     return this.store.pendingIds().includes(id);
   }
 
+  /**
+   * The store may not take the change: a write already in flight for this row,
+   * a refusal or a signed-out session all leave the row as it was. The select
+   * has already moved, and `[value]` only writes when the bound value changes,
+   * so the select is put back to what the store holds after every attempt.
+   */
   protected onRoleChange(user: IamUser, event: Event): void {
-    const role = (event.target as HTMLSelectElement).value as AtlasRole;
-    this.store.changeRole({ id: user.id, role });
+    const select = event.target as HTMLSelectElement;
+    this.store.changeRole({ id: user.id, role: select.value as AtlasRole });
+    select.value = this.store.entityMap()[user.id]?.role ?? user.role;
   }
 
   /**

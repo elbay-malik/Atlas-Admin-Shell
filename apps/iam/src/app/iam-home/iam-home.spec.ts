@@ -101,6 +101,34 @@ describe('IamHome', () => {
     expect(document.activeElement).toBe(select('u-4'));
   });
 
+  it('puts the select back when a second change arrives while the first is in flight', async () => {
+    select('u-4').value = 'admin';
+    select('u-4').dispatchEvent(new Event('change'));
+    await TestBed.tick();
+    expect(row('u-4').dataset['pending']).toBe('true');
+
+    select('u-4').value = 'viewer';
+    select('u-4').dispatchEvent(new Event('change'));
+    await TestBed.tick();
+    expect(select('u-4').value).toBe('admin');
+
+    await settle();
+    expect(select('u-4').value).toBe('admin');
+    expect(TestBed.inject(IamUsersStore).entityMap()['u-4']?.role).toBe('admin');
+  });
+
+  it('puts the select back when a signed-out change is refused', async () => {
+    await (TestBed.inject(AtlasAuth) as MockAtlasAuth).logout();
+    await TestBed.tick();
+
+    select('u-4').value = 'admin';
+    select('u-4').dispatchEvent(new Event('change'));
+    await settle();
+
+    expect(select('u-4').value).toBe('viewer');
+    expect(TestBed.inject(IamUsersStore).entityMap()['u-4']?.role).toBe('viewer');
+  });
+
   it('stops offering Undo after undoing, and keeps the slot', async () => {
     toggle('u-3').click();
     await settle();
