@@ -18,6 +18,23 @@ export const SIGN_IN_STALL_MS = 15_000;
 /** Provider ids whose proper name is not just the id with a capital. */
 const PROVIDER_NAMES: Record<string, string> = { github: 'GitHub' };
 
+/**
+ * Where a provider reports its own outages. A stalled redirect is as likely to be
+ * the provider's sign-in page as the identity service in front of it: on
+ * 2026-11-08 GitHub timed out for signed-out visitors while Nhost answered.
+ */
+const PROVIDER_STATUS_PAGES: Record<string, string> = { github: 'githubstatus.com' };
+
+/** What the visitor is told when the redirect to the provider never got anywhere. */
+export function signInStalledMessage(provider: string | null): string {
+  const name = providerName(provider);
+  if (!name) return 'Sign-in did not open. The identity provider may be slow or waking up, so try again in a minute.';
+  const statusPage = provider ? PROVIDER_STATUS_PAGES[provider] : undefined;
+  return statusPage
+    ? `${name} did not open. ${name} or the identity provider may be slow or waking up. Check ${statusPage} for an ongoing incident, or try again in a minute.`
+    : `${name} did not open. ${name} or the identity provider may be slow or waking up, so try again in a minute.`;
+}
+
 export function providerName(provider: string | null): string {
   if (!provider) return '';
   return PROVIDER_NAMES[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1);
@@ -44,7 +61,8 @@ export class IdentityFlow {
   private readonly identity = inject(ATLAS_IDENTITY, { optional: true });
   private readonly demo = inject(DEMO_SESSION, { optional: true });
   private readonly window = inject(DOCUMENT).defaultView;
-  private readonly provider = providerName(inject(ATLAS_MANIFEST).auth?.provider ?? null);
+  private readonly providerId = inject(ATLAS_MANIFEST).auth?.provider ?? null;
+  private readonly provider = providerName(this.providerId);
 
   private previous = this.auth.user();
   private signingOut = false;
@@ -90,10 +108,7 @@ export class IdentityFlow {
     this.signingInState.set(true);
     this.stallTimer = setTimeout(() => {
       this.endSignIn();
-      this.notice.show(
-        `${this.provider || 'Sign-in'} did not open. The identity provider may be waking up, so try again in a minute.`,
-        'problem'
-      );
+      this.notice.show(signInStalledMessage(this.providerId), 'problem');
     }, SIGN_IN_STALL_MS);
     try {
       await this.auth.login(hint);

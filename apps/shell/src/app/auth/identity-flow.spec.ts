@@ -9,7 +9,7 @@ import { ATLAS_MANIFEST } from '../manifest.token';
 import { ShellNotice } from '../notice/shell-notice';
 import { RemoteLoader } from '../remotes/remote-loader';
 import { DEMO_USER, DemoAtlasAuth, provideDemoSession } from './demo-session';
-import { IdentityFlow, providerName, SIGN_IN_STALL_MS } from './identity-flow';
+import { IdentityFlow, providerName, SIGN_IN_STALL_MS, signInStalledMessage } from './identity-flow';
 import { ATLAS_IDENTITY, AtlasIdentityClient, IdentityIssue } from './identity.port';
 
 @Component({ selector: 'shell-remote-home', template: 'remote' })
@@ -395,7 +395,7 @@ describe('IdentityFlow', () => {
       await vi.advanceTimersByTimeAsync(SIGN_IN_STALL_MS);
 
       expect(flow.signingIn()).toBe(false);
-      expect(notice.current()?.text).toContain('GitHub did not open');
+      expect(notice.current()?.text).toBe(signInStalledMessage('github'));
       expect(notice.current()?.tone).toBe('problem');
     });
 
@@ -457,6 +457,26 @@ describe('IdentityFlow', () => {
     await router.navigateByUrl('/flags');
 
     expect(notice.current()).toBeNull();
+  });
+});
+
+describe('signInStalledMessage', () => {
+  it('names both possible causes and points at GitHub\'s status page', () => {
+    expect(signInStalledMessage('github')).toBe(
+      'GitHub did not open. GitHub or the identity provider may be slow or waking up. Check githubstatus.com for an ongoing incident, or try again in a minute.'
+    );
+  });
+
+  it('names both causes for a provider with no known status page', () => {
+    expect(signInStalledMessage('gitlab')).toBe(
+      'Gitlab did not open. Gitlab or the identity provider may be slow or waking up, so try again in a minute.'
+    );
+  });
+
+  it('falls back to a generic sentence with no provider', () => {
+    expect(signInStalledMessage(null)).toBe(
+      'Sign-in did not open. The identity provider may be slow or waking up, so try again in a minute.'
+    );
   });
 });
 
