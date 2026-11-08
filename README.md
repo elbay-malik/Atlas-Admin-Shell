@@ -288,7 +288,8 @@ rebuild, no shell redeploy.
   - [x] Lighthouse in CI over the production build, measuring both the shell alone and a **federated**
     route, so the cost of runtime composition is visible rather than assumed (ADR-0012). INP is
     deliberately not asserted — a lab run cannot produce it.
-  - [x] axe pass — gated on every Storybook story in both themes and across the whole console.
+  - [x] axe pass — gated on every Storybook story (each in one theme, see the gate table) and on
+    the whole federated console in both themes.
   - [x] Whitepaper completion — this README carries the architecture diagram, every ADR with dated
     receipts, and the full quality-gate table; nothing here is a stub.
   - [ ] Demo video (needs a person on camera).
