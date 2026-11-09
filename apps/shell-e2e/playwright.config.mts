@@ -44,6 +44,15 @@ export default defineConfig({
     : preset.reporter,
   use: {
     baseURL,
+    /*
+     * The first-visit guide is dismissed for every suite but its own
+     * (first-visit-guide.spec.ts), so a card in the corner never sits over a
+     * control another spec clicks. That spec covers it with axe too.
+     */
+    storageState: {
+      cookies: [],
+      origins: [{ origin: new URL(baseURL).origin, localStorage: [{ name: 'guide:atlas:v1', value: 'dismissed' }] }],
+    },
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',

@@ -15,6 +15,8 @@ import { AtlasAuth } from '@atlas/shared-auth';
 import { RemoteDefinition } from '@atlas/shared-contracts';
 import { UiBadge, UiButton, UiIcon, UiNavItem, UiShortId, UiThemeToggle } from '@atlas/shared-ui';
 import { DEMO_SESSION } from '../auth/demo-session';
+import { FirstVisitGuide } from '../guide/first-visit-guide';
+import { GuideCard } from '../guide/guide-card';
 import { IdentityFlow, providerName } from '../auth/identity-flow';
 import { ATLAS_MANIFEST } from '../manifest.token';
 import { ShellNotice } from '../notice/shell-notice';
@@ -44,7 +46,17 @@ interface NavEntry extends RemoteDefinition {
     '(document:keydown.tab)': 'keepTabInDrawer($event)',
     '(document:keydown.shift.tab)': 'keepTabInDrawer($event)',
   },
-  imports: [NgTemplateOutlet, RouterOutlet, UiBadge, UiButton, UiIcon, UiNavItem, UiShortId, UiThemeToggle],
+  imports: [
+    GuideCard,
+    NgTemplateOutlet,
+    RouterOutlet,
+    UiBadge,
+    UiButton,
+    UiIcon,
+    UiNavItem,
+    UiShortId,
+    UiThemeToggle,
+  ],
   template: `
     <!--
       First focusable element in the document. Without it the tab order walks
@@ -164,6 +176,16 @@ interface NavEntry extends RemoteDefinition {
           changes live in this one.
         -->
         <nav class="border-t border-border p-3 text-sm" aria-label="Project" data-testid="project-links">
+          <!-- Brings the first-visit guide back; a button, because it opens something here. -->
+          <button
+            type="button"
+            data-testid="guide-open"
+            class="flex min-h-11 w-full items-center gap-2 px-3 text-left text-text-muted underline
+                   underline-offset-2 transition-colors hover:text-text md:min-h-8"
+            (click)="openGuide()"
+          >
+            What to try
+          </button>
           @for (link of projectLinks; track link.href) {
             <a
               class="flex min-h-11 items-center gap-2 px-3 text-text-muted underline underline-offset-2 transition-colors
@@ -368,7 +390,24 @@ interface NavEntry extends RemoteDefinition {
             }
           </div>
           <router-outlet />
+          <!--
+            The guide card covers a corner of the screen; this lets the page scroll
+            its last rows out from under it. At the end, so it moves nothing.
+          -->
+          @if (guide.open()) {
+            <div
+              aria-hidden="true"
+              data-testid="guide-spacer"
+              class="sm:h-80"
+              [class.h-[50vh]]="guide.expanded()"
+              [class.h-20]="!guide.expanded()"
+            ></div>
+          }
         </main>
+        <!-- Off the critical path: nothing in it is needed for the first paint. -->
+        @defer (on idle) {
+          <shell-guide-card />
+        }
       </div>
     </div>
   `,
@@ -381,6 +420,7 @@ export class ShellLayout {
   private readonly health = inject(RemoteHealthStore);
   protected readonly auth = inject(AtlasAuth);
   protected readonly notice = inject(ShellNotice);
+  protected readonly guide = inject(FirstVisitGuide);
   // Built here, before the router's initial navigation: see its constructor.
   protected readonly flow = inject(IdentityFlow);
   /** Null unless this deployment offers the demo (ADR-0015). */
@@ -469,6 +509,24 @@ export class ShellLayout {
     if (!leaving) return;
     event.preventDefault();
     (backwards ? last : first)?.focus();
+  }
+
+  /**
+   * Asked for, the card takes focus: the visitor is going there. From the drawer,
+   * the drawer closes first, or the card would open under its scrim.
+   */
+  protected openGuide(): void {
+    this.guide.reopen();
+    if (this.menuOpen()) {
+      this.setMenu(false, '[data-testid="guide-card"]');
+      return;
+    }
+    afterNextRender(
+      {
+        read: () => this.document.querySelector<HTMLElement>('[data-testid="guide-card"]')?.focus(),
+      },
+      { injector: this.injector }
+    );
   }
 
   protected async exitDemo(): Promise<void> {
