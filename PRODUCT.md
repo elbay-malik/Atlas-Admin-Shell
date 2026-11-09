@@ -83,6 +83,12 @@ Operational truths of using it:
   no client-side gate may be presented as a security boundary.
 - Theme is a first-class runtime state: light and dark, persisted to
   `localStorage` under `atlas.theme`, falling back to `prefers-color-scheme`.
+- A first-visit guide ("What to try"), owned by the shell, opens once in a corner card and
+  can be brought back from the side nav. "Don't show again" stores `guide:atlas:v1` in
+  `localStorage`; "Close" stores `atlas.guide.closed` in `sessionStorage`, for this tab. Bump
+  the key's version when the steps change. No cookies and nothing is sent anywhere. On a phone
+  or a short screen it starts as a one-line bar and opens by itself only on the Overview, so it
+  never covers a domain's controls unasked.
 
 ## Capabilities and Constraints
 

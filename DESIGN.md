@@ -421,6 +421,12 @@ first floating surface ships.** Until then, do not improvise a one-off shadow on
 single component — an ad-hoc value becomes the de facto system without anyone choosing
 it.
 
+**The first floating surface (2026-11-09).** The first-visit guide card floats over the page,
+and it ships without a shadow, so the rule above still holds. It is `surface` with the
+`border-strong` hairline and `rounded.md`, like every panel, and it sits in a corner where it
+covers little. That is a stopgap for one small card, not the vocabulary: the
+next floating surface (a dialog, popover or toast) is the point to design elevation properly.
+
 ### Named Rules
 
 **The Tonal Step Rule.** A raised surface is lighter than its ground in *both* themes.
